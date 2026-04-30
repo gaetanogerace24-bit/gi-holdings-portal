@@ -150,41 +150,9 @@ export default function App() {
     setLoggedInTenantId(null);
   };
 
-  // Update tenant in Supabase + local state
-  const updateTenants = async (newTenants) => {
+  // Update local tenant state only — Supabase saves handled directly in AdminTenants
+  const updateTenants = (newTenants) => {
     setTenants(newTenants);
-    // Only save tenants with valid UUIDs (36 char with dashes)
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    for (const t of newTenants) {
-      if (!t.id || !uuidRegex.test(String(t.id))) continue;
-      try {
-        await supabase.from("tenants").update({
-          name: t.name || "",
-          email: t.email || "",
-          phone: t.phone || "",
-          unit: t.unit || "",
-          address: t.address || "",
-          rent: Number(t.rent) || 0,
-          deposit: Number(t.deposit) || 0,
-          paid: Boolean(t.paid),
-          paid_date: t.paidDate || t.paid_date || null,
-          amount_owed: Number(t.amountOwed || t.amount_owed) || 0,
-          override_late: (t.overrideLate ?? t.override_late) != null ? Number(t.overrideLate ?? t.override_late) : null,
-          section8: Boolean(t.section8),
-          section8_amount: Number(t.section8Amount || t.section8_amount) || 0,
-          tenant_portion: Number(t.tenantPortion || t.tenant_portion) || 0,
-          housing_owed_back: Number(t.housingOwedBack || t.housing_owed_back) || 0,
-          lease_start: t.leaseStart || t.lease_start || "",
-          lease_end: t.leaseEnd || t.lease_end || "",
-          notes: t.notes || "",
-          public_note: t.public_note || "",
-          documents: t.documents || [],
-          emergency: t.emergency || "(330) 969-6464",
-          contact_email: t.contactEmail || t.contact_email || "tenants@giholdings.com",
-          updated_at: new Date().toISOString(),
-        }).eq("id", t.id);
-      } catch(e) { console.error("Failed to save tenant:", t.name, e); }
-    }
   };
 
   // Update tickets in Supabase + local state
@@ -195,17 +163,15 @@ export default function App() {
   // Auto-mark tenant paid in Supabase
   const handlePaymentSuccess = async (tenantId) => {
     const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const updated = tenants.map(t =>
+    setTenants(prev => prev.map(t =>
       t.id === tenantId ? { ...t, paid: true, paidDate, amountOwed: 0, overrideLate: null } : t
-    );
-    setTenants(updated);
-    await supabase.from("tenants").update({
-      paid: true,
-      paid_date: paidDate,
-      amount_owed: 0,
-      override_late: null,
-      updated_at: new Date().toISOString(),
-    }).eq("id", tenantId);
+    ));
+    try {
+      await supabase.from("tenants").update({
+        paid: true, paid_date: paidDate, amount_owed: 0,
+        override_late: null, updated_at: new Date().toISOString(),
+      }).eq("id", tenantId);
+    } catch(e) { console.error("Payment save failed:", e); }
     setActiveTab("tickets");
   };
 
