@@ -165,22 +165,7 @@ export default function AdminPayments({ tenants }) {
             </div>
           </div>
 
-          {/* Stripe fees */}
-          <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 14, padding: "20px 24px" }}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: "#92400e" }}>⚠️ Stripe fees (deducted automatically)</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {[
-                { type: "Credit/Debit card", fee: "2.9% + $0.30 per transaction", example: "On $900 rent = ~$26.40 fee, you receive $873.60" },
-                { type: "ACH bank transfer", fee: "0.8% per transaction (max $5)", example: "On $900 rent = $5 max fee, you receive $895" },
-              ].map((f, i) => (
-                <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "12px 16px", border: "1px solid #fde68a" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{f.type}: {f.fee}</div>
-                  <div style={{ fontSize: 12, color: "#92400e", marginTop: 3 }}>{f.example}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ fontSize: 12, color: "#92400e", marginTop: 10 }}>💡 Tip: Encourage tenants to pay via ACH bank transfer — much lower fees than cards!</div>
-          </div>
+
 
           {/* Stripe dashboard link */}
           <div style={{ background: "#fff", borderRadius: 14, padding: "20px 24px", border: "1px solid rgba(0,0,0,0.07)" }}>
