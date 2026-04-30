@@ -85,23 +85,24 @@ export default function App() {
   // Update tenant in Supabase + local state
   const updateTenants = async (newTenants) => {
     setTenants(newTenants);
-    // Save each tenant that has a valid UUID id
+    // Only save tenants with valid UUIDs (36 char with dashes)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const t of newTenants) {
-      if (!t.id || typeof t.id !== "string" || t.id.length < 10) continue;
+      if (!t.id || !uuidRegex.test(String(t.id))) continue;
       try {
         await supabase.from("tenants").update({
-          name: t.name,
+          name: t.name || "",
           email: t.email || "",
           phone: t.phone || "",
           unit: t.unit || "",
           address: t.address || "",
           rent: Number(t.rent) || 0,
           deposit: Number(t.deposit) || 0,
-          paid: t.paid || false,
+          paid: Boolean(t.paid),
           paid_date: t.paidDate || t.paid_date || null,
           amount_owed: Number(t.amountOwed || t.amount_owed) || 0,
-          override_late: t.overrideLate != null ? Number(t.overrideLate) : (t.override_late != null ? Number(t.override_late) : null),
-          section8: t.section8 || false,
+          override_late: (t.overrideLate ?? t.override_late) != null ? Number(t.overrideLate ?? t.override_late) : null,
+          section8: Boolean(t.section8),
           section8_amount: Number(t.section8Amount || t.section8_amount) || 0,
           tenant_portion: Number(t.tenantPortion || t.tenant_portion) || 0,
           housing_owed_back: Number(t.housingOwedBack || t.housing_owed_back) || 0,

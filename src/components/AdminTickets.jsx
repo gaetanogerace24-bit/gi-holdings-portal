@@ -62,7 +62,7 @@ export default function AdminTickets({ tenants, sharedTickets, setSharedTickets,
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Maintenance Tickets</h1>
           <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
-            {tickets.length === 0 ? "No tickets yet" : `${activeCount} active · ${allTickets.filter(t => t.status === "resolved").length} resolved`}
+            {allTickets.length === 0 ? "No tickets yet" : `${activeCount} active · ${allTickets.filter(t => t.status === "resolved").length} resolved`}
           </div>
         </div>
         {tenants.length > 0 && (
