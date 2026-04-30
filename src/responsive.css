@@ -15,9 +15,22 @@ body {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f0f2f0;
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 480px) {
+  .tenant-portal {
+    max-width: 100%;
+  }
+  
+  /* Login screen full width on mobile */
+  .login-card {
+    margin: 0 16px !important;
+    border-radius: 20px !important;
+  }
 }
 
 /* Admin portal — sidebar hidden on mobile, shown on desktop */
