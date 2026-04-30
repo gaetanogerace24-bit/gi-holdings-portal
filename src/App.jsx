@@ -1,0 +1,221 @@
+import { useState, useEffect } from "react";
+import LoginScreen from "./components/LoginScreen";
+import Dashboard from "./components/Dashboard";
+import TicketsScreen from "./components/TicketsScreen";
+import PayRentScreen from "./components/PayRentScreen";
+import UnitInfoScreen from "./components/UnitInfoScreen";
+import SubmitTicketModal from "./components/SubmitTicketModal";
+import AdminDashboard from "./components/AdminDashboard";
+import { supabase } from "./supabase";
+
+const ADMIN_EMAIL = "gaetano@giholdings.com";
+const ADMIN_PASS = "GIHoldings2026!";
+
+export default function App() {
+  const [screen, setScreen] = useState("login");
+  const [activeTab, setActiveTab] = useState("tickets");
+  const [showModal, setShowModal] = useState(false);
+  const [tickets, setTickets] = useState([]);
+  const [tenants, setTenants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loggedInTenantId, setLoggedInTenantId] = useState(null);
+
+  const currentTenant = tenants.find(t => t.id === loggedInTenantId) || tenants[0];
+
+  // Load all data from Supabase on startup
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [{ data: tenantData }, { data: ticketData }] = await Promise.all([
+        supabase.from("tenants").select("*").order("created_at"),
+        supabase.from("tickets").select("*").order("created_at", { ascending: false }),
+      ]);
+      if (tenantData) setTenants(tenantData.map(normalizeTenant));
+      if (ticketData) setTickets(ticketData.map(normalizeTicket));
+    } catch (e) {
+      console.error("Failed to load data:", e);
+    }
+    setLoading(false);
+  }
+
+  // Normalize Supabase snake_case to camelCase
+  function normalizeTenant(t) {
+    return {
+      ...t,
+      paidDate: t.paid_date,
+      amountOwed: t.amount_owed,
+      overrideLate: t.override_late,
+      section8Amount: t.section8_amount,
+      tenantPortion: t.tenant_portion,
+      housingOwedBack: t.housing_owed_back,
+      leaseStart: t.lease_start,
+      leaseEnd: t.lease_end,
+      contactEmail: t.contact_email,
+      documents: t.documents || [],
+    };
+  }
+
+  function normalizeTicket(t) {
+    return {
+      ...t,
+      tenantId: t.tenant_id,
+      tenantName: t.tenant_name,
+    };
+  }
+
+  const handleLogin = (email, password) => {
+    if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
+      setScreen("admin");
+    } else {
+      setLoggedInTenantId(tenants[0]?.id || null);
+      setScreen("portal");
+    }
+  };
+
+  const handleLogout = () => {
+    setScreen("login");
+    setActiveTab("tickets");
+    setLoggedInTenantId(null);
+  };
+
+  // Update tenant in Supabase + local state
+  const updateTenants = async (newTenants) => {
+    setTenants(newTenants);
+    // Save each tenant that has a valid UUID id
+    for (const t of newTenants) {
+      if (!t.id || typeof t.id !== "string" || t.id.length < 10) continue;
+      try {
+        await supabase.from("tenants").update({
+          name: t.name,
+          email: t.email || "",
+          phone: t.phone || "",
+          unit: t.unit || "",
+          address: t.address || "",
+          rent: Number(t.rent) || 0,
+          deposit: Number(t.deposit) || 0,
+          paid: t.paid || false,
+          paid_date: t.paidDate || t.paid_date || null,
+          amount_owed: Number(t.amountOwed || t.amount_owed) || 0,
+          override_late: t.overrideLate != null ? Number(t.overrideLate) : (t.override_late != null ? Number(t.override_late) : null),
+          section8: t.section8 || false,
+          section8_amount: Number(t.section8Amount || t.section8_amount) || 0,
+          tenant_portion: Number(t.tenantPortion || t.tenant_portion) || 0,
+          housing_owed_back: Number(t.housingOwedBack || t.housing_owed_back) || 0,
+          lease_start: t.leaseStart || t.lease_start || "",
+          lease_end: t.leaseEnd || t.lease_end || "",
+          notes: t.notes || "",
+          documents: t.documents || [],
+          emergency: t.emergency || "(330) 969-6464",
+          contact_email: t.contactEmail || t.contact_email || "tenants@giholdings.com",
+          updated_at: new Date().toISOString(),
+        }).eq("id", t.id);
+      } catch(e) { console.error("Failed to save tenant:", t.name, e); }
+    }
+  };
+
+  // Update tickets in Supabase + local state
+  const updateTickets = async (newTickets) => {
+    setTickets(newTickets);
+  };
+
+  // Auto-mark tenant paid in Supabase
+  const handlePaymentSuccess = async (tenantId) => {
+    const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const updated = tenants.map(t =>
+      t.id === tenantId ? { ...t, paid: true, paidDate, amountOwed: 0, overrideLate: null } : t
+    );
+    setTenants(updated);
+    await supabase.from("tenants").update({
+      paid: true,
+      paid_date: paidDate,
+      amount_owed: 0,
+      override_late: null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", tenantId);
+    setActiveTab("tickets");
+  };
+
+  const addTicket = async (ticket) => {
+    const newTicket = {
+      tenant_id: currentTenant?.id,
+      tenant_name: currentTenant?.name,
+      unit: currentTenant?.unit || currentTenant?.address?.split(",")[0],
+      title: ticket.title,
+      category: ticket.category,
+      urgency: ticket.urgency,
+      description: ticket.description || "",
+      status: "open",
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    };
+    const { data } = await supabase.from("tickets").insert(newTicket).select().single();
+    if (data) setTickets([normalizeTicket(data), ...tickets]);
+    setShowModal(false);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: "#1b3d2a", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 48 }}>🏡</div>
+        <div style={{ color: "#fff", fontSize: 18, fontWeight: 600 }}>G&I Holdings</div>
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Loading your portal...</div>
+      </div>
+    );
+  }
+
+  if (screen === "login") return <LoginScreen onLogin={handleLogin} />;
+
+  if (screen === "admin") return (
+    <AdminDashboard
+      onLogout={handleLogout}
+      sharedTenants={tenants}
+      setSharedTenants={updateTenants}
+      sharedTickets={tickets}
+      setSharedTickets={updateTickets}
+      supabase={supabase}
+    />
+  );
+
+  return (
+    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f0f2f0", minHeight: "100vh", display: "flex", justifyContent: "center" }}>
+      <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", background: "#f0f2f0" }}>
+        <Dashboard tenant={currentTenant} onTabClick={setActiveTab} onLogout={handleLogout} />
+
+        <nav style={{ display: "flex", background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+          {["tickets", "pay", "info"].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{
+              flex: 1, padding: "13px 8px", fontSize: 13, fontWeight: 500,
+              fontFamily: "'DM Sans', sans-serif",
+              color: activeTab === tab ? "#1b3d2a" : "#9ca3af",
+              background: "none", border: "none",
+              borderBottom: activeTab === tab ? "2.5px solid #4caf7d" : "2.5px solid transparent",
+              cursor: "pointer", transition: "all 0.15s",
+            }}>
+              {tab === "pay" ? "💳 Pay Rent" : tab === "info" ? "My Unit" : "Tickets"}
+            </button>
+          ))}
+        </nav>
+
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {activeTab === "tickets" && (
+            <TicketsScreen
+              tickets={tickets.filter(t => t.tenantId === currentTenant?.id || t.tenant_id === currentTenant?.id)}
+              onNewTicket={() => setShowModal(true)}
+            />
+          )}
+          {activeTab === "pay" && (
+            <PayRentScreen tenant={currentTenant} onPaymentSuccess={handlePaymentSuccess} />
+          )}
+          {activeTab === "info" && <UnitInfoScreen tenant={currentTenant} />}
+        </div>
+
+        {showModal && (
+          <SubmitTicketModal onClose={() => setShowModal(false)} onSubmit={addTicket} />
+        )}
+      </div>
+    </div>
+  );
+}
