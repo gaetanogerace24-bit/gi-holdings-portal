@@ -50,11 +50,11 @@ function LeaseTab({ tenant }) {
         ["Emergency line", tenant.emergency || "(330) 969-6464"],
       ]} />
 
-      {tenant.notes && (
+      {tenant.public_note && (
         <>
-          <SL style={{ marginTop: 14 }}>Notes</SL>
-          <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "#92400e" }}>
-            📝 {tenant.notes}
+          <SL style={{ marginTop: 14 }}>Message from your landlord</SL>
+          <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "#166534" }}>
+            💬 {tenant.public_note}
           </div>
         </>
       )}

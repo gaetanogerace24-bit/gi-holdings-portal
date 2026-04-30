@@ -126,6 +126,7 @@ export default function App() {
           lease_start: t.leaseStart || t.lease_start || "",
           lease_end: t.leaseEnd || t.lease_end || "",
           notes: t.notes || "",
+          public_note: t.public_note || "",
           documents: t.documents || [],
           emergency: t.emergency || "(330) 969-6464",
           contact_email: t.contactEmail || t.contact_email || "tenants@giholdings.com",
