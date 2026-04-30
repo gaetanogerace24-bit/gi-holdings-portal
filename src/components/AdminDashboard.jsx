@@ -75,15 +75,35 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
   return (
     <div className="admin-layout" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@600&display=swap');
+        
+        .admin-layout { display: flex; min-height: 100vh; }
+        
         @media (max-width: 768px) {
+          .admin-layout { flex-direction: column; }
           .admin-sidebar { display: none !important; }
-          .admin-main { padding-bottom: 80px !important; }
+          .admin-main { 
+            padding-bottom: 75px !important;
+            overflow-y: auto !important;
+          }
           .admin-mobile-nav { display: flex !important; }
           .admin-mobile-header { display: flex !important; }
+          .admin-page-content { padding: 14px !important; }
+          .stats-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+          .stats-grid-3 { grid-template-columns: repeat(1, 1fr) !important; }
+          .two-col-grid { grid-template-columns: 1fr !important; }
         }
         @media (min-width: 769px) {
           .admin-mobile-nav { display: none !important; }
           .admin-mobile-header { display: none !important; }
+          .admin-sidebar { 
+            display: flex !important; 
+            width: 220px;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+          }
         }
       `}</style>
 

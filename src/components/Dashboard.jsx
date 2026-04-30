@@ -1,3 +1,10 @@
+const mobileCSS = `
+  @media (max-width: 480px) {
+    .dashboard-name { font-size: 20px !important; }
+    .dashboard-amount { font-size: 28px !important; }
+  }
+`;
+
 export default function Dashboard({ tenant, onTabClick, onLogout }) {
   function calcLateFee(paid) { if (paid) return 0; const day = new Date().getDate(); if (day < 5) return 0; const daysLate = day - 4; return 35 + Math.max(0, daysLate - 1) * 10; }
   const rent = Number(tenant.rent) || 0;

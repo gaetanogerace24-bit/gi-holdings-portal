@@ -321,7 +321,7 @@ function FF({ label, value, onChange, placeholder, inputMode }) {
     <div style={{ marginBottom: 12 }}>
       <Label>{label}</Label>
       <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} inputMode={inputMode || "text"}
-        style={{ width: "100%", padding: "12px 13px", borderRadius: 10, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: "#1a1a1a", boxSizing: "border-box", outline: "none" }} />
+        style={{ width: "100%", padding: "12px 13px", borderRadius: 10, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#1a1a1a", boxSizing: "border-box", outline: "none" }} />
     </div>
   );
 }
