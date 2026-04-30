@@ -67,7 +67,7 @@ export default function AdminPayments({ tenants }) {
           {/* Stats */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
             {[
-              { label: `Collected — ${currentMonthName}`, value: `$${thisMonthCollected.toLocaleString()}`, color: "#166534", bg: "#f0f9f4", border: "#bbf7d0" },
+              { label: currentMonthLabel, value: `$${thisMonthCollected.toLocaleString()}`, color: "#166534", bg: "#f0f9f4", border: "#bbf7d0" },
               { label: "Outstanding balance", value: `$${totalOutstanding.toLocaleString()}`, color: "#991b1b", bg: "#fef2f2", border: "#fca5a5" },
               { label: "Total collected (all time)", value: `$${allTimePaid.toLocaleString()}`, color: "#1b3d2a", bg: "#fff", border: "#e5e7eb" },
             ].map((s, i) => (
