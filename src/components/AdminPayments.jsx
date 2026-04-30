@@ -67,9 +67,9 @@ export default function AdminPayments({ tenants }) {
           {/* Stats */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
             {[
-              { label: "Collected this month", value: `$${thisMonth.toLocaleString()}`, color: "#166534", bg: "#f0f9f4", border: "#bbf7d0" },
+              { label: `Collected — ${currentMonthName}`, value: `$${thisMonthCollected.toLocaleString()}`, color: "#166534", bg: "#f0f9f4", border: "#bbf7d0" },
               { label: "Outstanding balance", value: `$${totalOutstanding.toLocaleString()}`, color: "#991b1b", bg: "#fef2f2", border: "#fca5a5" },
-              { label: "Total collected (all time)", value: `$${(allTimePaid || thisMonth).toLocaleString()}`, color: "#1b3d2a", bg: "#fff", border: "#e5e7eb" },
+              { label: "Total collected (all time)", value: `$${allTimePaid.toLocaleString()}`, color: "#1b3d2a", bg: "#fff", border: "#e5e7eb" },
             ].map((s, i) => (
               <div key={i} style={{ background: s.bg, borderRadius: 14, padding: "20px", border: `1px solid ${s.border}` }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 8 }}>{s.label}</div>
@@ -78,19 +78,35 @@ export default function AdminPayments({ tenants }) {
             ))}
           </div>
 
+          {/* Month selector */}
+          {allMonths.length > 1 && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+              {allMonths.map((m, i) => (
+                <button key={i} onClick={() => setSelectedMonth(i)} style={{
+                  padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                  background: selectedMonth === i ? "#1b3d2a" : "#fff",
+                  color: selectedMonth === i ? "#fff" : "#6b7280",
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
+                  border: selectedMonth === i ? "none" : "1.5px solid #e5e7eb",
+                }}>{m.month} {i === 0 ? "(Current)" : ""}</button>
+              ))}
+            </div>
+          )}
+
           {/* Tenant payment status */}
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6", fontSize: 15, fontWeight: 700 }}>
-              Current month status
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>{displayMonth?.month || currentMonthName} — Payment Status</div>
+              {!isCurrentMonth && <div style={{ fontSize: 12, color: "#9ca3af" }}>Historical record</div>}
             </div>
-            {tenants.length === 0 ? (
+            {displayTenants.length === 0 ? (
               <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>No tenants yet</div>
-            ) : tenants.map((t, i) => {
+            ) : displayTenants.map((t, i) => {
               const lateFee = Number(t.override_late || t.overrideLate) || 0;
               const base = t.section8 ? (Number(t.tenant_portion || t.tenantPortion) || 0) : (Number(t.rent) || 0);
               const total = base + lateFee;
               return (
-                <div key={t.id} style={{ display: "flex", alignItems: "center", padding: "14px 20px", borderBottom: i < tenants.length - 1 ? "1px solid #f9fafb" : "none", gap: 14 }}>
+                <div key={t.id} style={{ display: "flex", alignItems: "center", padding: "14px 20px", borderBottom: i < displayTenants.length - 1 ? "1px solid #f9fafb" : "none", gap: 14 }}>
                   <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
                     {t.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                   </div>
