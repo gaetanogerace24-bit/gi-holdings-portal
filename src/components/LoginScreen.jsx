@@ -16,7 +16,7 @@ export default function LoginScreen({ onLogin }) {
         setStep("sms-code");
         setLoading(false);
       } else {
-        onLogin(email, password);
+        onLogin(mode === "sms" ? phone : email, password);
       }
     }, 1000);
   };

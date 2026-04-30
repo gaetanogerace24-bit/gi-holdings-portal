@@ -67,12 +67,29 @@ export default function App() {
     };
   }
 
+  // Map tenant emails to their accounts
+  const TENANT_EMAILS = {
+    "gthorntonjr51@gmail.com": "Gary Thornton",
+    "apate636@icloud.com": "Angelisa Pate",
+    "timmylapearl92@gmail.com": "Danielle Russell",
+  };
+
   const handleLogin = (email, password) => {
-    if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
+    const lowerEmail = email.toLowerCase().trim();
+    if (lowerEmail === ADMIN_EMAIL && password === ADMIN_PASS) {
       setScreen("admin");
+    } else if (TENANT_EMAILS[lowerEmail]) {
+      // Find matching tenant by name
+      const tenantName = TENANT_EMAILS[lowerEmail];
+      const matchedTenant = tenants.find(t => t.name === tenantName);
+      if (matchedTenant) {
+        setLoggedInTenantId(matchedTenant.id);
+        setScreen("portal");
+      } else {
+        alert("Account found but tenant not set up yet. Contact your landlord.");
+      }
     } else {
-      setLoggedInTenantId(tenants[0]?.id || null);
-      setScreen("portal");
+      alert("Invalid email or password. Please try again.");
     }
   };
 
