@@ -47,7 +47,7 @@ export default function AdminPayments({ tenants }) {
 
       {/* Sub tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        {["overview", "history", "stripe"].map(t => (
+        {["overview", "history"].map(t => (
           <button key={t} onClick={() => setActiveTab(t)} style={{
             padding: "8px 18px", borderRadius: 9, border: "none", cursor: "pointer",
             background: activeTab === t ? "#1b3d2a" : "#fff",
@@ -55,7 +55,7 @@ export default function AdminPayments({ tenants }) {
             fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
             border: activeTab === t ? "none" : "1.5px solid #e5e7eb",
             textTransform: "capitalize",
-          }}>{t === "stripe" ? "Stripe Setup" : t.charAt(0).toUpperCase() + t.slice(1)}</button>
+          }}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>
         ))}
       </div>
 
