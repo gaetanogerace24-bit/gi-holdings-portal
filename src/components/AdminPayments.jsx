@@ -25,11 +25,14 @@ export default function AdminPayments({ tenants }) {
   }
 
   const totalCollected = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  const thisMonth = payments.filter(p => {
-    const d = new Date(p.created_at);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  // Collected this month = sum of rent for paid tenants
+  const thisMonth = tenants.filter(t => t.paid).reduce((s, t) => {
+    const base = t.section8 ? (Number(t.tenant_portion || t.tenantPortion) || 0) : (Number(t.rent) || 0);
+    return s + base;
+  }, 0);
+
+  // Total collected all time from payments table + current paid tenants
+  const allTimePaid = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
   const unpaidTenants = tenants.filter(t => !t.paid);
   const totalOutstanding = unpaidTenants.reduce((s, t) => {
@@ -66,7 +69,7 @@ export default function AdminPayments({ tenants }) {
             {[
               { label: "Collected this month", value: `$${thisMonth.toLocaleString()}`, color: "#166534", bg: "#f0f9f4", border: "#bbf7d0" },
               { label: "Outstanding balance", value: `$${totalOutstanding.toLocaleString()}`, color: "#991b1b", bg: "#fef2f2", border: "#fca5a5" },
-              { label: "Total collected (all time)", value: `$${totalCollected.toLocaleString()}`, color: "#1b3d2a", bg: "#fff", border: "#e5e7eb" },
+              { label: "Total collected (all time)", value: `$${(allTimePaid || thisMonth).toLocaleString()}`, color: "#1b3d2a", bg: "#fff", border: "#e5e7eb" },
             ].map((s, i) => (
               <div key={i} style={{ background: s.bg, borderRadius: 14, padding: "20px", border: `1px solid ${s.border}` }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 8 }}>{s.label}</div>
@@ -104,7 +107,7 @@ export default function AdminPayments({ tenants }) {
                     background: t.paid ? "#dcfce7" : "#fee2e2",
                     color: t.paid ? "#166534" : "#991b1b",
                   }}>
-                    {t.paid ? `✓ Paid ${t.paid_date || t.paidDate || ""}` : "Unpaid"}
+                    {t.paid ? "✓ Paid" : "Unpaid"}
                   </div>
                 </div>
               );
