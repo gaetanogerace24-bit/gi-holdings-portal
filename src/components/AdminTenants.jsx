@@ -46,7 +46,7 @@ export default function AdminTenants({ tenants, setTenants }) {
   };
 
   return (
-    <div style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Tenants & Units</h1>

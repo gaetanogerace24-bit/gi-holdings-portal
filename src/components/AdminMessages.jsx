@@ -37,7 +37,7 @@ export default function AdminMessages({ tenants, supabase }) {
   };
 
   return (
-    <div style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Messages</h1>
         <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Send messages to one or all tenants</div>

@@ -1,0 +1,132 @@
+/* G&I Holdings — Global Responsive Styles */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'DM Sans', sans-serif;
+  background: #f0f2f0;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Tenant portal — full width on mobile, max 480px centered on desktop */
+.tenant-portal {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: #f0f2f0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Admin portal — sidebar hidden on mobile, shown on desktop */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f7f5;
+}
+
+.admin-sidebar {
+  width: 220px;
+  background: #0f1a14;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.admin-main {
+  flex: 1;
+  overflow-y: auto;
+  background: #f5f7f5;
+}
+
+/* Mobile admin — bottom nav instead of sidebar */
+@media (max-width: 768px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+    height: auto;
+    position: fixed;
+    bottom: 0;
+    top: auto;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    flex-direction: row;
+    padding: 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .admin-sidebar-logo { display: none; }
+  .admin-sidebar-bottom { display: none; }
+
+  .admin-nav {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .admin-nav-item {
+    flex: 1;
+    flex-direction: column;
+    padding: 10px 4px !important;
+    font-size: 10px !important;
+    min-width: 50px;
+    border-left: none !important;
+    border-top: 3px solid transparent;
+    justify-content: center;
+    align-items: center;
+    gap: 3px !important;
+  }
+
+  .admin-nav-item.active {
+    border-left: none !important;
+    border-top: 3px solid #4caf7d;
+  }
+
+  .admin-nav-icon { font-size: 18px !important; }
+
+  .admin-main {
+    padding-bottom: 70px; /* space for bottom nav */
+  }
+
+  /* Admin content padding on mobile */
+  .admin-page-content {
+    padding: 16px !important;
+  }
+
+  /* Stats grid — 2 columns on mobile */
+  .stats-grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .stats-grid-3 {
+    grid-template-columns: repeat(1, 1fr) !important;
+  }
+
+  /* Two column grids become single column */
+  .two-col-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Tablet */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .admin-sidebar { width: 180px; }
+  .stats-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* Touch-friendly buttons on mobile */
+@media (max-width: 768px) {
+  button { min-height: 44px; }
+  input, select, textarea { font-size: 16px !important; } /* prevents zoom on iOS */
+}

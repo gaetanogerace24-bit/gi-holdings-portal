@@ -73,21 +73,32 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
   };
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#0f1a14", minHeight: "100vh", display: "flex" }}>
-      {/* Sidebar */}
-      <div style={{
-        width: 220, background: "#0f1a14", borderRight: "1px solid rgba(255,255,255,0.07)",
-        display: "flex", flexDirection: "column", padding: "24px 0", flexShrink: 0,
-        position: "sticky", top: 0, height: "100vh",
+    <div className="admin-layout" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .admin-sidebar { display: none !important; }
+          .admin-main { padding-bottom: 80px !important; }
+          .admin-mobile-nav { display: flex !important; }
+          .admin-mobile-header { display: flex !important; }
+        }
+        @media (min-width: 769px) {
+          .admin-mobile-nav { display: none !important; }
+          .admin-mobile-header { display: none !important; }
+        }
+      `}</style>
+
+      {/* Desktop Sidebar */}
+      <div className="admin-sidebar" style={{
+        background: "#0f1a14", borderRight: "1px solid rgba(255,255,255,0.07)",
+        display: "flex", flexDirection: "column", padding: "24px 0",
       }}>
-        <div style={{ padding: "0 20px 28px" }}>
+        <div className="admin-sidebar-logo" style={{ padding: "0 20px 28px" }}>
           <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "#fff", fontWeight: 600 }}>G&I Holdings</div>
           <div style={{ fontSize: 10, color: "#4caf7d", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1.5px", marginTop: 2 }}>Owner Portal</div>
         </div>
-
-        <nav style={{ flex: 1 }}>
+        <nav className="admin-nav" style={{ flex: 1 }}>
           {NAV.map(n => (
-            <button key={n.key} onClick={() => setActive(n.key)} style={{
+            <button key={n.key} onClick={() => setActive(n.key)} className={`admin-nav-item${active === n.key ? ' active' : ''}`} style={{
               width: "100%", display: "flex", alignItems: "center", gap: 10,
               padding: "11px 20px", border: "none", cursor: "pointer",
               background: active === n.key ? "rgba(76,175,125,0.12)" : "transparent",
@@ -106,8 +117,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
             </button>
           ))}
         </nav>
-
-        <div style={{ padding: "0 20px" }}>
+        <div className="admin-sidebar-bottom" style={{ padding: "0 20px" }}>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 16 }}>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>Logged in as</div>
             <div style={{ fontSize: 13, color: "#fff", fontWeight: 600, marginBottom: 10 }}>Gaetano · Owner</div>
@@ -120,16 +130,58 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         </div>
       </div>
 
-      {/* Main */}
-      <div style={{ flex: 1, overflowY: "auto", background: "#f5f7f5" }}>
-        {active === "overview" && <AdminOverview tenants={tenants} setTenants={setTenants} onNavigate={setActive} />}
-        {active === "tickets" && <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />}
-        {active === "tenants" && <AdminTenants tenants={tenants} setTenants={setTenants} />}
-        {active === "documents" && <AdminDocuments tenants={tenants} setTenants={setTenants} />}
-        {active === "messages" && <AdminMessages tenants={tenants} supabase={supabase} />}
-        {active === "payments" && <AdminPayments tenants={tenants} />}
-        {active === "settings" && <AdminSettings supabase={supabase} />}
+      {/* Main content area */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#f5f7f5", minHeight: "100vh" }}>
+
+        {/* Mobile top header */}
+        <div className="admin-mobile-header" style={{
+          display: "none", background: "#0f1a14", padding: "14px 16px",
+          alignItems: "center", justifyContent: "space-between",
+          position: "sticky", top: 0, zIndex: 50,
+        }}>
+          <div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 17, color: "#fff", fontWeight: 600 }}>G&I Holdings</div>
+            <div style={{ fontSize: 9, color: "#4caf7d", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px" }}>Owner Portal</div>
+          </div>
+          <button onClick={onLogout} style={{
+            padding: "6px 14px", background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
+            color: "rgba(255,255,255,0.7)", fontFamily: "'DM Sans', sans-serif", fontSize: 12, cursor: "pointer",
+          }}>Sign out</button>
+        </div>
+
+        {/* Page content */}
+        <div className="admin-main" style={{ flex: 1, overflowY: "auto" }}>
+          {active === "overview" && <AdminOverview tenants={tenants} setTenants={setTenants} onNavigate={setActive} />}
+          {active === "tickets" && <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />}
+          {active === "tenants" && <AdminTenants tenants={tenants} setTenants={setTenants} />}
+          {active === "documents" && <AdminDocuments tenants={tenants} setTenants={setTenants} />}
+          {active === "messages" && <AdminMessages tenants={tenants} supabase={supabase} />}
+          {active === "payments" && <AdminPayments tenants={tenants} />}
+          {active === "settings" && <AdminSettings supabase={supabase} />}
+        </div>
+
+        {/* Mobile bottom nav */}
+        <div className="admin-mobile-nav" style={{
+          display: "none", position: "fixed", bottom: 0, left: 0, right: 0,
+          background: "#0f1a14", borderTop: "1px solid rgba(255,255,255,0.1)",
+          zIndex: 100, padding: "6px 0 16px",
+        }}>
+          {NAV.map(n => (
+            <button key={n.key} onClick={() => setActive(n.key)} style={{
+              flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+              padding: "6px 2px", border: "none", background: "transparent", cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
+              <span style={{ fontSize: 22 }}>{n.icon}</span>
+              <span style={{
+                fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px",
+                color: active === n.key ? "#4caf7d" : "rgba(255,255,255,0.35)",
+              }}>{n.label}</span>
+              {active === n.key && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#4caf7d" }} />}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
-  );
-}
+)

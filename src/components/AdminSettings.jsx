@@ -62,7 +62,7 @@ export default function AdminSettings() {
   };
 
   return (
-    <div style={{ padding: 28, maxWidth: 740, fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="admin-page-content" style={{ padding: 28, maxWidth: 740, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Settings</h1>
         <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Manage your company info, late fees, and notifications</div>
@@ -143,7 +143,7 @@ function Section({ title, children }) {
   );
 }
 function Grid({ children }) {
-  return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>{children}</div>;
+  return <div className="two-col-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>{children}</div>;
 }
 function Label({ children }) {
   return <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>{children}</div>;

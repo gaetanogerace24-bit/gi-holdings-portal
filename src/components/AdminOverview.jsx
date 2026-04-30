@@ -69,7 +69,7 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
   }
 
   return (
-    <div style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>
           Good {now.getHours() < 12 ? "morning" : now.getHours() < 17 ? "afternoon" : "evening"}, Gaetano 👋
@@ -78,7 +78,7 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 20 }}>
         {[
           { label: "Total expected", value: `$${totalExpected.toLocaleString()}`, sub: `${tenants.length} properties`, color: "#1b3d2a" },
           { label: "Collected", value: `$${collected.toLocaleString()}`, sub: `${tenants.filter(t => t.paid).length} of ${tenants.length} paid`, color: "#166534" },

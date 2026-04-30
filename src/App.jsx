@@ -250,8 +250,8 @@ export default function App() {
   );
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f0f2f0", minHeight: "100vh", display: "flex", justifyContent: "center" }}>
-      <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", background: "#f0f2f0" }}>
+    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f0f2f0", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
+      <div className="tenant-portal" style={{ position: "relative" }}>
         <Dashboard tenant={currentTenant} onTabClick={setActiveTab} onLogout={handleLogout} />
 
         <nav style={{ display: "flex", background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>

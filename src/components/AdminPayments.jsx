@@ -81,7 +81,7 @@ export default function AdminPayments({ tenants }) {
   const allTimePaid = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0) || collectedThisMonth;
 
   return (
-    <div style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Payments</h1>
         <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Track rent payments and manage your Stripe account</div>
@@ -104,7 +104,7 @@ export default function AdminPayments({ tenants }) {
       {activeTab === "overview" && (
         <>
           {/* Stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(1, 1fr)", gap: 12, marginBottom: 24 }}>
             <div style={{ background: "#f0f9f4", borderRadius: 14, padding: "20px", border: "1px solid #bbf7d0" }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 8 }}>
                 Collected — {currentMonthName}
