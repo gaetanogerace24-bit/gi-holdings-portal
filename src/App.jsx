@@ -27,6 +27,57 @@ export default function App() {
     loadData();
   }, []);
 
+  // Auto-reset paid status on the 1st of each new month
+  useEffect(() => {
+    if (tenants.length === 0) return;
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${now.getMonth()}`;
+    const lastResetKey = "gi_last_reset_month";
+    const lastReset = localStorage.getItem(lastResetKey);
+
+    if (lastReset !== currentMonth && now.getDate() === 1) {
+      // It's the 1st of a new month!
+      // Step 1: Save last month's snapshot to history in Supabase BEFORE resetting
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthName = ["January","February","March","April","May","June","July","August","September","October","November","December"][prevMonth.getMonth()] + " " + prevMonth.getFullYear();
+      
+      supabase.from("settings").select("value").eq("key", "monthly_snapshots").maybeSingle()
+        .then(({ data }) => {
+          const existing = data?.value || [];
+          const snapshot = {
+            month: prevMonthName,
+            tenants: tenants.map(t => ({
+              id: t.id, name: t.name, address: t.address,
+              rent: Number(t.rent) || 0, paid: t.paid,
+              section8: t.section8,
+              tenant_portion: Number(t.tenant_portion || t.tenantPortion) || 0,
+              override_late: Number(t.override_late || t.overrideLate) || 0,
+            })),
+            lockedAt: now.toISOString(),
+          };
+          const updated = [snapshot, ...existing.filter(s => s.month !== prevMonthName)];
+          supabase.from("settings").upsert({ key: "monthly_snapshots", value: updated, updated_at: now.toISOString() }, { onConflict: "key" });
+        });
+
+      // Step 2: Reset current month paid status (keep unpaid balances as override_late)
+      const resetTenants = tenants.map(t => {
+        // If they didn't pay last month, carry their balance forward as override_late
+        const unpaidLate = !t.paid ? (Number(t.override_late || t.overrideLate) || 0) + (Number(t.rent) || 0) : null;
+        return {
+          ...t,
+          paid: false,
+          paidDate: null,
+          paid_date: null,
+          override_late: unpaidLate,
+          overrideLate: unpaidLate,
+        };
+      });
+
+      localStorage.setItem(lastResetKey, currentMonth);
+      updateTenants(resetTenants);
+    }
+  }, [tenants.length]);
+
   async function loadData() {
     setLoading(true);
     try {
