@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabase";
 
 export default function UnitInfoScreen({ tenant }) {
   const [tab, setTab] = useState("lease"); // lease | documents | all
@@ -31,6 +32,17 @@ export default function UnitInfoScreen({ tenant }) {
 }
 
 function LeaseTab({ tenant }) {
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    supabase.from("settings").select("value").eq("key", "portal_settings").maybeSingle()
+      .then(({ data }) => { if (data?.value) setSettings(data.value); });
+  }, []);
+
+  const contactEmail = settings?.email || tenant.contactEmail || "tenants@giholdings.com";
+  const contactPhone = settings?.phone || tenant.emergency || "(330) 969-6464";
+  const companyName = settings?.companyName || tenant.landlord || "G&I Holdings LLC";
+
   return (
     <div style={{ padding: 16 }}>
       <SL>Lease details</SL>
@@ -45,9 +57,9 @@ function LeaseTab({ tenant }) {
 
       <SL style={{ marginTop: 14 }}>Contact your landlord</SL>
       <InfoCard rows={[
-        ["Company", tenant.landlord || "G&I Holdings LLC"],
-        ["Email", tenant.contactEmail || "tenants@giholdings.com"],
-        ["Emergency line", tenant.emergency || "(330) 969-6464"],
+        ["Company", companyName],
+        ["Email", contactEmail],
+        ["Emergency line", contactPhone],
       ]} />
 
       {tenant.public_note && (
