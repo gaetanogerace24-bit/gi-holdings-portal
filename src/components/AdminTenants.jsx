@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "../supabase";
 import { calcLateFee } from "./AdminOverview";
 
 const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent: "", leaseStart: "", leaseEnd: "", notes: "", public_note: "", deposit: "", section8: false, section8Amount: "", tenantPortion: "" };
@@ -15,12 +16,39 @@ export default function AdminTenants({ tenants, setTenants }) {
   const openEdit = (t) => { setEditing(t.id); setForm({ ...t, rent: String(t.rent), deposit: String(t.deposit || "") }); setShowForm(true); };
   const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim() || !form.rent) return;
+    
+    const tenantData = {
+      name: form.name,
+      email: form.email || "",
+      phone: form.phone || "",
+      unit: form.unit || "",
+      address: form.address || "",
+      rent: Number(form.rent) || 0,
+      deposit: Number(form.deposit) || 0,
+      lease_start: form.leaseStart || form.lease_start || "",
+      lease_end: form.leaseEnd || form.lease_end || "",
+      notes: form.notes || "",
+      public_note: form.public_note || "",
+      section8: Boolean(form.section8),
+      section8_amount: Number(form.section8Amount || form.section8_amount) || 0,
+      tenant_portion: Number(form.tenantPortion || form.tenant_portion) || 0,
+      emergency: "(330) 969-6464",
+      contact_email: "tenants@giholdings.com",
+      updated_at: new Date().toISOString(),
+    };
+
     if (editing) {
-      setTenants(tenants.map(t => t.id === editing ? { ...t, ...form, rent: Number(form.rent), deposit: Number(form.deposit) || 0 } : t));
+      // Update existing tenant in Supabase
+      await supabase.from("tenants").update(tenantData).eq("id", editing);
+      setTenants(tenants.map(t => t.id === editing ? { ...t, ...form, ...tenantData, rent: Number(form.rent), deposit: Number(form.deposit) || 0 } : t));
     } else {
-      setTenants([...tenants, { id: Date.now(), ...form, rent: Number(form.rent), deposit: Number(form.deposit) || 0, paid: false, documents: [] }]);
+      // Insert new tenant in Supabase
+      const { data, error } = await supabase.from("tenants").insert({ ...tenantData, paid: false, documents: [] }).select().single();
+      if (data) {
+        setTenants([...tenants, { ...data, leaseStart: data.lease_start, leaseEnd: data.lease_end, section8Amount: data.section8_amount, tenantPortion: data.tenant_portion }]);
+      }
     }
     closeForm();
   };
@@ -29,20 +57,29 @@ export default function AdminTenants({ tenants, setTenants }) {
     if (window.confirm(`Remove ${name}? This cannot be undone.`)) setTenants(tenants.filter(t => t.id !== id));
   };
 
-  const togglePaid = (id) => {
-    const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    setTenants(tenants.map(t => t.id === id ? { ...t, paid: !t.paid, paidDate: !t.paid ? paidDate : null } : t));
+  const togglePaid = async (id) => {
+    const tenant = tenants.find(t => t.id === id);
+    const newPaid = !tenant.paid;
+    const paidDate = newPaid ? new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+    await supabase.from("tenants").update({ paid: newPaid, paid_date: paidDate, updated_at: new Date().toISOString() }).eq("id", id);
+    setTenants(tenants.map(t => t.id === id ? { ...t, paid: newPaid, paidDate } : t));
   };
 
-  const addDocument = (tenantId) => {
+  const addDocument = async (tenantId) => {
     if (!docForm.name.trim()) return;
     const doc = { ...docForm, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), id: Date.now() };
-    setTenants(tenants.map(t => t.id === tenantId ? { ...t, documents: [...(t.documents || []), doc] } : t));
+    const tenant = tenants.find(t => t.id === tenantId);
+    const newDocs = [...(tenant?.documents || []), doc];
+    await supabase.from("tenants").update({ documents: newDocs, updated_at: new Date().toISOString() }).eq("id", tenantId);
+    setTenants(tenants.map(t => t.id === tenantId ? { ...t, documents: newDocs } : t));
     setDocForm({ name: "", category: "Lease agreement", url: "" });
   };
 
-  const removeDocument = (tenantId, docId) => {
-    setTenants(tenants.map(t => t.id === tenantId ? { ...t, documents: (t.documents || []).filter(d => d.id !== docId) } : t));
+  const removeDocument = async (tenantId, docId) => {
+    const tenant = tenants.find(t => t.id === tenantId);
+    const newDocs = (tenant?.documents || []).filter(d => d.id !== docId);
+    await supabase.from("tenants").update({ documents: newDocs, updated_at: new Date().toISOString() }).eq("id", tenantId);
+    setTenants(tenants.map(t => t.id === tenantId ? { ...t, documents: newDocs } : t));
   };
 
   return (
