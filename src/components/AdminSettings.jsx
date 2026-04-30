@@ -73,7 +73,7 @@ export default function AdminSettings() {
           <Field label="Company name" value={settings.companyName} onChange={v => update("companyName", v)} />
           <Field label="Tenant contact email" value={settings.email} onChange={v => update("email", v)} />
           <Field label="Phone number" value={settings.phone} onChange={v => update("phone", v)} />
-          <Field label="City / State" value={settings.city} onChange={v => update("city", v)} />
+          <Field label="State" value={settings.city} onChange={v => update("city", v)} />
         </Grid>
       </Section>
 
