@@ -143,27 +143,7 @@ export default function AdminPayments({ tenants }) {
       {activeTab === "stripe" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* How it works */}
-          <div style={{ background: "#fff", borderRadius: 14, padding: "24px", border: "1px solid rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>💰 How payments work</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[
-                { step: "1", title: "Tenant pays", desc: "Tenant logs into the portal, clicks Pay Rent, enters their card or bank info" },
-                { step: "2", title: "Stripe processes it", desc: "Stripe securely charges their card or initiates the ACH bank transfer" },
-                { step: "3", title: "Money moves to Stripe", desc: "Funds land in your Stripe account — cards take 1-2 days, ACH takes 3-5 days" },
-                { step: "4", title: "Stripe deposits to your bank", desc: "Stripe automatically transfers the money to your linked bank account on your payout schedule" },
-                { step: "5", title: "Portal updates", desc: "Tenant status automatically flips to Paid and shows up in your payment history" },
-              ].map(s => (
-                <div key={s.step} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#1b3d2a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{s.step}</div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{s.title}</div>
-                    <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{s.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+
 
 
 
