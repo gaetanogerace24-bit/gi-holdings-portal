@@ -9,9 +9,15 @@ export default function Dashboard({ tenant, onTabClick, onLogout }) {
   function calcLateFee(paid) { if (paid) return 0; const day = new Date().getDate(); if (day < 5) return 0; const daysLate = day - 4; return 35 + Math.max(0, daysLate - 1) * 10; }
   const rent = Number(tenant.rent) || 0;
   const autoFee = calcLateFee(tenant.paid);
-  const lateFee = tenant.section8 ? 0 : (tenant.overrideLate != null ? Math.max(tenant.overrideLate, autoFee) : autoFee);
+
+  // override_late is the TOTAL owed (rent + fee), not just the fee
+  const overrideTotal = (tenant.overrideLate ?? tenant.override_late) != null
+    ? Number(tenant.overrideLate ?? tenant.override_late)
+    : null;
+
+  const lateFee = tenant.section8 ? 0 : (overrideTotal != null ? overrideTotal - rent : autoFee);
   const base = tenant.section8 ? (Number(tenant.tenantPortion) || 0) : rent;
-  const total = base + lateFee;
+  const total = overrideTotal ?? (base + lateFee);
 
   return (
     <div style={{
@@ -72,7 +78,7 @@ export default function Dashboard({ tenant, onTabClick, onLogout }) {
               background: "rgba(231,76,60,0.2)", border: "1px solid rgba(231,76,60,0.4)",
               borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#ff8a80", fontWeight: 600,
             }}>
-              + ${tenant.lateFee} late fee
+              + ${lateFee} late fee
             </div>
           )}
         </div>
