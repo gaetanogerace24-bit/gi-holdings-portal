@@ -1,54 +1,34 @@
-// ============================================================
-// LATE FEE RULES — G&I Holdings LLC
-// Rent due: 1st of every month
-// Grace period: through the 4th (no fee)
-// Day 5 (5th of month): $35 flat fee hits
-// Day 6+: additional $10/day every day until paid
-// ============================================================
-
 export function calcLateFee(paid, referenceDate) {
   if (paid) return 0;
   const now = referenceDate || new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
   const dayOfMonth = now.getDate();
-
-  // No late fee until the 5th
   if (dayOfMonth < 5) return 0;
-
-  // Day 5 = $35, Day 6 = $45, Day 7 = $55, etc.
-  const daysLate = dayOfMonth - 4; // day 5 = 1 day late
+  const daysLate = dayOfMonth - 4;
   return 35 + Math.max(0, daysLate - 1) * 10;
 }
 
-export function getLateFeeBreakdown(paid, referenceDate) {
-  if (paid) return null;
-  const now = referenceDate || new Date();
-  const dayOfMonth = now.getDate();
-  if (dayOfMonth < 5) return { fee: 0, daysLate: 0, status: "grace" };
-  const daysLate = dayOfMonth - 4;
-  return {
-    fee: 35 + Math.max(0, daysLate - 1) * 10,
-    daysLate,
-    status: "late",
-    initialFee: 35,
-    dailyFee: Math.max(0, daysLate - 1) * 10,
-  };
-}
-
-export default function AdminOverview({ tenants, setTenants, onNavigate }) {
+export default function AdminOverview({ tenants, setTenants, invoices = [], setInvoices, onNavigate }) {
   const now = new Date();
   const monthName = now.toLocaleString("default", { month: "long", year: "numeric" });
   const dayOfMonth = now.getDate();
 
+  // Calculate totals using invoices where available
   const totalExpected = tenants.reduce((s, t) => s + t.rent, 0);
   const collected = tenants.filter(t => t.paid).reduce((s, t) => s + t.rent, 0);
   const unpaidTenants = tenants.filter(t => !t.paid);
+
+  // Outstanding = sum of all unpaid invoice totals
   const outstanding = unpaidTenants.reduce((s, t) => {
     if (t.section8) return s;
+    const tenantInvoices = invoices.filter(inv => inv.tenant_id === t.id && !inv.paid);
+    if (tenantInvoices.length > 0) {
+      return s + tenantInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
+    }
+    // Fallback to override_late
     const overrideTotal = (t.overrideLate ?? t.override_late) != null ? Number(t.overrideLate ?? t.override_late) : null;
     return s + (overrideTotal ?? t.rent);
   }, 0);
+
   const housingBackOwed = tenants.reduce((s, t) => s + (t.housingOwedBack || 0), 0);
   const lateTenants = unpaidTenants.filter(t => !t.section8 && calcLateFee(false) > 0);
 
@@ -94,7 +74,7 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
         ))}
       </div>
 
-      {/* Late fee status banner */}
+      {/* Late fee banner */}
       {dayOfMonth < 5 ? (
         <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "12px 18px", marginBottom: 20, fontSize: 13, color: "#166534", display: "flex", alignItems: "center", gap: 8 }}>
           <span>✅</span>
@@ -117,12 +97,20 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
         </div>
 
         {tenants.map((t, i) => {
-          // override_late = the TOTAL owed (rent + fee), not just the fee
+          const tenantInvoices = invoices.filter(inv => inv.tenant_id === t.id && !inv.paid);
+          const hasInvoices = tenantInvoices.length > 0;
+
+          // Calculate display values
           const overrideTotal = (t.overrideLate ?? t.override_late) != null ? Number(t.overrideLate ?? t.override_late) : null;
           const autoFee = calcLateFee(t.paid);
           const lateFee = t.section8 ? 0 : (overrideTotal != null ? overrideTotal - t.rent : autoFee);
-          const totalOwed = t.section8 ? t.rent : (overrideTotal ?? (t.rent + lateFee));
-          const isLate = !t.paid && lateFee > 0 && !t.section8;
+          const totalOwed = hasInvoices
+            ? tenantInvoices.reduce((sum, inv) => sum + Number(inv.total), 0)
+            : (overrideTotal ?? (t.rent + lateFee));
+          const totalLateFees = hasInvoices
+            ? tenantInvoices.reduce((sum, inv) => sum + Number(inv.late_fee), 0)
+            : lateFee;
+          const isLate = !t.paid && totalLateFees > 0 && !t.section8;
 
           return (
             <div key={t.id} style={{ padding: "16px 20px", borderBottom: i < tenants.length - 1 ? "1px solid #f9fafb" : "none" }}>
@@ -134,6 +122,7 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
                     {t.section8 && <span style={{ fontSize: 10, fontWeight: 700, background: "#dbeafe", color: "#1e40af", padding: "2px 7px", borderRadius: 5 }}>SECTION 8</span>}
+                    {tenantInvoices.length > 1 && <span style={{ fontSize: 10, fontWeight: 700, background: "#fee2e2", color: "#991b1b", padding: "2px 7px", borderRadius: 5 }}>{tenantInvoices.length} INVOICES</span>}
                   </div>
                   <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>{t.address}</div>
                 </div>
@@ -148,7 +137,16 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
                   ) : (
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700 }}>${t.rent.toLocaleString()}/mo</div>
-                      {isLate && <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 700 }}>+${lateFee} late fee → Total: ${totalOwed.toLocaleString()}</div>}
+                      {isLate && (
+                        <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 700 }}>
+                          +${totalLateFees} late fees → Total: ${totalOwed.toLocaleString()}
+                        </div>
+                      )}
+                      {tenantInvoices.length > 1 && (
+                        <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 700 }}>
+                          {tenantInvoices.length} unpaid invoices
+                        </div>
+                      )}
                       {t.paidDate && <div style={{ fontSize: 11, color: "#6b7280" }}>Paid {t.paidDate}</div>}
                     </div>
                   )}
@@ -166,7 +164,19 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
                 </div>
               </div>
 
-              {t.notes && (
+              {/* Per-invoice breakdown */}
+              {tenantInvoices.length > 0 && (
+                <div style={{ marginTop: 10, marginLeft: 54 }}>
+                  {tenantInvoices.map(inv => (
+                    <div key={inv.id} style={{ fontSize: 12, color: "#6b7280", background: "#fef2f2", borderRadius: 8, padding: "6px 12px", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                      <span>📄 {inv.month} — ${Number(inv.rent).toLocaleString()} rent {Number(inv.late_fee) > 0 ? `+ $${Number(inv.late_fee).toLocaleString()} late fees` : ""}</span>
+                      <span style={{ fontWeight: 700, color: "#991b1b" }}>${Number(inv.total).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {t.notes && !tenantInvoices.length && (
                 <div style={{ marginTop: 10, marginLeft: 54, fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px" }}>
                   📝 {t.notes}
                 </div>
