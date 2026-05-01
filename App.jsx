@@ -10,7 +10,6 @@ import { supabase } from "./supabase";
 
 const ADMIN_EMAIL = "gaetano@giholdings.com";
 const ADMIN_PASS = "GIHoldings2026!";
-
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 export default function App() {
@@ -23,36 +22,26 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loggedInTenantId, setLoggedInTenantId] = useState(null);
 
-  const currentTenant = tenants.find(t => t.id === loggedInTenantId) || tenants[0];
+  const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
   const currentTenantInvoices = invoices.filter(inv => inv.tenant_id === currentTenant?.id && !inv.paid);
 
   useEffect(() => { loadData(); }, []);
 
-  // Auto-create new month invoices on the 1st
+  // Auto-create May invoice on the 1st of each month
   useEffect(() => {
-    if (tenants.length === 0) return;
+    if (tenants.length === 0 || invoices.length === 0) return;
     const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${now.getMonth()}`;
-    const lastResetKey = "gi_last_reset_month";
-    const lastReset = localStorage.getItem(lastResetKey);
-
-    if (lastReset !== currentMonth && now.getDate() === 1) {
-      createMonthlyInvoices(now);
-      localStorage.setItem(lastResetKey, currentMonth);
-    }
-  }, [tenants.length]);
-
-  async function createMonthlyInvoices(now) {
     const monthName = MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
     const monthNum = now.getMonth() + 1;
     const year = now.getFullYear();
-
-    for (const tenant of tenants) {
-      if (tenant.section8) continue;
-      // Check if invoice already exists for this month
+    const resetKey = "gi_invoices_created_" + monthName.replace(" ", "_");
+    if (localStorage.getItem(resetKey)) return;
+    
+    // Create invoices for current month for all non-section8 tenants if not already existing
+    tenants.forEach(async (tenant) => {
+      if (tenant.section8) return;
       const exists = invoices.find(inv => inv.tenant_id === tenant.id && inv.month === monthName);
-      if (exists) continue;
-
+      if (exists) return;
       const { data } = await supabase.from("invoices").insert({
         tenant_id: tenant.id,
         month: monthName,
@@ -63,10 +52,10 @@ export default function App() {
         total: Number(tenant.rent) || 0,
         paid: false,
       }).select().single();
-
       if (data) setInvoices(prev => [...prev, data]);
-    }
-  }
+    });
+    localStorage.setItem(resetKey, "1");
+  }, [tenants.length, invoices.length]);
 
   async function loadData() {
     setLoading(true);
@@ -79,9 +68,7 @@ export default function App() {
       if (tenantData) setTenants(tenantData.map(normalizeTenant));
       if (ticketData) setTickets(ticketData.map(normalizeTicket));
       if (invoiceData) setInvoices(invoiceData);
-    } catch (e) {
-      console.error("Failed to load data:", e);
-    }
+    } catch (e) { console.error("Failed to load:", e); }
     setLoading(false);
   }
 
@@ -129,48 +116,20 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    setScreen("login");
-    setActiveTab("tickets");
-    setLoggedInTenantId(null);
-  };
+  const handleLogout = () => { setScreen("login"); setActiveTab("tickets"); setLoggedInTenantId(null); };
+  const updateTenants = (t) => setTenants(t);
+  const updateTickets = (t) => setTickets(t);
 
-  const updateTenants = (newTenants) => setTenants(newTenants);
-  const updateTickets = async (newTickets) => setTickets(newTickets);
-
-  // Mark a specific invoice as paid
-  const handlePaymentSuccess = async (tenantId, invoiceId, amount) => {
+  const handlePaymentSuccess = async (tenantId, invoiceId) => {
     const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-    // Update invoice in Supabase
-    await supabase.from("invoices").update({
-      paid: true,
-      paid_date: paidDate,
-      updated_at: new Date().toISOString(),
-    }).eq("id", invoiceId);
-
+    await supabase.from("invoices").update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() }).eq("id", invoiceId);
     setInvoices(prev => prev.map(inv => inv.id === invoiceId ? { ...inv, paid: true, paid_date: paidDate } : inv));
-
-    // Check if all invoices for this tenant are now paid
-    const remainingUnpaid = invoices.filter(inv => inv.tenant_id === tenantId && !inv.paid && inv.id !== invoiceId);
-    if (remainingUnpaid.length === 0) {
+    const remaining = invoices.filter(inv => inv.tenant_id === tenantId && !inv.paid && inv.id !== invoiceId);
+    if (remaining.length === 0) {
       setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, paid: true, paidDate } : t));
-      await supabase.from("tenants").update({
-        paid: true, paid_date: paidDate, updated_at: new Date().toISOString(),
-      }).eq("id", tenantId);
+      await supabase.from("tenants").update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() }).eq("id", tenantId);
     }
-
     setActiveTab("tickets");
-  };
-
-  // Update late fees on invoices daily
-  const updateInvoiceLateFees = async (invoiceId, lateFee, total) => {
-    await supabase.from("invoices").update({
-      late_fee: lateFee,
-      total,
-      updated_at: new Date().toISOString(),
-    }).eq("id", invoiceId);
-    setInvoices(prev => prev.map(inv => inv.id === invoiceId ? { ...inv, late_fee: lateFee, total } : inv));
   };
 
   const addTicket = async (ticket) => {
@@ -218,13 +177,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f0f2f0", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
       <div className="tenant-portal" style={{ position: "relative" }}>
-        <Dashboard
-          tenant={currentTenant}
-          invoices={currentTenantInvoices}
-          onTabClick={setActiveTab}
-          onLogout={handleLogout}
-        />
-
+        <Dashboard tenant={currentTenant} invoices={currentTenantInvoices} onTabClick={setActiveTab} onLogout={handleLogout} />
         <nav style={{ display: "flex", background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
           {["tickets", "pay", "info"].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
@@ -239,25 +192,11 @@ export default function App() {
             </button>
           ))}
         </nav>
-
         <div style={{ flex: 1, overflowY: "auto" }}>
-          {activeTab === "tickets" && (
-            <TicketsScreen
-              tickets={tickets.filter(t => t.tenantId === currentTenant?.id || t.tenant_id === currentTenant?.id)}
-              onNewTicket={() => setShowModal(true)}
-            />
-          )}
-          {activeTab === "pay" && (
-            <PayRentScreen
-              tenant={currentTenant}
-              invoices={currentTenantInvoices}
-              onPaymentSuccess={handlePaymentSuccess}
-              onUpdateLateFees={updateInvoiceLateFees}
-            />
-          )}
+          {activeTab === "tickets" && <TicketsScreen tickets={tickets.filter(t => t.tenantId === currentTenant?.id || t.tenant_id === currentTenant?.id)} onNewTicket={() => setShowModal(true)} />}
+          {activeTab === "pay" && <PayRentScreen tenant={currentTenant} invoices={currentTenantInvoices} onPaymentSuccess={handlePaymentSuccess} />}
           {activeTab === "info" && <UnitInfoScreen tenant={currentTenant} />}
         </div>
-
         {showModal && <SubmitTicketModal onClose={() => setShowModal(false)} onSubmit={addTicket} />}
       </div>
     </div>
