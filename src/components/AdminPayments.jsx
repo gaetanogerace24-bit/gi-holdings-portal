@@ -75,9 +75,10 @@ export default function AdminPayments({ tenants }) {
   }, 0);
 
   const outstanding = tenants.filter(t => !t.paid).reduce((s, t) => {
-    const base = t.section8 ? (Number(t.tenant_portion || t.tenantPortion) || 0) : (Number(t.rent) || 0);
-    const late = Number(t.override_late || t.overrideLate) || 0;
-    return s + base + late;
+    if (t.section8) return s + (Number(t.tenant_portion || t.tenantPortion) || 0);
+    // override_late is the TOTAL owed, not just the fee
+    const overrideTotal = (t.override_late || t.overrideLate) ? Number(t.override_late || t.overrideLate) : null;
+    return s + (overrideTotal ?? Number(t.rent) ?? 0);
   }, 0);
 
   const allTimePaid = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0) || collectedThisMonth;
@@ -146,9 +147,11 @@ export default function AdminPayments({ tenants }) {
             {displayTenants.length === 0 ? (
               <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>No tenants yet</div>
             ) : displayTenants.map((t, i) => {
-              const lateFee = Number(t.override_late || t.overrideLate) || 0;
+              // override_late is the TOTAL owed, not just the fee
+              const overrideTotal = (t.override_late || t.overrideLate) ? Number(t.override_late || t.overrideLate) : null;
               const base = t.section8 ? (Number(t.tenant_portion || t.tenantPortion) || 0) : (Number(t.rent) || 0);
-              const total = t.paid ? base : base + lateFee;
+              const lateFee = overrideTotal != null ? overrideTotal - Number(t.rent) : 0;
+              const total = t.paid ? base : (overrideTotal ?? base);
               return (
                 <div key={t.id || i} style={{ display: "flex", alignItems: "center", padding: "14px 20px", borderBottom: i < displayTenants.length - 1 ? "1px solid #f9fafb" : "none", gap: 14 }}>
                   <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
@@ -160,7 +163,7 @@ export default function AdminPayments({ tenants }) {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>${total.toLocaleString()}</div>
-                    {lateFee > 0 && <div style={{ fontSize: 11, color: "#dc2626" }}>incl. ${lateFee} late fee</div>}
+                    {!t.paid && lateFee > 0 && <div style={{ fontSize: 11, color: "#dc2626" }}>incl. ${lateFee} late fee</div>}
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 7, background: t.paid ? "#dcfce7" : "#fee2e2", color: t.paid ? "#166534" : "#991b1b" }}>
                     {t.paid ? "✓ Paid" : "Unpaid"}
