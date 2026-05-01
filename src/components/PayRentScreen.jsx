@@ -1,11 +1,8 @@
 import { useState } from "react";
 
-function calcLateFee(paid) {
-  if (paid) return 0;
-  const now = new Date();
-  const day = now.getDate();
-  if (day < 5) return 0;
-  const daysLate = day - 4;
+function calcLateFee(dayOfMonth) {
+  if (dayOfMonth < 5) return 0;
+  const daysLate = dayOfMonth - 4;
   return 35 + Math.max(0, daysLate - 1) * 10;
 }
 
@@ -22,9 +19,10 @@ function getMonthsRemaining(leaseEnd) {
   return months.slice(0, 12);
 }
 
-export default function PayRentScreen({ tenant, onPaymentSuccess }) {
+export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess, onUpdateLateFees }) {
   const [step, setStep] = useState("summary");
   const [payMode, setPayMode] = useState("current");
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(invoices[0]?.id || null);
   const [prepayMonths, setPrepayMonths] = useState(1);
   const [method, setMethod] = useState(null);
   const [error, setError] = useState(null);
@@ -34,30 +32,31 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
   const [zip, setZip] = useState("");
-
   const [achName, setAchName] = useState("");
   const [routing, setRouting] = useState("");
   const [account, setAccount] = useState("");
   const [accountType, setAccountType] = useState("checking");
 
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+  const daysLeft = Math.max(0, 5 - dayOfMonth);
+  const month = now.toLocaleString("default", { month: "long", year: "numeric" });
+  const futureMonths = getMonthsRemaining(tenant?.leaseEnd);
   const rent = Number(tenant?.rent) || 0;
   const base = tenant?.section8 ? (Number(tenant.tenantPortion || tenant.tenant_portion) || 0) : rent;
 
-  // override_late is the TOTAL owed (rent + fee), not just the fee
-  const overrideTotal = (tenant?.overrideLate ?? tenant?.override_late) != null
-    ? Number(tenant?.overrideLate ?? tenant?.override_late)
-    : null;
+  // Selected invoice
+  const selectedInvoice = invoices.find(inv => inv.id === selectedInvoiceId) || invoices[0];
 
-  const lateFee = tenant?.section8 ? 0 : (overrideTotal != null ? overrideTotal - rent : calcLateFee(tenant?.paid));
-  const currentTotal = overrideTotal ?? (base + lateFee);
+  // Calculate today's late fee for selected invoice
+  const invoiceRent = Number(selectedInvoice?.rent) || rent;
+  const savedLateFee = Number(selectedInvoice?.late_fee) || 0;
+  const autoLateFee = calcLateFee(dayOfMonth);
+  const lateFee = savedLateFee > 0 ? savedLateFee : autoLateFee;
+  const invoiceTotal = Number(selectedInvoice?.total) || (invoiceRent + lateFee);
 
   const prepayTotal = base * prepayMonths;
-  const total = payMode === "prepay" ? prepayTotal : currentTotal;
-
-  const day = new Date().getDate();
-  const daysLeft = Math.max(0, 5 - day);
-  const month = new Date().toLocaleString("default", { month: "long", year: "numeric" });
-  const futureMonths = getMonthsRemaining(tenant?.leaseEnd);
+  const total = payMode === "prepay" ? prepayTotal : invoiceTotal;
 
   const formatCard = (v) => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
   const formatExpiry = (v) => { const d = v.replace(/\D/g, "").slice(0, 4); return d.length >= 3 ? d.slice(0, 2) + "/" + d.slice(2) : d; };
@@ -78,7 +77,9 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
       if (data.error) throw new Error(data.error);
       setTimeout(() => {
         setStep("success");
-        if (onPaymentSuccess) onPaymentSuccess(tenant.id, total);
+        if (onPaymentSuccess && selectedInvoice) {
+          onPaymentSuccess(tenant.id, selectedInvoice.id, total);
+        }
       }, 1500);
     } catch (err) {
       setError(err.message || "Payment failed. Please try again.");
@@ -86,7 +87,8 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
     }
   };
 
-  if (tenant?.paid && payMode === "current") {
+  // All invoices paid and no future months
+  if (invoices.length === 0 && tenant?.paid && futureMonths.length === 0) {
     return (
       <div style={{ padding: 24, fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ background: "#fff", borderRadius: 16, padding: "48px 28px", textAlign: "center", border: "1px solid rgba(0,0,0,0.07)" }}>
@@ -95,17 +97,6 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
           <div style={{ fontSize: 14, color: "#6b7280" }}>Your {month} rent has been received. Thank you!</div>
           {tenant.paidDate && <div style={{ marginTop: 8, fontSize: 13, color: "#9ca3af" }}>Paid {tenant.paidDate}</div>}
         </div>
-        {futureMonths.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <div style={{ background: "#fff", borderRadius: 14, padding: "18px", border: "1px solid rgba(0,0,0,0.07)" }}>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>💡 Pay ahead & save stress</div>
-              <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>Prepay upcoming months now — no late fees, no worries.</div>
-              <button onClick={() => setPayMode("prepay")} style={{ width: "100%", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 11, padding: "13px", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                Prepay upcoming rent →
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -130,8 +121,8 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
           <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "16px 20px", textAlign: "left", fontSize: 13, lineHeight: 2 }}>
             <div style={{ fontWeight: 700, color: "#166534", marginBottom: 4 }}>Payment confirmation</div>
             <div>Amount: <strong>${total.toLocaleString()}</strong></div>
-            <div>Property: {tenant.address}</div>
-            <div>Type: {payMode === "prepay" ? `Prepay ${prepayMonths} month${prepayMonths > 1 ? "s" : ""}` : `${month} rent`}</div>
+            <div>Invoice: {selectedInvoice?.month || month}</div>
+            <div>Property: {tenant?.address}</div>
             <div>Method: {method === "card" ? "Credit/Debit Card" : "ACH Bank Transfer"}</div>
             <div>Ref: TXN-{Math.floor(Math.random() * 9000000 + 1000000)}</div>
             <div>Date: {new Date().toLocaleDateString()}</div>
@@ -144,7 +135,6 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
 
   return (
     <div style={{ padding: 16, fontFamily: "'DM Sans', sans-serif" }}>
-
       {/* Pay mode toggle */}
       <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 16 }}>
         {[
@@ -161,14 +151,40 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
         ))}
       </div>
 
-      {/* Late fee banner — current mode only */}
-      {payMode === "current" && (day < 5 && daysLeft > 0 ? (
+      {/* Multiple invoices selector */}
+      {payMode === "current" && invoices.length > 1 && (
+        <div style={{ marginBottom: 14 }}>
+          <SL>Select invoice to pay</SL>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {invoices.map(inv => (
+              <button key={inv.id} onClick={() => setSelectedInvoiceId(inv.id)} style={{
+                padding: "12px 16px", borderRadius: 10, cursor: "pointer", textAlign: "left",
+                border: selectedInvoiceId === inv.id ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                background: selectedInvoiceId === inv.id ? "#f0f9f4" : "#fff",
+                fontFamily: "'DM Sans', sans-serif",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{inv.month}</div>
+                  {Number(inv.late_fee) > 0 && (
+                    <div style={{ fontSize: 12, color: "#dc2626" }}>Includes ${Number(inv.late_fee).toLocaleString()} in late fees</div>
+                  )}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#991b1b" }}>${Number(inv.total).toLocaleString()}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Late fee banner */}
+      {payMode === "current" && (dayOfMonth < 5 && daysLeft > 0 ? (
         <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#166534", display: "flex", gap: 8 }}>
           <span>✅</span><span>No late fees yet — <strong>{daysLeft} day{daysLeft !== 1 ? "s" : ""} left</strong> before the 5th.</span>
         </div>
       ) : lateFee > 0 ? (
         <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#991b1b" }}>
-          ⚠️ <strong>Late fee applied.</strong> Total due includes <strong>${lateFee} in late fees</strong>
+          ⚠️ <strong>Late fee applied.</strong> Total due includes <strong>${lateFee.toLocaleString()} in late fees</strong>
         </div>
       ) : null)}
 
@@ -196,7 +212,7 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
           <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 14px", fontSize: 13 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
               <span style={{ color: "#6b7280" }}>{prepayMonths} × ${base.toLocaleString()}/mo</span>
-              <span style={{ fontWeight: 700 }}>${(base * prepayMonths).toLocaleString()}</span>
+              <span style={{ fontWeight: 700 }}>${prepayTotal.toLocaleString()}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "#166534", fontWeight: 600 }}>Late fees</span>
@@ -207,19 +223,21 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
       )}
 
       {/* Breakdown — current mode */}
-      {payMode === "current" && (
+      {payMode === "current" && selectedInvoice && (
         <>
-          <SL>Payment breakdown</SL>
+          <SL>Payment breakdown — {selectedInvoice.month}</SL>
           <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,0,0,0.07)" }}>
-            <Row label={tenant?.section8 ? "Your portion (Section 8)" : "Monthly rent"} value={`$${base.toLocaleString()}.00`} />
-            <Row
-              label={lateFee > 0 ? "Late fee" : "Late fee"}
-              value={lateFee > 0 ? `+ $${lateFee.toLocaleString()}.00` : "$0.00"}
-              danger={lateFee > 0}
-            />
+            <Row label={tenant?.section8 ? "Your portion (Section 8)" : "Monthly rent"} value={`$${invoiceRent.toLocaleString()}.00`} />
+            {lateFee > 0 && (
+              <>
+                <Row label="Base late fee (day 1)" value={`+ $35.00`} danger />
+                {lateFee > 35 && <Row label={`Daily fees ($10 × ${Math.round((lateFee - 35) / 10)} days)`} value={`+ $${(lateFee - 35).toLocaleString()}.00`} danger />}
+              </>
+            )}
+            {lateFee === 0 && <Row label="Late fee" value="$0.00" />}
             <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 10, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 15, fontWeight: 700 }}>Total due</span>
-              <span style={{ fontSize: 24, fontWeight: 800, color: "#1b3d2a" }}>${currentTotal.toLocaleString()}.00</span>
+              <span style={{ fontSize: 24, fontWeight: 800, color: "#1b3d2a" }}>${invoiceTotal.toLocaleString()}.00</span>
             </div>
           </div>
         </>
