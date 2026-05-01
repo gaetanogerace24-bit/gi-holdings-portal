@@ -1,34 +1,23 @@
 export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout }) {
-  function calcLateFee(dayOfMonth) {
-    if (dayOfMonth < 5) return 0;
-    const daysLate = dayOfMonth - 4;
-    return 35 + Math.max(0, daysLate - 1) * 10;
-  }
-
   const now = new Date();
   const dayOfMonth = now.getDate();
   const rent = Number(tenant?.rent) || 0;
 
-  // Total balance = sum of all unpaid invoices
-  const totalBalance = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
+  const totalBalance = invoices.reduce((sum, inv) => sum + Number(inv.total), 0);
+  const totalLateFees = invoices.reduce((sum, inv) => sum + Number(inv.late_fee), 0);
   const hasInvoices = invoices.length > 0;
 
-  // Fallback if no invoices yet
-  const overrideTotal = (tenant?.overrideLate ?? tenant?.override_late) != null
-    ? Number(tenant?.overrideLate ?? tenant?.override_late)
-    : null;
-  const autoFee = calcLateFee(dayOfMonth);
-  const lateFee = tenant?.section8 ? 0 : (overrideTotal != null ? overrideTotal - rent : autoFee);
-  const fallbackTotal = overrideTotal ?? (rent + lateFee);
+  // Fallback if no invoices
+  const overrideTotal = (tenant?.overrideLate ?? tenant?.override_late) != null ? Number(tenant?.overrideLate ?? tenant?.override_late) : null;
+  const autoFee = (() => { if (dayOfMonth < 5) return 0; return 35 + Math.max(0, (dayOfMonth - 4) - 1) * 10; })();
+  const fallbackFee = tenant?.section8 ? 0 : (overrideTotal != null ? overrideTotal - rent : autoFee);
+  const fallbackTotal = tenant?.paid ? 0 : (overrideTotal ?? (rent + fallbackFee));
 
-  const displayTotal = hasInvoices ? totalBalance : (tenant?.paid ? 0 : fallbackTotal);
-  const totalLateFees = hasInvoices
-    ? invoices.reduce((sum, inv) => sum + (Number(inv.late_fee) || 0), 0)
-    : lateFee;
-  const hasLateFee = totalLateFees > 0;
+  const displayTotal = hasInvoices ? totalBalance : fallbackTotal;
+  const displayLateFees = hasInvoices ? totalLateFees : fallbackFee;
 
   return (
-    <div style={{ background: "linear-gradient(160deg, #1b3d2a 0%, #2d5c42 100%)", padding: "22px 20px 26px", position: "relative" }}>
+    <div style={{ background: "linear-gradient(160deg, #1b3d2a 0%, #2d5c42 100%)", padding: "22px 20px 26px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
           <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "#fff", fontWeight: 600 }}>G&I Holdings</div>
@@ -49,25 +38,26 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>
-              {!hasInvoices && tenant?.paid ? "All paid up" : "Total balance due"}
+              {displayTotal === 0 ? "All paid up" : "Total balance due"}
             </div>
             <div style={{ fontSize: 34, fontWeight: 700, color: "#fff", letterSpacing: "-1.5px" }}>${displayTotal.toLocaleString()}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 3 }}>
               {invoices.length > 1 ? `${invoices.length} open invoices` : `Due the 1st · ${tenant?.unit || tenant?.address?.split(",")[0]}`}
             </div>
           </div>
-          {hasLateFee && (
+          {displayLateFees > 0 && (
             <div style={{ background: "rgba(231,76,60,0.2)", border: "1px solid rgba(231,76,60,0.4)", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#ff8a80", fontWeight: 600 }}>
-              + ${totalLateFees} late fees
+              + ${displayLateFees} late fees
             </div>
           )}
         </div>
 
+        {/* Show each invoice if multiple */}
         {invoices.length > 1 && (
           <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10 }}>
             {invoices.map(inv => (
-              <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
-                <span>{inv.month}</span>
+              <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
+                <span style={{ color: "rgba(255,255,255,0.6)" }}>{inv.month}</span>
                 <span style={{ fontWeight: 600, color: "#fff" }}>${Number(inv.total).toLocaleString()}</span>
               </div>
             ))}
@@ -75,7 +65,7 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
         )}
 
         <button onClick={() => onTabClick("pay")} style={{ width: "100%", marginTop: 14, padding: "12px", background: "#4caf7d", border: "none", borderRadius: 11, color: "#fff", fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-          {!hasInvoices && tenant?.paid ? "Prepay upcoming rent" : "Pay now"}
+          {displayTotal === 0 ? "Prepay upcoming rent" : "Pay now"}
         </button>
       </div>
     </div>

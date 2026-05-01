@@ -21,10 +21,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
   const [active, setActive] = useState("overview");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
 
-  const setTenants = (val) => {
-    setTenantsLocal(val);
-    if (setSharedTenants) setSharedTenants(val);
-  };
+  const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
 
   return (
     <div className="admin-layout" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -38,9 +35,6 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           .admin-mobile-nav { display: flex !important; }
           .admin-mobile-header { display: flex !important; }
           .admin-page-content { padding: 14px !important; }
-          .stats-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
-          .stats-grid-3 { grid-template-columns: repeat(1, 1fr) !important; }
-          .two-col-grid { grid-template-columns: 1fr !important; }
         }
         @media (min-width: 769px) {
           .admin-mobile-nav { display: none !important; }
@@ -57,20 +51,16 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         <nav style={{ flex: 1 }}>
           {NAV.map(n => (
             <button key={n.key} onClick={() => setActive(n.key)} style={{
-              width: "100%", display: "flex", alignItems: "center", gap: 10,
-              padding: "11px 20px", border: "none", cursor: "pointer",
+              width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 20px", border: "none", cursor: "pointer",
               background: active === n.key ? "rgba(76,175,125,0.12)" : "transparent",
               borderLeft: active === n.key ? "3px solid #4caf7d" : "3px solid transparent",
               color: active === n.key ? "#4caf7d" : "rgba(255,255,255,0.5)",
-              fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: active === n.key ? 600 : 400,
-              textAlign: "left", transition: "all 0.15s",
+              fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: active === n.key ? 600 : 400, textAlign: "left",
             }}>
               <span style={{ fontSize: 16 }}>{n.icon}</span>
               {n.label}
               {n.key === "tenants" && tenants.length > 0 && (
-                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>
-                  {tenants.length}
-                </span>
+                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length}</span>
               )}
             </button>
           ))}
@@ -107,7 +97,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           {NAV.map(n => (
             <button key={n.key} onClick={() => setActive(n.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 2px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
               <span style={{ fontSize: 22 }}>{n.icon}</span>
-              <span style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: active === n.key ? "#4caf7d" : "rgba(255,255,255,0.35)" }}>{n.label}</span>
+              <span style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", color: active === n.key ? "#4caf7d" : "rgba(255,255,255,0.35)" }}>{n.label}</span>
               {active === n.key && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#4caf7d" }} />}
             </button>
           ))}
