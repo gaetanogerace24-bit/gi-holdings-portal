@@ -102,7 +102,7 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
       ) : (
         <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: "12px 18px", marginBottom: 20, fontSize: 13, color: "#92400e", display: "flex", alignItems: "center", gap: 8 }}>
           <span>⏰</span>
-          <span><strong>Late fees active</strong> — $35 base + ${(dayOfMonth - 5) * 10} accrued daily fees = <strong>${calcLateFee(false)} per unpaid tenant</strong> · +$10/day until paid</span>
+          <span><strong>Late fees active</strong> — late fees are accruing · +$10/day until paid</span>
         </div>
       )}
 
@@ -117,7 +117,7 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
 
         {tenants.map((t, i) => {
           const autoFee = calcLateFee(t.paid);
-          const lateFee = t.section8 ? 0 : (t.overrideLate != null ? Number(t.overrideLate) : autoFee);
+          const lateFee = t.section8 ? 0 : ((t.overrideLate ?? t.override_late) != null ? Number(t.overrideLate ?? t.override_late) : autoFee);
           const daysLate = new Date().getDate() - 4;
           const isLate = !t.paid && lateFee > 0 && !t.section8;
 
@@ -145,7 +145,7 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
                   ) : (
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700 }}>${t.rent.toLocaleString()}/mo</div>
-                      {isLate && <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 700 }}>+${lateFee} late fee ($35 + $10×{daysLate}d) → Total: ${t.rent + lateFee}</div>}
+                      {isLate && <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 700 }}>+${lateFee} late fee → Total: ${(t.rent + lateFee).toLocaleString()}</div>}
                       {t.paidDate && <div style={{ fontSize: 11, color: "#6b7280" }}>Paid {t.paidDate}</div>}
                     </div>
                   )}
