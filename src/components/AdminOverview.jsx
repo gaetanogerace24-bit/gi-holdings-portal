@@ -117,10 +117,8 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
 
         {tenants.map((t, i) => {
           const autoFee = calcLateFee(t.paid);
-          const lateFee = t.section8 ? 0 : (t.overrideLate != null ? Math.max(t.overrideLate, autoFee) : autoFee);
-          const daysLate = t.overrideLate != null && t.overrideLate > autoFee
-            ? Math.round((t.overrideLate - 35) / 10) + 1
-            : Math.max(0, new Date().getDate() - 4);
+          const lateFee = t.section8 ? 0 : (t.overrideLate != null ? Number(t.overrideLate) : autoFee);
+          const daysLate = new Date().getDate() - 4;
           const isLate = !t.paid && lateFee > 0 && !t.section8;
 
           return (
