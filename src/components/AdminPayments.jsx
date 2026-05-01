@@ -181,11 +181,11 @@ export default function AdminPayments({ tenants }) {
             </div>
           ) : payments.map((p, i) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", padding: "14px 20px", borderBottom: i < payments.length - 1 ? "1px solid #f9fafb" : "none", gap: 14 }}>
-              <div style={{ fontSize: 24 }}>{p.method === "ach" ? "🏦" : "💳"}</div>
+              <div style={{ fontSize: 24 }}>🏦</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{p.tenant_name}</div>
                 <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                  {new Date(p.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {p.method === "ach" ? "ACH Bank Transfer" : "Credit/Debit Card"}
+                  {new Date(p.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · ACH Bank Transfer
                 </div>
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#166534" }}>+${Number(p.amount).toLocaleString()}</div>

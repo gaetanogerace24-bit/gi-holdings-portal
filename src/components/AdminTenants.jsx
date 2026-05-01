@@ -13,7 +13,23 @@ export default function AdminTenants({ tenants, setTenants }) {
   const [docForm, setDocForm] = useState({ name: "", category: "Lease agreement", url: "" });
 
   const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); };
-  const openEdit = (t) => { setEditing(t.id); setForm({ ...t, rent: String(t.rent), deposit: String(t.deposit || "") }); setShowForm(true); };
+  const openEdit = (t) => {
+    setEditing(t.id);
+    setForm({
+      ...t,
+      rent: String(t.rent || ""),
+      deposit: String(t.deposit || ""),
+      email: t.email || "",
+      phone: t.phone || "",
+      leaseStart: t.leaseStart || t.lease_start || "",
+      leaseEnd: t.leaseEnd || t.lease_end || "",
+      section8Amount: t.section8Amount || t.section8_amount || "",
+      tenantPortion: t.tenantPortion || t.tenant_portion || "",
+      public_note: t.public_note || "",
+      notes: t.notes || "",
+    });
+    setShowForm(true);
+  };
   const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); };
 
   const handleSave = async () => {
@@ -103,10 +119,10 @@ export default function AdminTenants({ tenants, setTenants }) {
             <FormField label="Monthly rent ($) *" value={form.rent} onChange={v => setForm({ ...form, rent: v })} placeholder="e.g. 900" type="number" />
             <FormField label="Property address" value={form.address} onChange={v => setForm({ ...form, address: v })} placeholder="510 W Evergreen Ave, Youngstown OH" />
             <FormField label="Security deposit ($)" value={form.deposit} onChange={v => setForm({ ...form, deposit: v })} placeholder="e.g. 850" type="number" />
-            <FormField label="Email" value={form.email} onChange={v => setForm({ ...form, email: v })} placeholder="tenant@email.com" type="email" />
-            <FormField label="Phone" value={form.phone} onChange={v => setForm({ ...form, phone: v })} placeholder="(330) 555-0000" />
-            <FormField label="Lease start" value={form.leaseStart} onChange={v => setForm({ ...form, leaseStart: v })} type="date" />
-            <FormField label="Lease end" value={form.leaseEnd} onChange={v => setForm({ ...form, leaseEnd: v })} type="date" />
+            <FormField label="Email" value={form.email || ""} onChange={v => setForm({ ...form, email: v })} placeholder="tenant@email.com" type="email" />
+            <FormField label="Phone" value={form.phone || ""} onChange={v => setForm({ ...form, phone: v })} placeholder="(330) 555-0000" />
+            <FormField label="Lease start" value={form.leaseStart || ""} onChange={v => setForm({ ...form, leaseStart: v, lease_start: v })} type="date" />
+            <FormField label="Lease end" value={form.leaseEnd || ""} onChange={v => setForm({ ...form, leaseEnd: v, lease_end: v })} type="date" />
           </div>
 
           {/* Section 8 */}
