@@ -204,4 +204,6 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         </div>
       </div>
     </div>
-)
+
+  );
+}
