@@ -3,21 +3,10 @@ import { useState } from "react";
 function calcLateFee(paid) {
   if (paid) return 0;
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
   const day = now.getDate();
-  // Grace period through 4th — fee starts on 5th
   if (day < 5) return 0;
-  // Day 5 = $35, Day 6 = $45, Day 7 = $55, etc.
   const daysLate = day - 4;
   return 35 + Math.max(0, daysLate - 1) * 10;
-}
-
-function calcDaysLate(paid) {
-  if (paid) return 0;
-  const day = new Date().getDate();
-  if (day < 5) return 0;
-  return day - 4;
 }
 
 function getMonthsRemaining(leaseEnd) {
@@ -30,35 +19,38 @@ function getMonthsRemaining(leaseEnd) {
     months.push(current.toLocaleString("default", { month: "long", year: "numeric" }));
     current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
   }
-  return months.slice(0, 12); // max 12 months ahead
+  return months.slice(0, 12);
 }
 
 export default function PayRentScreen({ tenant, onPaymentSuccess }) {
   const [step, setStep] = useState("summary");
-  const [payMode, setPayMode] = useState("current"); // current | prepay
+  const [payMode, setPayMode] = useState("current");
   const [prepayMonths, setPrepayMonths] = useState(1);
   const [method, setMethod] = useState(null);
   const [error, setError] = useState(null);
 
-  // Card fields
   const [cardName, setCardName] = useState("");
   const [cardNum, setCardNum] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
   const [zip, setZip] = useState("");
 
-  // ACH fields
   const [achName, setAchName] = useState("");
   const [routing, setRouting] = useState("");
   const [account, setAccount] = useState("");
   const [accountType, setAccountType] = useState("checking");
 
-  // Use overrideLate if manually set (e.g. Gary's fixed 85), else auto-calculate
-  const lateFee = tenant?.overrideLate != null ? tenant.overrideLate : calcLateFee(tenant?.paid);
-  const daysLate = tenant?.overrideLate != null ? Math.round((tenant.overrideLate - 35) / 10) : Math.max(0, new Date().getDate() - 5);
   const rent = Number(tenant?.rent) || 0;
-  const base = tenant?.section8 ? (Number(tenant.tenantPortion) || 0) : rent;
-  const currentTotal = base + lateFee;
+  const base = tenant?.section8 ? (Number(tenant.tenantPortion || tenant.tenant_portion) || 0) : rent;
+
+  // override_late is the TOTAL owed (rent + fee), not just the fee
+  const overrideTotal = (tenant?.overrideLate ?? tenant?.override_late) != null
+    ? Number(tenant?.overrideLate ?? tenant?.override_late)
+    : null;
+
+  const lateFee = tenant?.section8 ? 0 : (overrideTotal != null ? overrideTotal - rent : calcLateFee(tenant?.paid));
+  const currentTotal = overrideTotal ?? (base + lateFee);
+
   const prepayTotal = base * prepayMonths;
   const total = payMode === "prepay" ? prepayTotal : currentTotal;
 
@@ -176,7 +168,7 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
         </div>
       ) : lateFee > 0 ? (
         <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#991b1b" }}>
-          ⚠️ <strong>Late fee applied.</strong> $35 base + $10/day ({daysLate} day{daysLate !== 1 ? "s" : ""}) = <strong>${lateFee}</strong>
+          ⚠️ <strong>Late fee applied.</strong> Total due includes <strong>${lateFee} in late fees</strong>
         </div>
       ) : null)}
 
@@ -220,7 +212,11 @@ export default function PayRentScreen({ tenant, onPaymentSuccess }) {
           <SL>Payment breakdown</SL>
           <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,0,0,0.07)" }}>
             <Row label={tenant?.section8 ? "Your portion (Section 8)" : "Monthly rent"} value={`$${base.toLocaleString()}.00`} />
-            <Row label={lateFee > 0 ? `Late fee ($35 base + $10 x ${daysLate} day${daysLate !== 1 ? "s" : ""})` : "Late fee"} value={lateFee > 0 ? `+ $${lateFee}.00` : "$0.00"} danger={lateFee > 0} />
+            <Row
+              label={lateFee > 0 ? "Late fee" : "Late fee"}
+              value={lateFee > 0 ? `+ $${lateFee.toLocaleString()}.00` : "$0.00"}
+              danger={lateFee > 0}
+            />
             <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 10, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 15, fontWeight: 700 }}>Total due</span>
               <span style={{ fontSize: 24, fontWeight: 800, color: "#1b3d2a" }}>${currentTotal.toLocaleString()}.00</span>
