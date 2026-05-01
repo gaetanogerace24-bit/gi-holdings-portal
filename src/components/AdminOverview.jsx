@@ -45,8 +45,9 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
   const collected = tenants.filter(t => t.paid).reduce((s, t) => s + t.rent, 0);
   const unpaidTenants = tenants.filter(t => !t.paid);
   const outstanding = unpaidTenants.reduce((s, t) => {
-    const fee = t.section8 ? 0 : calcLateFee(false);
-    return s + (t.amountOwed || t.rent) + fee;
+    if (t.section8) return s;
+    const overrideTotal = (t.overrideLate ?? t.override_late) != null ? Number(t.overrideLate ?? t.override_late) : null;
+    return s + (overrideTotal ?? t.rent);
   }, 0);
   const housingBackOwed = tenants.reduce((s, t) => s + (t.housingOwedBack || 0), 0);
   const lateTenants = unpaidTenants.filter(t => !t.section8 && calcLateFee(false) > 0);
@@ -116,9 +117,11 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
         </div>
 
         {tenants.map((t, i) => {
+          // override_late = the TOTAL owed (rent + fee), not just the fee
+          const overrideTotal = (t.overrideLate ?? t.override_late) != null ? Number(t.overrideLate ?? t.override_late) : null;
           const autoFee = calcLateFee(t.paid);
-          const lateFee = t.section8 ? 0 : ((t.overrideLate ?? t.override_late) != null ? Number(t.overrideLate ?? t.override_late) : autoFee);
-          const daysLate = new Date().getDate() - 4;
+          const lateFee = t.section8 ? 0 : (overrideTotal != null ? overrideTotal - t.rent : autoFee);
+          const totalOwed = t.section8 ? t.rent : (overrideTotal ?? (t.rent + lateFee));
           const isLate = !t.paid && lateFee > 0 && !t.section8;
 
           return (
@@ -145,7 +148,7 @@ export default function AdminOverview({ tenants, setTenants, onNavigate }) {
                   ) : (
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700 }}>${t.rent.toLocaleString()}/mo</div>
-                      {isLate && <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 700 }}>+${lateFee} late fee → Total: ${(t.rent + lateFee).toLocaleString()}</div>}
+                      {isLate && <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 700 }}>+${lateFee} late fee → Total: ${totalOwed.toLocaleString()}</div>}
                       {t.paidDate && <div style={{ fontSize: 11, color: "#6b7280" }}>Paid {t.paidDate}</div>}
                     </div>
                   )}
