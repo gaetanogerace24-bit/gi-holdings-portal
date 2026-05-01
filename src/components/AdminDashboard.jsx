@@ -88,7 +88,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           {active === "tenants" && <AdminTenants tenants={tenants} setTenants={setTenants} />}
           {active === "documents" && <AdminDocuments tenants={tenants} setTenants={setTenants} />}
           {active === "messages" && <AdminMessages tenants={tenants} supabase={supabase} />}
-          {active === "payments" && <AdminPayments tenants={tenants} invoices={sharedInvoices} />}
+          {active === "payments" && <AdminPayments tenants={tenants} invoices={sharedInvoices} setInvoices={setSharedInvoices} />}
           {active === "settings" && <AdminSettings supabase={supabase} />}
         </div>
 
