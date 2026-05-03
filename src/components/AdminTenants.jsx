@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
-import { calcLateFee } from "./AdminOverview";
 
 const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent: "", leaseStart: "", leaseEnd: "", notes: "", public_note: "", deposit: "", section8: false, section8Amount: "", tenantPortion: "" };
 const DOC_CATEGORIES = ["Lease agreement", "Move-in inspection", "Community rules", "Other"];
@@ -9,7 +8,7 @@ export default function AdminTenants({ tenants, setTenants }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [expandedDocs, setExpandedDocs] = useState(null); // tenant id
+  const [expandedDocs, setExpandedDocs] = useState(null);
   const [docForm, setDocForm] = useState({ name: "", category: "Lease agreement", url: "" });
 
   const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); };
@@ -34,51 +33,34 @@ export default function AdminTenants({ tenants, setTenants }) {
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.rent) return;
-    
     const tenantData = {
-      name: form.name,
-      email: form.email || "",
-      phone: form.phone || "",
-      unit: form.unit || "",
-      address: form.address || "",
-      rent: Number(form.rent) || 0,
-      deposit: Number(form.deposit) || 0,
+      name: form.name, email: form.email || "", phone: form.phone || "",
+      unit: form.unit || "", address: form.address || "",
+      rent: Number(form.rent) || 0, deposit: Number(form.deposit) || 0,
       lease_start: form.leaseStart || form.lease_start || "",
       lease_end: form.leaseEnd || form.lease_end || "",
-      notes: form.notes || "",
-      public_note: form.public_note || "",
+      notes: form.notes || "", public_note: form.public_note || "",
       section8: Boolean(form.section8),
       section8_amount: Number(form.section8Amount || form.section8_amount) || 0,
       tenant_portion: Number(form.tenantPortion || form.tenant_portion) || 0,
-      emergency: "(330) 969-6464",
-      contact_email: "tenants@giholdings.com",
+      emergency: "(330) 969-6464", contact_email: "tenants@giholdings.com",
       updated_at: new Date().toISOString(),
     };
-
     if (editing) {
-      // Update existing tenant in Supabase
       await supabase.from("tenants").update(tenantData).eq("id", editing);
       setTenants(tenants.map(t => t.id === editing ? { ...t, ...form, ...tenantData, rent: Number(form.rent), deposit: Number(form.deposit) || 0 } : t));
     } else {
-      // Insert new tenant in Supabase
-      const { data, error } = await supabase.from("tenants").insert({ ...tenantData, paid: false, documents: [] }).select().single();
-      if (data) {
-        setTenants([...tenants, { ...data, leaseStart: data.lease_start, leaseEnd: data.lease_end, section8Amount: data.section8_amount, tenantPortion: data.tenant_portion }]);
-      }
+      const { data } = await supabase.from("tenants").insert({ ...tenantData, paid: false, documents: [] }).select().single();
+      if (data) setTenants([...tenants, { ...data, leaseStart: data.lease_start, leaseEnd: data.lease_end, section8Amount: data.section8_amount, tenantPortion: data.tenant_portion }]);
     }
     closeForm();
   };
 
-  const handleRemove = (id, name) => {
-    if (window.confirm(`Remove ${name}? This cannot be undone.`)) setTenants(tenants.filter(t => t.id !== id));
-  };
-
-  const togglePaid = async (id) => {
-    const tenant = tenants.find(t => t.id === id);
-    const newPaid = !tenant.paid;
-    const paidDate = newPaid ? new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
-    await supabase.from("tenants").update({ paid: newPaid, paid_date: paidDate, updated_at: new Date().toISOString() }).eq("id", id);
-    setTenants(tenants.map(t => t.id === id ? { ...t, paid: newPaid, paidDate } : t));
+  const handleRemove = async (id, name) => {
+    if (window.confirm(`Remove ${name}? This cannot be undone.`)) {
+      await supabase.from("tenants").delete().eq("id", id);
+      setTenants(tenants.filter(t => t.id !== id));
+    }
   };
 
   const addDocument = async (tenantId) => {
@@ -104,7 +86,7 @@ export default function AdminTenants({ tenants, setTenants }) {
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Tenants & Units</h1>
           <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
-            {tenants.length === 0 ? "No tenants yet" : `${tenants.length} tenant${tenants.length !== 1 ? "s" : ""} · ${tenants.filter(t => t.paid).length} paid this month`}
+            {tenants.length === 0 ? "No tenants yet" : `${tenants.length} tenant${tenants.length !== 1 ? "s" : ""}`}
           </div>
         </div>
         <button onClick={openAdd} style={greenBtn}>+ Add tenant</button>
@@ -125,7 +107,7 @@ export default function AdminTenants({ tenants, setTenants }) {
             <FormField label="Lease end" value={form.leaseEnd || ""} onChange={v => setForm({ ...form, leaseEnd: v, lease_end: v })} type="date" />
           </div>
 
-          {/* Section 8 */}
+          {/* Section 8 — keep in form for data purposes but hidden from list view */}
           <div style={{ padding: "14px 16px", background: "#f0f9f4", borderRadius: 10, border: "1px solid #bbf7d0", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
@@ -164,7 +146,6 @@ export default function AdminTenants({ tenants, setTenants }) {
         </div>
       )}
 
-      {/* Empty state */}
       {tenants.length === 0 && !showForm && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
@@ -176,35 +157,30 @@ export default function AdminTenants({ tenants, setTenants }) {
       {/* Tenant cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {tenants.map(t => {
-          const lateFee = calcLateFee(t.paid);
           const docsOpen = expandedDocs === t.id;
           return (
             <div key={t.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
-              {/* Main row */}
               <div style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 14 }}>
+                {/* Avatar */}
                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
                   {t.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                 </div>
+
+                {/* Name + address + email */}
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
-                    {t.section8 && <span style={{ fontSize: 10, fontWeight: 700, background: "#dbeafe", color: "#1e40af", padding: "2px 7px", borderRadius: 5 }}>SECTION 8</span>}
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
+                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                    {t.address}{t.email ? ` · ${t.email}` : ""}
                   </div>
-                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{t.address}{t.email ? ` · ${t.email}` : ""}</div>
                 </div>
-                <div style={{ textAlign: "right", marginRight: 8 }}>
+
+                {/* Rent only */}
+                <div style={{ textAlign: "right", marginRight: 16 }}>
                   <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a" }}>${(t.rent || 0).toLocaleString()}/mo</div>
-                  {t.section8 && <div style={{ fontSize: 11, color: "#1e40af", fontWeight: 600 }}>Housing: ${t.section8Amount} / Tenant: ${t.tenantPortion}</div>}
-                  {lateFee > 0 && !t.paid && !t.section8 && <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 600 }}>+${lateFee} late fee</div>}
                   {t.deposit > 0 && <div style={{ fontSize: 11, color: "#9ca3af" }}>Deposit: ${(t.deposit || 0).toLocaleString()}</div>}
                 </div>
 
-                {/* Paid toggle */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase" }}>Paid</div>
-                  <Toggle on={t.paid} onToggle={() => togglePaid(t.id)} />
-                </div>
-
+                {/* Actions */}
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => setExpandedDocs(docsOpen ? null : t.id)} style={{ ...outlineBtn, borderColor: docsOpen ? "#1b3d2a" : "#e5e7eb", color: docsOpen ? "#1b3d2a" : "#6b7280" }}>
                     📄 Docs {t.documents?.length > 0 ? `(${t.documents.length})` : ""}
@@ -222,8 +198,6 @@ export default function AdminTenants({ tenants, setTenants }) {
               {docsOpen && (
                 <div style={{ borderTop: "1px solid #f3f4f6", padding: "16px 20px", background: "#fafafa" }}>
                   <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: "#1b3d2a" }}>📄 Documents for {t.name}</div>
-
-                  {/* Add document form */}
                   <div style={{ background: "#fff", borderRadius: 12, padding: "14px", border: "1px solid #e5e7eb", marginBottom: 14 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: "#374151" }}>Add new document</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -245,7 +219,6 @@ export default function AdminTenants({ tenants, setTenants }) {
                     <button onClick={() => addDocument(t.id)} style={{ ...greenBtn, fontSize: 13, padding: "8px 18px" }}>+ Add document</button>
                   </div>
 
-                  {/* Document list */}
                   {(!t.documents || t.documents.length === 0) ? (
                     <div style={{ textAlign: "center", padding: "20px", color: "#9ca3af", fontSize: 13 }}>No documents yet — add one above</div>
                   ) : (
