@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { saveMessages, loadMessages } from "../storage";
+import { supabase } from "../supabase";
 
 const TEMPLATES = [
   { label: "Rent reminder", text: "Hi! Just a reminder that rent is due on the 1st. Please submit your payment through the portal on time to avoid late fees. Thank you!" },
@@ -9,48 +9,95 @@ const TEMPLATES = [
   { label: "Inspection notice", text: "We will be conducting a routine property inspection. We'll follow up with the scheduled date and time. Please let us know if you have any questions." },
 ];
 
-export default function AdminMessages({ tenants, supabase }) {
+export default function AdminMessages({ tenants }) {
   const [to, setTo] = useState("all");
   const [msg, setMsg] = useState("");
   const [sent, setSent] = useState(false);
-  const [history, setHistory] = useState(() => {
-    try { const s = localStorage.getItem("gi_messages"); return s ? JSON.parse(s) : []; } catch(e) { return []; }
-  });
+  const [sending, setSending] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [selectedTenant, setSelectedTenant] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try { localStorage.setItem("gi_messages", JSON.stringify(history)); } catch(e) {}
-  }, [history]);
+    loadMessages();
+    // Poll for new messages every 10 seconds
+    const interval = setInterval(loadMessages, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const handleSend = () => {
-    if (!msg.trim()) return;
-    const recipient = to === "all" ? "All tenants" : tenants.find(t => String(t.id) === to)?.name || "Unknown";
-    const newMsg = { to_name: recipient, message: msg, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }) };
-    if (supabase) {
-      supabase.from("messages").insert({ ...newMsg, tenant_id: to === "all" ? null : to });
-    }
-    const newHistory = [{ to: recipient, msg, date: newMsg.date }, ...history];
-    try { localStorage.setItem("gi_messages", JSON.stringify(newHistory)); } catch(e) {}
-    setHistory(newHistory);
+  async function loadMessages() {
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (data) setMessages(data);
+    setLoading(false);
+  }
+
+  const handleSend = async () => {
+    if (!msg.trim() || sending) return;
+    setSending(true);
+    const recipient = to === "all" ? null : to;
+    const recipientName = to === "all" ? "All tenants" : tenants.find(t => String(t.id) === to)?.name || "Unknown";
+    const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    const { data } = await supabase.from("messages").insert({
+      tenant_id: recipient,
+      to_name: recipientName,
+      message: msg.trim(),
+      sender: "admin",
+      date,
+    }).select().single();
+
+    if (data) setMessages(prev => [data, ...prev]);
     setSent(true);
-    setTimeout(() => setSent(false), 2500);
     setMsg("");
+    setSending(false);
+    setTimeout(() => setSent(false), 2500);
   };
+
+  // Get thread for a specific tenant (their messages + admin messages to them or all)
+  const getThread = (tenantId) => {
+    return messages.filter(m =>
+      m.tenant_id === tenantId ||
+      (m.sender === "admin" && (m.tenant_id === tenantId || m.tenant_id === null))
+    ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  };
+
+  // Get latest message per tenant for the inbox list
+  const getInbox = () => {
+    const seen = new Set();
+    const inbox = [];
+    // Get all tenant replies first
+    for (const m of messages) {
+      if (m.sender !== "admin" && m.tenant_id && !seen.has(m.tenant_id)) {
+        seen.add(m.tenant_id);
+        const tenant = tenants.find(t => t.id === m.tenant_id);
+        if (tenant) inbox.push({ tenant, lastMsg: m });
+      }
+    }
+    return inbox;
+  };
+
+  const inbox = getInbox();
+  const thread = selectedTenant ? getThread(selectedTenant.id) : [];
 
   return (
     <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Messages</h1>
-        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Send messages to one or all tenants</div>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0 }}>Messages</h1>
+        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Send messages and view tenant replies</div>
       </div>
 
       {tenants.length === 0 ? (
         <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>No tenants to message</div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Add tenants first, then you can message them here.</div>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20 }}>
+
+          {/* Left — compose */}
           <div>
             <div style={{ background: "#fff", borderRadius: 14, padding: "20px", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 16 }}>
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>New message</div>
@@ -58,16 +105,15 @@ export default function AdminMessages({ tenants, supabase }) {
               <Label>Send to</Label>
               <select value={to} onChange={e => setTo(e.target.value)} style={{ ...inputStyle, marginBottom: 14 }}>
                 <option value="all">📣 All tenants ({tenants.length})</option>
-                {tenants.map(t => <option key={t.id} value={String(t.id)}>{t.name} – {t.unit}</option>)}
+                {tenants.map(t => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
               </select>
 
               <Label>Quick templates</Label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
                 {TEMPLATES.map(tp => (
-                  <button key={tp.label} onClick={() => setMsg(tp.text)} style={{
-                    padding: "5px 10px", borderRadius: 7, border: "1.5px solid #e5e7eb",
-                    background: "#f9fafb", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#374151",
-                  }}>{tp.label}</button>
+                  <button key={tp.label} onClick={() => setMsg(tp.text)} style={{ padding: "5px 10px", borderRadius: 7, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#374151" }}>
+                    {tp.label}
+                  </button>
                 ))}
               </div>
 
@@ -76,35 +122,80 @@ export default function AdminMessages({ tenants, supabase }) {
                 style={{ ...inputStyle, resize: "none", lineHeight: "1.6", marginBottom: 14 }} />
 
               {sent ? (
-                <div style={{ background: "#dcfce7", border: "1px solid #4ade80", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: "#166534", fontWeight: 600 }}>
-                  ✅ Message sent!
-                </div>
+                <div style={{ background: "#dcfce7", border: "1px solid #4ade80", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: "#166534", fontWeight: 600 }}>✅ Message sent!</div>
               ) : (
-                <button onClick={handleSend} disabled={!msg.trim()} style={{
-                  width: "100%", background: msg.trim() ? "#1b3d2a" : "#d1d5db", color: "#fff", border: "none",
-                  borderRadius: 10, padding: "13px", fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 700,
-                  cursor: msg.trim() ? "pointer" : "not-allowed",
-                }}>Send message</button>
+                <button onClick={handleSend} disabled={!msg.trim() || sending} style={{ width: "100%", background: msg.trim() ? "#1b3d2a" : "#d1d5db", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 700, cursor: msg.trim() ? "pointer" : "not-allowed" }}>
+                  {sending ? "Sending..." : "Send message"}
+                </button>
               )}
             </div>
+
+            {/* Tenant replies inbox */}
+            {inbox.length > 0 && (
+              <div style={{ background: "#fff", borderRadius: 14, padding: "20px", border: "1px solid rgba(0,0,0,0.07)" }}>
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Tenant replies</div>
+                {inbox.map(({ tenant, lastMsg }) => (
+                  <div key={tenant.id} onClick={() => setSelectedTenant(selectedTenant?.id === tenant.id ? null : tenant)}
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #f3f4f6", cursor: "pointer" }}>
+                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
+                      {tenant.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{tenant.name}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{lastMsg.message.slice(0, 50)}{lastMsg.message.length > 50 ? "..." : ""}</div>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#9ca3af" }}>{lastMsg.date || new Date(lastMsg.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Right — thread view or sent list */}
           <div style={{ background: "#fff", borderRadius: 14, padding: "20px", border: "1px solid rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Sent messages</div>
-            {history.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "30px 0", color: "#9ca3af" }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-                <div style={{ fontSize: 13 }}>No messages sent yet</div>
-              </div>
-            ) : history.map((s, i) => (
-              <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < history.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{s.to}</div>
-                  <div style={{ fontSize: 11, color: "#9ca3af" }}>{s.date}</div>
+            {selectedTenant ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>Thread: {selectedTenant.name}</div>
+                  <button onClick={() => setSelectedTenant(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 18 }}>✕</button>
                 </div>
-                <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{s.msg}</div>
-              </div>
-            ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {thread.map((m, i) => {
+                    const isAdmin = m.sender === "admin";
+                    return (
+                      <div key={m.id || i} style={{ display: "flex", flexDirection: "column", alignItems: isAdmin ? "flex-end" : "flex-start" }}>
+                        <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 3 }}>
+                          {isAdmin ? "You (Admin)" : selectedTenant.name} · {m.date || new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </div>
+                        <div style={{ maxWidth: "85%", padding: "10px 14px", borderRadius: isAdmin ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: isAdmin ? "#1b3d2a" : "#f3f4f6", color: isAdmin ? "#fff" : "#1f2937", fontSize: 13, lineHeight: 1.5 }}>
+                          {m.message}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Sent messages</div>
+                {loading ? (
+                  <div style={{ textAlign: "center", padding: 20, color: "#9ca3af" }}>Loading...</div>
+                ) : messages.filter(m => m.sender === "admin").length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "30px 0", color: "#9ca3af" }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+                    <div style={{ fontSize: 13 }}>No messages sent yet</div>
+                  </div>
+                ) : messages.filter(m => m.sender === "admin").map((m, i, arr) => (
+                  <div key={m.id || i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < arr.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>→ {m.to_name || "All tenants"}</div>
+                      <div style={{ fontSize: 11, color: "#9ca3af" }}>{m.date || new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{m.message}</div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -115,4 +206,5 @@ export default function AdminMessages({ tenants, supabase }) {
 function Label({ children }) {
   return <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>{children}</div>;
 }
+
 const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", display: "block" };
