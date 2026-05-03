@@ -1,136 +1,259 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import LoginScreen from "./components/LoginScreen";
+import TicketsScreen from "./components/TicketsScreen";
+import PayRentScreen from "./components/PayRentScreen";
+import UnitInfoScreen from "./components/UnitInfoScreen";
+import SubmitTicketModal from "./components/SubmitTicketModal";
+import AdminDashboard from "./components/AdminDashboard";
+import Dashboard from "./components/Dashboard";
+import { supabase } from "./supabase";
 
-export default function LoginScreen({ onLogin }) {
-  const [mode, setMode] = useState("email"); // "email" or "sms"
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState("form"); // "form" or "sms-code"
-  const [code, setCode] = useState("");
+const ADMIN_EMAIL = "gaetano@giholdings.com";
+const ADMIN_PASS = "GIHoldings2026!";
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-  const handleSubmit = () => {
-    setLoading(true);
-    setTimeout(() => {
-      if (mode === "sms" && step === "form") {
-        setStep("sms-code");
-        setLoading(false);
+const TENANT_EMAILS = {
+  "gthorntonjr51@gmail.com": "Gary Thornton",
+  "apate636@icloud.com": "Angelisa Pate",
+  "timmylapearl92@gmail.com": "Danielle Russell",
+};
+
+// ── Session persistence helpers ──
+function saveSession(screen, tenantId) {
+  try {
+    localStorage.setItem("gi_session", JSON.stringify({ screen, tenantId, ts: Date.now() }));
+  } catch (e) {}
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem("gi_session");
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    // Expire after 7 days
+    if (Date.now() - s.ts > 7 * 24 * 60 * 60 * 1000) {
+      localStorage.removeItem("gi_session");
+      return null;
+    }
+    return s;
+  } catch (e) { return null; }
+}
+
+function clearSession() {
+  try { localStorage.removeItem("gi_session"); } catch (e) {}
+}
+
+export default function App() {
+  const [screen, setScreen] = useState("loading");
+  const [activeTab, setActiveTab] = useState("tickets");
+  const [showModal, setShowModal] = useState(false);
+  const [tickets, setTickets] = useState([]);
+  const [tenants, setTenants] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loggedInTenantId, setLoggedInTenantId] = useState(null);
+
+  const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
+  const currentTenantInvoices = invoices.filter(inv => inv.tenant_id === currentTenant?.id && !inv.paid);
+
+  useEffect(() => { loadData(); }, []);
+
+  // After data loads, restore session
+  useEffect(() => {
+    if (loading) return;
+    const session = loadSession();
+    if (session) {
+      if (session.screen === "admin") {
+        setScreen("admin");
+      } else if (session.screen === "portal" && session.tenantId) {
+        const tenant = tenants.find(t => t.id === session.tenantId);
+        if (tenant) {
+          setLoggedInTenantId(session.tenantId);
+          setScreen("portal");
+        } else {
+          setScreen("login");
+        }
       } else {
-        onLogin(mode === "sms" ? phone : email, password);
+        setScreen("login");
       }
-    }, 1000);
+    } else {
+      setScreen("login");
+    }
+  }, [loading]);
+
+  // Auto-create current month invoices
+  useEffect(() => {
+    if (tenants.length === 0) return;
+    createMissingInvoices();
+  }, [tenants.length]);
+
+  async function createMissingInvoices() {
+    const now = new Date();
+    const monthName = MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
+    const monthNum = now.getMonth() + 1;
+    const year = now.getFullYear();
+
+    for (const tenant of tenants) {
+      if (tenant.section8) continue;
+      const exists = invoices.find(inv => inv.tenant_id === tenant.id && inv.month === monthName);
+      if (exists) continue;
+      const { data } = await supabase.from("invoices").insert({
+        tenant_id: tenant.id,
+        month: monthName,
+        year,
+        month_num: monthNum,
+        rent: Number(tenant.rent) || 0,
+        late_fee: 0,
+        total: Number(tenant.rent) || 0,
+        paid: false,
+        due_date: `${year}-${String(monthNum).padStart(2,'0')}-01`,
+      }).select().single();
+      if (data) setInvoices(prev => [...prev, data]);
+    }
+  }
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [{ data: tenantData }, { data: ticketData }, { data: invoiceData }] = await Promise.all([
+        supabase.from("tenants").select("*").order("created_at"),
+        supabase.from("tickets").select("*").order("created_at", { ascending: false }),
+        supabase.from("invoices").select("*").order("created_at", { ascending: false }),
+      ]);
+      if (tenantData) setTenants(tenantData.map(normalizeTenant));
+      if (ticketData) setTickets(ticketData.map(normalizeTicket));
+      if (invoiceData) setInvoices(invoiceData);
+    } catch (e) { console.error("Failed to load:", e); }
+    setLoading(false);
+  }
+
+  function normalizeTenant(t) {
+    return {
+      ...t,
+      paidDate: t.paid_date,
+      amountOwed: t.amount_owed,
+      overrideLate: t.override_late,
+      section8Amount: t.section8_amount,
+      tenantPortion: t.tenant_portion,
+      housingOwedBack: t.housing_owed_back,
+      leaseStart: t.lease_start,
+      leaseEnd: t.lease_end,
+      contactEmail: t.contact_email,
+      documents: t.documents || [],
+    };
+  }
+
+  function normalizeTicket(t) {
+    return { ...t, tenantId: t.tenant_id, tenantName: t.tenant_name };
+  }
+
+  const handleLogin = (email, password) => {
+    const lowerEmail = email.toLowerCase().trim();
+    if (lowerEmail === ADMIN_EMAIL && password === ADMIN_PASS) {
+      saveSession("admin", null);
+      setScreen("admin");
+    } else if (TENANT_EMAILS[lowerEmail]) {
+      const tenantName = TENANT_EMAILS[lowerEmail];
+      const matchedTenant = tenants.find(t => t.name === tenantName);
+      if (matchedTenant) {
+        saveSession("portal", matchedTenant.id);
+        setLoggedInTenantId(matchedTenant.id);
+        setScreen("portal");
+      } else {
+        alert("Account found but tenant not set up yet. Contact your landlord.");
+        return false;
+      }
+    } else {
+      return false;
+    }
   };
 
+  const handleLogout = () => {
+    clearSession();
+    setScreen("login");
+    setActiveTab("tickets");
+    setLoggedInTenantId(null);
+  };
+
+  const handlePaymentSuccess = async (tenantId, invoiceId) => {
+    const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    await supabase.from("invoices").update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() }).eq("id", invoiceId);
+    setInvoices(prev => prev.map(inv => inv.id === invoiceId ? { ...inv, paid: true, paid_date: paidDate } : inv));
+    const remaining = invoices.filter(inv => inv.tenant_id === tenantId && !inv.paid && inv.id !== invoiceId);
+    if (remaining.length === 0) {
+      setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, paid: true, paidDate } : t));
+      await supabase.from("tenants").update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() }).eq("id", tenantId);
+    }
+    setActiveTab("tickets");
+  };
+
+  const addTicket = async (ticket) => {
+    const newTicket = {
+      tenant_id: currentTenant?.id,
+      tenant_name: currentTenant?.name,
+      unit: currentTenant?.unit || currentTenant?.address?.split(",")[0],
+      title: ticket.title,
+      category: ticket.category,
+      urgency: ticket.urgency,
+      description: ticket.description || "",
+      status: "open",
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    };
+    const { data } = await supabase.from("tickets").insert(newTicket).select().single();
+    if (data) setTickets([normalizeTicket(data), ...tickets]);
+    setShowModal(false);
+  };
+
+  if (screen === "loading" || loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: "#1b3d2a", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 48 }}>🏡</div>
+        <div style={{ color: "#fff", fontSize: 18, fontWeight: 600 }}>G&I Holdings</div>
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Loading your portal...</div>
+      </div>
+    );
+  }
+
+  if (screen === "login") return <LoginScreen onLogin={handleLogin} />;
+
+  if (screen === "admin") return (
+    <AdminDashboard
+      onLogout={handleLogout}
+      sharedTenants={tenants}
+      setSharedTenants={setTenants}
+      sharedTickets={tickets}
+      setSharedTickets={setTickets}
+      sharedInvoices={invoices}
+      setSharedInvoices={setInvoices}
+      supabase={supabase}
+    />
+  );
+
   return (
-    <div style={{
-      minHeight: "100vh", background: "#1b3d2a",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "24px",
-      fontFamily: "'DM Sans', sans-serif",
-    }}>
-      {/* Logo block */}
-      <div style={{ textAlign: "center", marginBottom: 40 }}>
-        <div style={{
-          width: 64, height: 64, borderRadius: 18,
-          background: "linear-gradient(135deg, #4caf7d, #2d7a52)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 28, marginBottom: 14, marginLeft: "auto", marginRight: "auto",
-          boxShadow: "0 8px 32px rgba(76,175,125,0.35)",
-        }}>🏡</div>
-        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 26, color: "#fff", fontWeight: 600, letterSpacing: "-0.3px" }}>
-          G&I Holdings
+    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f0f2f0", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
+      <div className="tenant-portal" style={{ position: "relative" }}>
+        <Dashboard tenant={currentTenant} invoices={currentTenantInvoices} onTabClick={setActiveTab} onLogout={handleLogout} />
+        <nav style={{ display: "flex", background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+          {["tickets", "pay", "info"].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{
+              flex: 1, padding: "13px 8px", fontSize: 13, fontWeight: 500,
+              fontFamily: "'DM Sans', sans-serif",
+              color: activeTab === tab ? "#1b3d2a" : "#9ca3af",
+              background: "none", border: "none",
+              borderBottom: activeTab === tab ? "2.5px solid #4caf7d" : "2.5px solid transparent",
+              cursor: "pointer",
+            }}>
+              {tab === "pay" ? "💳 Pay Rent" : tab === "info" ? "My Unit" : "Tickets"}
+            </button>
+          ))}
+        </nav>
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {activeTab === "tickets" && <TicketsScreen tickets={tickets.filter(t => t.tenantId === currentTenant?.id || t.tenant_id === currentTenant?.id)} onNewTicket={() => setShowModal(true)} />}
+          {activeTab === "pay" && <PayRentScreen tenant={currentTenant} invoices={currentTenantInvoices} onPaymentSuccess={handlePaymentSuccess} />}
+          {activeTab === "info" && <UnitInfoScreen tenant={currentTenant} />}
         </div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>Tenant Portal</div>
-      </div>
-
-      {/* Card */}
-      <div style={{
-        background: "#fff", borderRadius: 20, padding: "28px 24px",
-        width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-      }}>
-        {step === "sms-code" ? (
-          <>
-            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>Enter your code</div>
-            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>We sent a 6-digit code to {phone}</div>
-            <input
-              value={code} onChange={e => setCode(e.target.value)}
-              placeholder="000000"
-              style={{
-                width: "100%", padding: "13px 14px", borderRadius: 12, fontSize: 22,
-                border: "1.5px solid #e5e7eb", outline: "none", letterSpacing: 8,
-                textAlign: "center", fontFamily: "'DM Sans', sans-serif", marginBottom: 14,
-              }}
-            />
-            <button onClick={handleSubmit} style={btnStyle(loading)}>
-              {loading ? "Verifying..." : "Verify & Sign in"}
-            </button>
-            <button onClick={() => setStep("form")} style={linkBtn}>← Back</button>
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 18 }}>Sign in to your portal</div>
-
-            {/* Toggle */}
-            <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 20 }}>
-              {["email", "sms"].map(m => (
-                <button key={m} onClick={() => setMode(m)} style={{
-                  flex: 1, padding: "8px", borderRadius: 8, border: "none",
-                  background: mode === m ? "#fff" : "transparent",
-                  fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500,
-                  color: mode === m ? "#1b3d2a" : "#6b7280", cursor: "pointer",
-                  boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
-                  transition: "all 0.15s",
-                }}>
-                  {m === "email" ? "📧 Email" : "📱 SMS"}
-                </button>
-              ))}
-            </div>
-
-            {mode === "email" ? (
-              <>
-                <div style={fieldLabel}>Email address</div>
-                <input value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" style={inputStyle} />
-                <div style={{ ...fieldLabel, marginTop: 12 }}>Password</div>
-                <input value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" type="password" style={inputStyle} />
-              </>
-            ) : (
-              <>
-                <div style={fieldLabel}>Phone number</div>
-                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 (410) 555-0000" style={inputStyle} />
-              </>
-            )}
-
-            <button onClick={handleSubmit} disabled={loading} style={{ ...btnStyle(loading), marginTop: 18 }}>
-              {loading ? "Signing in..." : mode === "email" ? "Sign in" : "Send code"}
-            </button>
-
-            <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "#9ca3af" }}>
-              Need help? Contact your landlord
-            </div>
-          </>
-        )}
-      </div>
-
-      <div style={{ marginTop: 24, fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
-        © 2026 G&I Holdings LLC · All rights reserved
+        {showModal && <SubmitTicketModal onClose={() => setShowModal(false)} onSubmit={addTicket} />}
       </div>
     </div>
   );
 }
-
-const fieldLabel = { fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 };
-const inputStyle = {
-  width: "100%", padding: "12px 14px", borderRadius: 12, fontSize: 14,
-  border: "1.5px solid #e5e7eb", outline: "none", fontFamily: "'DM Sans', sans-serif",
-  boxSizing: "border-box", color: "#1a1a1a",
-};
-const btnStyle = (loading) => ({
-  width: "100%", padding: "13px", borderRadius: 12, border: "none",
-  background: loading ? "#9ca3af" : "#1b3d2a", color: "#fff",
-  fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600,
-  cursor: loading ? "not-allowed" : "pointer",
-});
-const linkBtn = {
-  width: "100%", padding: "10px", border: "none", background: "none",
-  fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#6b7280", cursor: "pointer", marginTop: 6,
-};
