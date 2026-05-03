@@ -149,9 +149,8 @@ function PaymentTimeline({ inv }) {
   const today = new Date();
   today.setHours(23, 59, 0, 0);
 
-  const dueParts = (inv.due_date || "").split("T")[0].split("-");
-  const created = dueParts.length === 3 ? new Date(Number(dueParts[0]), Number(dueParts[1]) - 1, Number(dueParts[2])) : new Date(inv.due_date);
-  events.push({ date: created, label: "Invoice created", color: "#2563eb" });
+  const createdAt = new Date(inv.created_at || inv.due_date);
+  events.push({ date: createdAt, label: "Invoice created", color: "#2563eb" });
 
   const parts = (inv.due_date || "").split("T")[0].split("-");
   const due = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(inv.due_date);
