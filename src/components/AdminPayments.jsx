@@ -163,8 +163,13 @@ function PaymentTimeline({ inv }) {
       events.push({ date: feeStart, label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
     }
     if (inv.paid_date) {
-      const pd = new Date(inv.paid_date);
-      const dayBefore = new Date(pd.getTime() - 24 * 60 * 60 * 1000);
+      // Parse paid_date timezone-safe
+      const pdStr = inv.paid_date.split("T")[0];
+      const pdParts = pdStr.split("-");
+      const pd = pdParts.length === 3
+        ? new Date(Number(pdParts[0]), Number(pdParts[1]) - 1, Number(pdParts[2]))
+        : new Date(inv.paid_date);
+      const dayBefore = new Date(pd.getFullYear(), pd.getMonth(), pd.getDate() - 1);
       events.push({ date: dayBefore, label: "Tenant scheduled payment", color: "#2563eb", expand: true });
       events.push({ date: dayBefore, label: "Payment processing initiated", color: "#2563eb" });
       events.push({ date: pd, label: "Payment complete", color: "#2563eb", expand: true, bold: true });
