@@ -176,10 +176,14 @@ function PaymentTimeline({ inv }) {
     }
   } else {
     if (overdueDay <= today) {
-      events.push({ date: overdueDay, label: "Payment overdue", color: "#dc2626", expand: true });
+      const msPerDay = 1000 * 60 * 60 * 24;
+      // Add a "Payment overdue" entry for each day from overdueDay to today (or feeStart-1)
+      const daysOverdueBeforeFee = Math.floor((Math.min(feeStart, today) - overdueDay) / msPerDay);
+      for (let d = 0; d <= daysOverdueBeforeFee; d++) {
+        events.push({ date: new Date(overdueDay.getTime() + d * msPerDay), label: "Payment overdue", color: "#dc2626", expand: true });
+      }
       if (feeStart <= today) {
         events.push({ date: new Date(feeStart), label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
-        const msPerDay = 1000 * 60 * 60 * 24;
         const days = Math.floor((today - feeStart) / msPerDay);
         for (let d = 1; d <= days; d++) {
           events.push({ date: new Date(feeStart.getTime() + d * msPerDay), label: "$10.00 daily late fee added", color: "#dc2626", expand: true });
