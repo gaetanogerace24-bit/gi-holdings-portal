@@ -36,13 +36,11 @@ function fmt(amount) {
 // Fix timezone issue — parse date string without converting to UTC
 function fmtDate(dateStr) {
   if (!dateStr) return "—";
-  // Handle ISO timestamps or "May 1, 2026" style strings
   if (dateStr.includes("T") || dateStr.includes(",")) {
     const d = new Date(dateStr);
     if (isNaN(d)) return dateStr;
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
-  // Handle "2026-04-01" style — parse manually to avoid timezone shift
   const parts = dateStr.split("-");
   if (parts.length === 3) {
     const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
@@ -127,9 +125,9 @@ function ActionBtn({ icon, label, onClick, danger }) {
   );
 }
 
-function SummaryCard({ badgeColor, badgeLabel, badgeBorder, sub, amount, amountColor, count }) {
+function SummaryCard({ badgeColor, badgeLabel, badgeBorder, sub, amount, amountColor, count, onClick }) {
   return (
-    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 16 }}>
+    <div onClick={onClick} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 16, cursor: onClick ? "pointer" : "default" }}>
       <div style={{ marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: badgeColor, borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, border: badgeBorder ? `1.5px solid ${badgeColor}` : "1px solid #e5e7eb" }}>
           {badgeLabel}
@@ -163,7 +161,6 @@ function PaymentTimeline({ inv }) {
       events.push({ date: feeStart, label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
     }
     if (inv.paid_date) {
-      // Parse paid_date timezone-safe
       const pdStr = inv.paid_date.split("T")[0];
       const pdParts = pdStr.split("-");
       const pd = pdParts.length === 3
@@ -177,7 +174,6 @@ function PaymentTimeline({ inv }) {
   } else {
     if (overdueDay <= today) {
       const msPerDay = 1000 * 60 * 60 * 24;
-      // Add a "Payment overdue" entry for each day from overdueDay to today (or feeStart-1)
       const daysOverdueBeforeFee = Math.floor((Math.min(feeStart, today) - overdueDay) / msPerDay);
       for (let d = 0; d <= daysOverdueBeforeFee; d++) {
         events.push({ date: new Date(overdueDay.getTime() + d * msPerDay), label: "Payment overdue", color: "#dc2626", expand: true });
@@ -247,7 +243,6 @@ function InvoiceBreakdown({ inv }) {
         <span style={{ fontSize: 14, fontWeight: 700 }}>Total</span>
         <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(total)}</span>
       </div>
-
     </div>
   );
 }
@@ -364,6 +359,63 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
             </div>
           );
         })}
+      </div>
+      <div style={{ height: 32 }} />
+    </Sheet>
+  );
+}
+
+// ─── FILTERED INVOICE LIST SHEET ──────────────────────────────────────────────
+function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect }) {
+  const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
+  return (
+    <Sheet onClose={onClose}>
+      <SheetHeader title={title} onClose={onClose} />
+      <div style={{ padding: "8px 20px 4px" }}>
+        <div style={{ fontSize: 13, color: "#6b7280" }}>{sorted.length} invoice{sorted.length !== 1 ? "s" : ""}</div>
+      </div>
+      <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
+        {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No invoices</div>}
+        {sorted.map((inv, i) => {
+          const tenant = tenants.find(t => t.id === inv.tenant_id);
+          const status = getStatus(inv);
+          const liveTotal = inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + calcLateFee(inv.due_date);
+          return (
+            <div key={inv.id} onClick={() => onSelect(inv, tenant)}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>{tenant?.name}</div>
+                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{tenant?.address}</div>
+                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>Due {fmtDate(inv.due_date)}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: status === "overdue" ? "#dc2626" : status === "completed" ? "#16a34a" : "#1f2937" }}>{fmt(liveTotal)}</div>
+                <div style={{ fontSize: 12, marginTop: 3 }}>
+                  {status === "completed" ? <span style={{ color: "#16a34a" }}>✓ Completed</span>
+                    : status === "overdue" ? <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>
+                    : <span style={{ color: "#2563eb" }}>📅 Upcoming</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ height: 32 }} />
+    </Sheet>
+  );
+}
+
+// ─── PROCESSING COMING SOON SHEET ─────────────────────────────────────────────
+function ProcessingSheet({ onClose }) {
+  return (
+    <Sheet onClose={onClose}>
+      <SheetHeader title="Processing" onClose={onClose} />
+      <div style={{ padding: "40px 20px", textAlign: "center" }}>
+        <div style={{ fontSize: 40, marginBottom: 16 }}>↻</div>
+        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Payment Processing</div>
+        <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
+          This section will show payments currently in processing once your merchant account is connected.
+        </div>
       </div>
       <div style={{ height: 32 }} />
     </Sheet>
@@ -531,9 +583,19 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const currentMonthName = getCurrentMonthName();
   const allActive = invoices.filter(i => !i.deleted);
 
-  const upcomingList = allActive.filter(i => !i.paid && getStatus(i) === "upcoming");
-  const overdueList  = allActive.filter(i => !i.paid && getStatus(i) === "overdue");
-  const completedList = allActive.filter(i => i.paid && i.month === currentMonthName);
+  const upcomingList  = allActive.filter(i => !i.paid && getStatus(i) === "upcoming");
+  const overdueList   = allActive.filter(i => !i.paid && getStatus(i) === "overdue");
+  // FIX: completed = all paid invoices (not filtered to current month only)
+  const completedList = allActive.filter(i => i.paid);
+  // For "this month" display, filter completed to current month
+  const completedThisMonth = completedList.filter(i => {
+    if (!i.due_date) return false;
+    const parts = i.due_date.split("T")[0].split("-");
+    if (parts.length !== 3) return false;
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    const n = new Date();
+    return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
+  });
 
   const upcomingTotal  = upcomingList.reduce((s, i) => s + Number(i.rent || 0), 0);
   const overdueTotal   = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
@@ -578,12 +640,26 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-        <SummaryCard badgeColor="#6b7280" badgeLabel="📅 Upcoming" badgeBorder={false} sub="This month" amount={fmt(upcomingTotal)} count={`${upcomingList.length} invoice${upcomingList.length !== 1 ? "s" : ""}`} />
-        <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount="$0.00" count="0 invoices" />
+        <SummaryCard
+          badgeColor="#6b7280" badgeLabel="📅 Upcoming" badgeBorder={false}
+          sub="This month" amount={fmt(upcomingTotal)}
+          count={`${upcomingList.length} invoice${upcomingList.length !== 1 ? "s" : ""}`}
+          onClick={() => setSheet("allUpcoming")}
+        />
+        <SummaryCard
+          badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true}
+          sub="All time" amount="$0.00" count="0 invoices"
+          onClick={() => setSheet("processing")}
+        />
         <div onClick={() => overdueList.length > 0 && setSheet("allOverdue")} style={{ cursor: overdueList.length > 0 ? "pointer" : "default" }}>
           <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
         </div>
-        <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="This month" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedList.length} invoice${completedList.length !== 1 ? "s" : ""}`} />
+        <SummaryCard
+          badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true}
+          sub="All time" amount={fmt(completedTotal)} amountColor="#16a34a"
+          count={`${completedList.length} invoice${completedList.length !== 1 ? "s" : ""}`}
+          onClick={() => setSheet("allCompleted")}
+        />
       </div>
 
       <button style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 20, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -631,6 +707,31 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
           );
         })}
       </div>
+
+      {/* ── SHEETS ── */}
+      {sheet === "allUpcoming" && (
+        <FilteredInvoiceSheet
+          title="Upcoming Invoices"
+          invoices={upcomingList}
+          tenants={tenants}
+          onClose={() => setSheet(null)}
+          onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }}
+        />
+      )}
+
+      {sheet === "allCompleted" && (
+        <FilteredInvoiceSheet
+          title="Completed Invoices"
+          invoices={completedList}
+          tenants={tenants}
+          onClose={() => setSheet(null)}
+          onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }}
+        />
+      )}
+
+      {sheet === "processing" && (
+        <ProcessingSheet onClose={() => setSheet(null)} />
+      )}
 
       {sheet === "allOverdue" && (
         <Sheet onClose={() => setSheet(null)}>
