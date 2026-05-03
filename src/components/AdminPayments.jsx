@@ -2,56 +2,26 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
 // ─── LATE FEE CALCULATOR ─────────────────────────────────────────────────────
-// Rules:
-//   - Due on the 1st of every month
-//   - Grace period: 1st through 4th (no fees)
-//   - Day 5: $35 one-time flat fee
-//   - Day 6 onward: +$10 per day, every day, until paid
-//
-// Example: Due April 1. Unpaid as of May 1:
-//   April 5  → $35 flat
-//   April 6  → +$10 (day 1 of daily)
-//   April 7  → +$10 (day 2)
-//   ...
-//   May 1    → +$10 (day 26)
-//   Total fees = $35 + (26 × $10) = $295
-//   Total owed = $900 + $295 = $1,195
-
 function calcLateFee(dueDateStr) {
   if (!dueDateStr) return 0;
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  const due = new Date(dueDateStr);
-  due.setHours(0, 0, 0, 0);
-
-  // Fee starts on the 5th of the due month
+  const [year, month, day] = dueDateStr.split("T")[0].split("-");
+  const due = new Date(Number(year), Number(month) - 1, Number(day));
   const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
-
-  // If today is before the 5th, no fees
   if (today < feeStart) return 0;
-
-  // $35 flat fee on day 5
-  // Then $10 for each day from day 6 onward (i.e., each day after the 5th)
   const msPerDay = 1000 * 60 * 60 * 24;
   const daysAfterFeeStart = Math.floor((today - feeStart) / msPerDay);
-  // daysAfterFeeStart = 0 means it's exactly the 5th → just $35
-  // daysAfterFeeStart = 1 means it's the 6th → $35 + $10
-  const dailyFees = daysAfterFeeStart * 10;
-  return 35 + dailyFees;
+  return 35 + daysAfterFeeStart * 10;
 }
 
 function calcTotal(inv) {
   if (!inv) return 0;
   if (inv.paid) return Number(inv.total || inv.rent || 0);
-  const rent = Number(inv.rent || 0);
-  const fee = calcLateFee(inv.due_date);
-  return rent + fee;
+  return Number(inv.rent || 0) + calcLateFee(inv.due_date);
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 function getCurrentMonthName() {
@@ -63,11 +33,22 @@ function fmt(amount) {
   return "$" + Number(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Fix timezone issue — parse date string without converting to UTC
 function fmtDate(dateStr) {
   if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // Handle ISO timestamps or "May 1, 2026" style strings
+  if (dateStr.includes("T") || dateStr.includes(",")) {
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+  // Handle "2026-04-01" style — parse manually to avoid timezone shift
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+  return dateStr;
 }
 
 function getStatus(inv) {
@@ -75,8 +56,9 @@ function getStatus(inv) {
   if (inv.paid) return "completed";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const due = new Date(inv.due_date);
-  due.setHours(0, 0, 0, 0);
+  const parts = (inv.due_date || "").split("T")[0].split("-");
+  if (parts.length !== 3) return "upcoming";
+  const due = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   return today > due ? "overdue" : "upcoming";
 }
 
@@ -87,7 +69,6 @@ function invoiceNum(id) {
 }
 
 // ─── SHARED UI ────────────────────────────────────────────────────────────────
-
 function Sheet({ children, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
@@ -146,8 +127,22 @@ function ActionBtn({ icon, label, onClick, danger }) {
   );
 }
 
-// ─── PAYMENT TIMELINE ─────────────────────────────────────────────────────────
+function SummaryCard({ badgeColor, badgeLabel, badgeBorder, sub, amount, amountColor, count }) {
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 16 }}>
+      <div style={{ marginBottom: 8 }}>
+        <span style={{ fontSize: 12, color: badgeColor, borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, border: badgeBorder ? `1.5px solid ${badgeColor}` : "1px solid #e5e7eb" }}>
+          {badgeLabel}
+        </span>
+      </div>
+      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 2 }}>{sub}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px", color: amountColor || "#1f2937" }}>{amount}</div>
+      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{count} ›</div>
+    </div>
+  );
+}
 
+// ─── PAYMENT TIMELINE ─────────────────────────────────────────────────────────
 function PaymentTimeline({ inv }) {
   if (!inv) return null;
   const events = [];
@@ -157,13 +152,12 @@ function PaymentTimeline({ inv }) {
   const created = new Date(inv.created_at || inv.due_date);
   events.push({ date: created, label: "Invoice created", color: "#2563eb" });
 
-  const due = new Date(inv.due_date);
+  const parts = (inv.due_date || "").split("T")[0].split("-");
+  const due = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(inv.due_date);
   const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
-  const overdueDay = new Date(due);
-  overdueDay.setDate(overdueDay.getDate() + 1);
+  const overdueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate() + 1);
 
   if (inv.paid) {
-    // Show overdue + late fees if it was paid late
     if (Number(inv.late_fee) > 0) {
       events.push({ date: overdueDay, label: "Payment overdue", color: "#dc2626", expand: true });
       events.push({ date: feeStart, label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
@@ -176,19 +170,14 @@ function PaymentTimeline({ inv }) {
       events.push({ date: completed, label: "Payment complete", color: "#2563eb", expand: true, bold: true });
     }
   } else {
-    // Unpaid — show running late fees day by day
     if (overdueDay <= today) {
       events.push({ date: overdueDay, label: "Payment overdue", color: "#dc2626", expand: true });
-
       if (feeStart <= today) {
         events.push({ date: new Date(feeStart), label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
-
-        // Daily $10 fees from day after feeStart up to today
         const msPerDay = 1000 * 60 * 60 * 24;
-        const daysOfDaily = Math.floor((today - feeStart) / msPerDay);
-        for (let d = 1; d <= daysOfDaily; d++) {
-          const feeDate = new Date(feeStart.getTime() + d * msPerDay);
-          events.push({ date: feeDate, label: "$10.00 daily late fee added", color: "#dc2626", expand: true });
+        const days = Math.floor((today - feeStart) / msPerDay);
+        for (let d = 1; d <= days; d++) {
+          events.push({ date: new Date(feeStart.getTime() + d * msPerDay), label: "$10.00 daily late fee added", color: "#dc2626", expand: true });
         }
       }
     }
@@ -222,13 +211,11 @@ function PaymentTimeline({ inv }) {
 }
 
 // ─── INVOICE BREAKDOWN ────────────────────────────────────────────────────────
-
 function InvoiceBreakdown({ inv }) {
   const rent = Number(inv?.rent || 0);
   const lateFee = inv?.paid ? Number(inv?.late_fee || 0) : calcLateFee(inv?.due_date);
   const total = rent + lateFee;
   const daysLate = lateFee > 35 ? Math.round((lateFee - 35) / 10) : 0;
-
   return (
     <div style={{ padding: "16px 0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
@@ -253,15 +240,14 @@ function InvoiceBreakdown({ inv }) {
       </div>
       <div style={{ marginTop: 12, padding: 12, background: "#f9fafb", borderRadius: 8 }}>
         <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4, fontWeight: 600 }}>Late fee policy</div>
-        <div style={{ fontSize: 13, color: "#374151" }}>Day 5 after due: $35.00 one-time fee</div>
-        <div style={{ fontSize: 13, color: "#374151" }}>Day 6 onward: +$10.00 every day until paid</div>
+        <div style={{ fontSize: 13 }}>Day 5 after due: $35.00 one-time fee</div>
+        <div style={{ fontSize: 13 }}>Day 6 onward: +$10.00 every day until paid</div>
       </div>
     </div>
   );
 }
 
 // ─── INVOICE DETAIL SHEET ─────────────────────────────────────────────────────
-
 function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onEdit, onDelete }) {
   const [tab, setTab] = useState("timeline");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -272,13 +258,11 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onEdit, onDelete
   return (
     <Sheet onClose={onClose}>
       <SheetHeader title="Invoice details" onClose={onClose} />
-
       <div style={{ padding: "12px 20px 0" }}>
         <div style={{ fontSize: 17, fontWeight: 700 }}>{tenant?.address}</div>
         <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant?.name}</div>
       </div>
 
-      {/* Invoice card */}
       <div style={{ margin: "14px 20px", background: "#f9fafb", borderRadius: 12, padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <div style={{ fontSize: 13, color: "#6b7280" }}>Rent & Fees</div>
@@ -294,7 +278,6 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onEdit, onDelete
         </div>
       </div>
 
-      {/* Actions */}
       {!inv?.paid && !confirmDelete && (
         <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 10 }}>
           <ActionBtn icon="◉" label="Mark as paid" onClick={() => onMarkPaid(inv)} />
@@ -325,7 +308,6 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onEdit, onDelete
 }
 
 // ─── INVOICE LIST SHEET ───────────────────────────────────────────────────────
-
 function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
   const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
   const active = invoices.filter(i => !i.deleted);
@@ -357,26 +339,20 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
           const status = getStatus(inv);
           const isDeleted = inv.deleted;
           const liveTotal = inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + calcLateFee(inv.due_date);
-
           return (
             <div key={inv.id} onClick={() => !isDeleted && onSelect(inv)}
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: isDeleted ? "default" : "pointer", opacity: isDeleted ? 0.45 : 1 }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: isDeleted ? "#9ca3af" : "#1f2937" }}>
-                  Rent & Fees
-                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: isDeleted ? "#9ca3af" : "#1f2937" }}>Rent & Fees</div>
                 <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>Due {fmtDate(inv.due_date)}</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{fmt(liveTotal)}</div>
                 <div style={{ fontSize: 12, marginTop: 3 }}>
-                  {isDeleted
-                    ? <span style={{ color: "#9ca3af" }}>🗑 Deleted</span>
-                    : status === "completed"
-                      ? <span style={{ color: "#16a34a" }}>✓ Completed {inv.paid_date ? fmtDate(inv.paid_date) : ""}</span>
-                      : status === "overdue"
-                        ? <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>
-                        : <span style={{ color: "#2563eb" }}>📅 Upcoming</span>
+                  {isDeleted ? <span style={{ color: "#9ca3af" }}>🗑 Deleted</span>
+                    : status === "completed" ? <span style={{ color: "#16a34a" }}>✓ Completed {inv.paid_date ? fmtDate(inv.paid_date) : ""}</span>
+                    : status === "overdue" ? <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>
+                    : <span style={{ color: "#2563eb" }}>📅 Upcoming</span>
                   }
                 </div>
               </div>
@@ -390,7 +366,6 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
 }
 
 // ─── RENT COLLECTION DETAIL SHEET ────────────────────────────────────────────
-
 function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices }) {
   const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
   const paid = sorted.filter(i => i.paid);
@@ -498,7 +473,6 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices }) {
 }
 
 // ─── EDIT MODAL ───────────────────────────────────────────────────────────────
-
 function EditModal({ inv, onClose, onSave }) {
   const [rent, setRent] = useState(String(inv?.rent || ""));
   const [dueDate, setDueDate] = useState(inv?.due_date || "");
@@ -535,25 +509,7 @@ function EditModal({ inv, onClose, onSave }) {
   );
 }
 
-// ─── SUMMARY CARD ─────────────────────────────────────────────────────────────
-
-function SummaryCard({ badgeColor, badgeLabel, badgeBorder, sub, amount, amountColor, count }) {
-  return (
-    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 16 }}>
-      <div style={{ marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: badgeColor, borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, border: badgeBorder ? `1.5px solid ${badgeColor}` : "1px solid #e5e7eb" }}>
-          {badgeLabel}
-        </span>
-      </div>
-      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 2 }}>{sub}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px", color: amountColor || "#1f2937" }}>{amount}</div>
-      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{count} ›</div>
-    </div>
-  );
-}
-
 // ─── MAIN EXPORT ──────────────────────────────────────────────────────────────
-
 export default function AdminPayments({ tenants = [], invoices: propInvoices = [], setInvoices: propSetInvoices }) {
   const [invoices, setInvoicesLocal] = useState(propInvoices);
   const setInvoices = (val) => { setInvoicesLocal(val); if (propSetInvoices) propSetInvoices(val); };
@@ -570,35 +526,22 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const currentMonthName = getCurrentMonthName();
   const allActive = invoices.filter(i => !i.deleted);
 
-  // ── Summary stats (all calculated live from due_date) ──
   const upcomingList = allActive.filter(i => !i.paid && getStatus(i) === "upcoming");
   const overdueList  = allActive.filter(i => !i.paid && getStatus(i) === "overdue");
   const completedList = allActive.filter(i => i.paid && i.month === currentMonthName);
 
-  // Upcoming = just base rent (no late fees yet)
-  const upcomingTotal = upcomingList.reduce((s, i) => s + Number(i.rent || 0), 0);
-  // Overdue = rent + live calculated late fee
-  const overdueTotal = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
+  const upcomingTotal  = upcomingList.reduce((s, i) => s + Number(i.rent || 0), 0);
+  const overdueTotal   = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
   const completedTotal = completedList.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
 
-  // ── Per-tenant helpers ──
   const tenantInvoices = (id) => allActive.filter(i => i.tenant_id === id);
-
-  const getPropertyStatus = (t) =>
-    tenantInvoices(t.id).some(i => !i.paid && getStatus(i) === "overdue") ? "overdue" : "current";
-
-  const getOverdueCount = (t) =>
-    tenantInvoices(t.id).filter(i => !i.paid && getStatus(i) === "overdue").length;
-
-  // Display amount = current month's live total
+  const getPropertyStatus = (t) => tenantInvoices(t.id).some(i => !i.paid && getStatus(i) === "overdue") ? "overdue" : "current";
+  const getOverdueCount = (t) => tenantInvoices(t.id).filter(i => !i.paid && getStatus(i) === "overdue").length;
   const getDisplayAmount = (t) => {
-    const tInvs = tenantInvoices(t.id);
-    const thisMonth = tInvs.find(i => i.month === currentMonthName);
-    if (thisMonth) return Number(thisMonth.rent) + (thisMonth.paid ? 0 : calcLateFee(thisMonth.due_date));
-    return Number(t.rent || 0);
+    const thisMonth = tenantInvoices(t.id).find(i => i.month === currentMonthName);
+    return thisMonth ? Number(thisMonth.rent) + (thisMonth.paid ? 0 : calcLateFee(thisMonth.due_date)) : Number(t.rent || 0);
   };
 
-  // ── Actions ──
   const handleMarkPaid = async (inv) => {
     const paidDate = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const liveFee = calcLateFee(inv.due_date);
@@ -624,14 +567,11 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
   return (
     <div className="admin-page-content" style={{ padding: 24, fontFamily: "'DM Sans', sans-serif", maxWidth: 580 }}>
-
-      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", margin: 0 }}>Rent Collection</h1>
         <button style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #e5e7eb", background: "#fff", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
       </div>
 
-      {/* 4 Summary Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
         <SummaryCard badgeColor="#6b7280" badgeLabel="📅 Upcoming" badgeBorder={false} sub="This month" amount={fmt(upcomingTotal)} count={`${upcomingList.length} invoice${upcomingList.length !== 1 ? "s" : ""}`} />
         <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount="$0.00" count="0 invoices" />
@@ -639,12 +579,10 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="This month" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedList.length} invoice${completedList.length !== 1 ? "s" : ""}`} />
       </div>
 
-      {/* CTA */}
       <button style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 20, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
         + Set up rent collection
       </button>
 
-      {/* Active / Expired / Archived tabs */}
       <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 20 }}>
         {["active", "expired", "archived"].map(t => (
           <button key={t} onClick={() => setMainTab(t)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: mainTab === t ? "#fff" : "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: mainTab === t ? "#1f2937" : "#6b7280", boxShadow: mainTab === t ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>
@@ -653,14 +591,12 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         ))}
       </div>
 
-      {/* Property List */}
       <div>
         {tenants.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>No properties yet</div>}
         {tenants.map(tenant => {
           const status = getPropertyStatus(tenant);
           const overdueCount = getOverdueCount(tenant);
           const amount = getDisplayAmount(tenant);
-
           return (
             <div key={tenant.id} style={{ borderBottom: "1px solid #f3f4f6", padding: "16px 0" }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -689,7 +625,6 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         })}
       </div>
 
-      {/* Sheets */}
       {sheet === "detail" && selectedTenant && (
         <CollectionDetailSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => { setSheet(null); setSelectedTenant(null); }} onViewInvoices={() => setSheet("invoices")} />
       )}
