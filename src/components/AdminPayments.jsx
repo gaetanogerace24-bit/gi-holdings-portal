@@ -165,8 +165,9 @@ function PaymentTimeline({ inv }) {
     }
     if (inv.paid_date) {
       const pd = new Date(inv.paid_date);
-      events.push({ date: pd, label: "Tenant scheduled payment", color: "#2563eb", expand: true });
-      events.push({ date: pd, label: "Payment processing initiated", color: "#2563eb" });
+      const dayBefore = new Date(pd.getTime() - 24 * 60 * 60 * 1000);
+      events.push({ date: dayBefore, label: "Tenant scheduled payment", color: "#2563eb", expand: true });
+      events.push({ date: dayBefore, label: "Payment processing initiated", color: "#2563eb" });
       events.push({ date: pd, label: "Payment complete", color: "#2563eb", expand: true, bold: true });
     }
   } else {
