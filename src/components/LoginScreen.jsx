@@ -1,34 +1,42 @@
 import { useState } from "react";
 
 export default function LoginScreen({ onLogin }) {
-  const [mode, setMode] = useState("email"); // "email" or "sms"
+  const [mode, setMode] = useState("email");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState("form"); // "form" or "sms-code"
+  const [step, setStep] = useState("form");
   const [code, setCode] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = () => {
+    setError("");
     setLoading(true);
     setTimeout(() => {
       if (mode === "sms" && step === "form") {
         setStep("sms-code");
         setLoading(false);
       } else {
-        onLogin(mode === "sms" ? phone : email, password);
+        const result = onLogin(mode === "sms" ? phone : email, password);
+        if (result === false) {
+          setError("Invalid email or password. Please try again.");
+          setLoading(false);
+        }
       }
-    }, 1000);
+    }, 800);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") handleSubmit();
   };
 
   return (
     <div style={{
       minHeight: "100vh", background: "#1b3d2a",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "24px",
-      fontFamily: "'DM Sans', sans-serif",
+      padding: "24px", fontFamily: "'DM Sans', sans-serif",
     }}>
-      {/* Logo block */}
       <div style={{ textAlign: "center", marginBottom: 40 }}>
         <div style={{
           width: 64, height: 64, borderRadius: 18,
@@ -43,7 +51,6 @@ export default function LoginScreen({ onLogin }) {
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>Tenant Portal</div>
       </div>
 
-      {/* Card */}
       <div style={{
         background: "#fff", borderRadius: 20, padding: "28px 24px",
         width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
@@ -54,12 +61,8 @@ export default function LoginScreen({ onLogin }) {
             <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>We sent a 6-digit code to {phone}</div>
             <input
               value={code} onChange={e => setCode(e.target.value)}
-              placeholder="000000"
-              style={{
-                width: "100%", padding: "13px 14px", borderRadius: 12, fontSize: 22,
-                border: "1.5px solid #e5e7eb", outline: "none", letterSpacing: 8,
-                textAlign: "center", fontFamily: "'DM Sans', sans-serif", marginBottom: 14,
-              }}
+              placeholder="000000" onKeyDown={handleKeyDown}
+              style={{ width: "100%", padding: "13px 14px", borderRadius: 12, fontSize: 22, border: "1.5px solid #e5e7eb", outline: "none", letterSpacing: 8, textAlign: "center", fontFamily: "'DM Sans', sans-serif", marginBottom: 14, boxSizing: "border-box" }}
             />
             <button onClick={handleSubmit} style={btnStyle(loading)}>
               {loading ? "Verifying..." : "Verify & Sign in"}
@@ -70,7 +73,6 @@ export default function LoginScreen({ onLogin }) {
           <>
             <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 18 }}>Sign in to your portal</div>
 
-            {/* Toggle */}
             <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 20 }}>
               {["email", "sms"].map(m => (
                 <button key={m} onClick={() => setMode(m)} style={{
@@ -79,7 +81,6 @@ export default function LoginScreen({ onLogin }) {
                   fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500,
                   color: mode === m ? "#1b3d2a" : "#6b7280", cursor: "pointer",
                   boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
-                  transition: "all 0.15s",
                 }}>
                   {m === "email" ? "📧 Email" : "📱 SMS"}
                 </button>
@@ -89,15 +90,21 @@ export default function LoginScreen({ onLogin }) {
             {mode === "email" ? (
               <>
                 <div style={fieldLabel}>Email address</div>
-                <input value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" style={inputStyle} />
+                <input value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" style={inputStyle} onKeyDown={handleKeyDown} />
                 <div style={{ ...fieldLabel, marginTop: 12 }}>Password</div>
-                <input value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" type="password" style={inputStyle} />
+                <input value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" type="password" style={inputStyle} onKeyDown={handleKeyDown} />
               </>
             ) : (
               <>
                 <div style={fieldLabel}>Phone number</div>
-                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 (410) 555-0000" style={inputStyle} />
+                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 (410) 555-0000" style={inputStyle} onKeyDown={handleKeyDown} />
               </>
+            )}
+
+            {error && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", marginTop: 12, fontSize: 13, color: "#dc2626" }}>
+                {error}
+              </div>
             )}
 
             <button onClick={handleSubmit} disabled={loading} style={{ ...btnStyle(loading), marginTop: 18 }}>
@@ -119,18 +126,6 @@ export default function LoginScreen({ onLogin }) {
 }
 
 const fieldLabel = { fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 };
-const inputStyle = {
-  width: "100%", padding: "12px 14px", borderRadius: 12, fontSize: 14,
-  border: "1.5px solid #e5e7eb", outline: "none", fontFamily: "'DM Sans', sans-serif",
-  boxSizing: "border-box", color: "#1a1a1a",
-};
-const btnStyle = (loading) => ({
-  width: "100%", padding: "13px", borderRadius: 12, border: "none",
-  background: loading ? "#9ca3af" : "#1b3d2a", color: "#fff",
-  fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600,
-  cursor: loading ? "not-allowed" : "pointer",
-});
-const linkBtn = {
-  width: "100%", padding: "10px", border: "none", background: "none",
-  fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#6b7280", cursor: "pointer", marginTop: 6,
-};
+const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 12, fontSize: 14, border: "1.5px solid #e5e7eb", outline: "none", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", color: "#1a1a1a" };
+const btnStyle = (loading) => ({ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: loading ? "#9ca3af" : "#1b3d2a", color: "#fff", fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" });
+const linkBtn = { width: "100%", padding: "10px", border: "none", background: "none", fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#6b7280", cursor: "pointer", marginTop: 6 };
