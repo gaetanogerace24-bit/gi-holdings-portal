@@ -150,7 +150,7 @@ export default function AdminMessages({ tenants }) {
             {selectedTenant ? (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700 }}>Thread: {selectedTenant.name}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700 }}>{selectedTenant.name}</div>
                   <button onClick={() => setSelectedTenant(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 18 }}>✕</button>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
