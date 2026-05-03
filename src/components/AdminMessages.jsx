@@ -20,7 +20,6 @@ export default function AdminMessages({ tenants }) {
 
   useEffect(() => {
     loadMessages();
-    // Poll for new messages every 10 seconds
     const interval = setInterval(loadMessages, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -40,15 +39,10 @@ export default function AdminMessages({ tenants }) {
     const recipient = to === "all" ? null : to;
     const recipientName = to === "all" ? "All tenants" : tenants.find(t => String(t.id) === to)?.name || "Unknown";
     const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
     const { data } = await supabase.from("messages").insert({
-      tenant_id: recipient,
-      to_name: recipientName,
-      message: msg.trim(),
-      sender: "admin",
-      date,
+      tenant_id: recipient, to_name: recipientName,
+      message: msg.trim(), sender: "admin", date,
     }).select().single();
-
     if (data) setMessages(prev => [data, ...prev]);
     setSent(true);
     setMsg("");
@@ -56,7 +50,7 @@ export default function AdminMessages({ tenants }) {
     setTimeout(() => setSent(false), 2500);
   };
 
-  // Get thread for a specific tenant (their messages + admin messages to them or all)
+  // Get thread for a specific tenant
   const getThread = (tenantId) => {
     return messages.filter(m =>
       m.tenant_id === tenantId ||
@@ -64,29 +58,28 @@ export default function AdminMessages({ tenants }) {
     ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   };
 
-  // Get latest message per tenant for the inbox list
-  const getInbox = () => {
+  // Get latest message per tenant for the conversations list
+  const getConversations = () => {
     const seen = new Set();
-    const inbox = [];
-    // Get all tenant replies first
+    const convos = [];
     for (const m of messages) {
       if (m.sender !== "admin" && m.tenant_id && !seen.has(m.tenant_id)) {
         seen.add(m.tenant_id);
         const tenant = tenants.find(t => t.id === m.tenant_id);
-        if (tenant) inbox.push({ tenant, lastMsg: m });
+        if (tenant) convos.push({ tenant, lastMsg: m });
       }
     }
-    return inbox;
+    return convos;
   };
 
-  const inbox = getInbox();
+  const conversations = getConversations();
   const thread = selectedTenant ? getThread(selectedTenant.id) : [];
 
   return (
     <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0 }}>Messages</h1>
-        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Send messages and view tenant replies</div>
+        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Send messages and view tenant conversations</div>
       </div>
 
       {tenants.length === 0 ? (
@@ -97,8 +90,9 @@ export default function AdminMessages({ tenants }) {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20 }}>
 
-          {/* Left — compose */}
+          {/* Left — compose + tenant conversations */}
           <div>
+            {/* Compose */}
             <div style={{ background: "#fff", borderRadius: 14, padding: "20px", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 16 }}>
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>New message</div>
 
@@ -130,11 +124,11 @@ export default function AdminMessages({ tenants }) {
               )}
             </div>
 
-            {/* Tenant replies inbox */}
-            {inbox.length > 0 && (
+            {/* Tenant conversations */}
+            {conversations.length > 0 && (
               <div style={{ background: "#fff", borderRadius: 14, padding: "20px", border: "1px solid rgba(0,0,0,0.07)" }}>
-                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Tenant replies</div>
-                {inbox.map(({ tenant, lastMsg }) => (
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Tenant conversations</div>
+                {conversations.map(({ tenant, lastMsg }) => (
                   <div key={tenant.id} onClick={() => setSelectedTenant(selectedTenant?.id === tenant.id ? null : tenant)}
                     style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #f3f4f6", cursor: "pointer" }}>
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
@@ -151,7 +145,7 @@ export default function AdminMessages({ tenants }) {
             )}
           </div>
 
-          {/* Right — thread view or sent list */}
+          {/* Right — thread view */}
           <div style={{ background: "#fff", borderRadius: 14, padding: "20px", border: "1px solid rgba(0,0,0,0.07)" }}>
             {selectedTenant ? (
               <>
@@ -176,25 +170,11 @@ export default function AdminMessages({ tenants }) {
                 </div>
               </>
             ) : (
-              <>
-                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Sent messages</div>
-                {loading ? (
-                  <div style={{ textAlign: "center", padding: 20, color: "#9ca3af" }}>Loading...</div>
-                ) : messages.filter(m => m.sender === "admin").length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "30px 0", color: "#9ca3af" }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-                    <div style={{ fontSize: 13 }}>No messages sent yet</div>
-                  </div>
-                ) : messages.filter(m => m.sender === "admin").map((m, i, arr) => (
-                  <div key={m.id || i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < arr.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>→ {m.to_name || "All tenants"}</div>
-                      <div style={{ fontSize: 11, color: "#9ca3af" }}>{m.date || new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
-                    </div>
-                    <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{m.message}</div>
-                  </div>
-                ))}
-              </>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 200, color: "#9ca3af", textAlign: "center" }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>💬</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>Select a conversation</div>
+                <div style={{ fontSize: 13, marginTop: 4 }}>Click a tenant on the left to view their messages</div>
+              </div>
             )}
           </div>
         </div>
