@@ -576,7 +576,9 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
         <SummaryCard badgeColor="#6b7280" badgeLabel="📅 Upcoming" badgeBorder={false} sub="This month" amount={fmt(upcomingTotal)} count={`${upcomingList.length} invoice${upcomingList.length !== 1 ? "s" : ""}`} />
         <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount="$0.00" count="0 invoices" />
-        <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
+        <div onClick={() => overdueList.length > 0 && setSheet("allOverdue")} style={{ cursor: overdueList.length > 0 ? "pointer" : "default" }}>
+          <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
+        </div>
         <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="This month" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedList.length} invoice${completedList.length !== 1 ? "s" : ""}`} />
       </div>
 
@@ -625,6 +627,36 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
           );
         })}
       </div>
+
+      {sheet === "allOverdue" && (
+        <Sheet onClose={() => setSheet(null)}>
+          <SheetHeader title="Overdue Invoices" onClose={() => setSheet(null)} />
+          <div style={{ padding: "8px 20px 4px" }}>
+            <div style={{ fontSize: 13, color: "#dc2626", fontWeight: 600 }}>{overdueList.length} overdue invoice{overdueList.length !== 1 ? "s" : ""} — {fmt(overdueTotal)} total</div>
+          </div>
+          <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
+            {overdueList.map((inv, i) => {
+              const tenant = tenants.find(t => t.id === inv.tenant_id);
+              const liveTotal = Number(inv.rent) + calcLateFee(inv.due_date);
+              return (
+                <div key={inv.id} onClick={() => { setSelectedTenant(tenant); setSelectedInvoice(inv); setSheet("invoice"); }}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < overdueList.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>{tenant?.name}</div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{tenant?.address}</div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>Due {fmtDate(inv.due_date)}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(liveTotal)}</div>
+                    <div style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>⏱ Overdue</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ height: 32 }} />
+        </Sheet>
+      )}
 
       {sheet === "detail" && selectedTenant && (
         <CollectionDetailSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => { setSheet(null); setSelectedTenant(null); }} onViewInvoices={() => setSheet("invoices")} />
