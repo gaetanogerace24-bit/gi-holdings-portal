@@ -149,7 +149,8 @@ function PaymentTimeline({ inv }) {
   const today = new Date();
   today.setHours(23, 59, 0, 0);
 
-  const created = new Date(inv.created_at || inv.due_date);
+  const dueParts = (inv.due_date || "").split("T")[0].split("-");
+  const created = dueParts.length === 3 ? new Date(Number(dueParts[0]), Number(dueParts[1]) - 1, Number(dueParts[2])) : new Date(inv.due_date);
   events.push({ date: created, label: "Invoice created", color: "#2563eb" });
 
   const parts = (inv.due_date || "").split("T")[0].split("-");
@@ -166,8 +167,7 @@ function PaymentTimeline({ inv }) {
       const pd = new Date(inv.paid_date);
       events.push({ date: pd, label: "Tenant scheduled payment", color: "#2563eb", expand: true });
       events.push({ date: pd, label: "Payment processing initiated", color: "#2563eb" });
-      const completed = new Date(pd.getTime() + 6 * 24 * 60 * 60 * 1000);
-      events.push({ date: completed, label: "Payment complete", color: "#2563eb", expand: true, bold: true });
+      events.push({ date: pd, label: "Payment complete", color: "#2563eb", expand: true, bold: true });
     }
   } else {
     if (overdueDay <= today) {
