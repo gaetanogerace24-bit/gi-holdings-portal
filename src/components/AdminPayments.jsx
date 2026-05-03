@@ -243,11 +243,7 @@ function InvoiceBreakdown({ inv }) {
         <span style={{ fontSize: 14, fontWeight: 700 }}>Total</span>
         <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(total)}</span>
       </div>
-      <div style={{ marginTop: 12, padding: 12, background: "#f9fafb", borderRadius: 8 }}>
-        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4, fontWeight: 600 }}>Late fee policy</div>
-        <div style={{ fontSize: 13 }}>Day 5 after due: $35.00 one-time fee</div>
-        <div style={{ fontSize: 13 }}>Day 6 onward: +$10.00 every day until paid</div>
-      </div>
+
     </div>
   );
 }
