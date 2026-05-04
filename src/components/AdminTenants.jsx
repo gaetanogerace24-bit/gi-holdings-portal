@@ -20,7 +20,7 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   const invoicesToInsert = [];
   const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
 
-  while (cursor <= end) {
+  while (cursor < end) {
     const year = cursor.getFullYear();
     const monthNum = cursor.getMonth() + 1;
     const monthName = MONTH_NAMES[cursor.getMonth()];
@@ -54,7 +54,7 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   return invoicesToInsert.length;
 }
 
-export default function AdminTenants({ tenants, setTenants }) {
+export default function AdminTenants({ tenants, setTenants, onInvoicesChanged }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -120,6 +120,7 @@ export default function AdminTenants({ tenants, setTenants }) {
     // Generate invoices for fixed-term leases (not month-to-month)
     if (tenantId && !form.monthToMonth && form.leaseStart && form.leaseEnd) {
       const count = await generateLeaseInvoices(tenantId, form.leaseStart, form.leaseEnd, form.rent);
+      if (onInvoicesChanged) await onInvoicesChanged(); // reload invoices in App.jsx
       if (count > 0) {
         setInvoiceMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} generated for the full lease term.`);
       } else {
@@ -204,7 +205,7 @@ export default function AdminTenants({ tenants, setTenants }) {
               if (isNaN(start) || isNaN(end) || end <= start) return null;
               let count = 0;
               const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-              while (cursor <= end) { count++; cursor.setMonth(cursor.getMonth() + 1); }
+              while (cursor < end) { count++; cursor.setMonth(cursor.getMonth() + 1); }
               return (
                 <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#1b3d2a" }}>
                   📅 <strong>{count} invoices</strong> will be generated covering the full lease term ({MONTH_NAMES[start.getMonth()]} {start.getFullYear()} → {MONTH_NAMES[end.getMonth()]} {end.getFullYear()})
