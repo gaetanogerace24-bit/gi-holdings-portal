@@ -19,11 +19,12 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
     const { data } = await supabase.from("properties").select("*").order("created_at", { ascending: true });
     if (data) {
       setProperties(data);
-      // Count non-archived DB properties + unlinked tenants
       const nonArchived = data.filter(p => p.status !== "archived");
       const linkedIds = new Set(data.map(p => p.tenant_id).filter(Boolean));
-      const unlinked = tenants.filter(t => !linkedIds.has(t.id)).length;
-      if (onCountChange) onCountChange(nonArchived.length + unlinked);
+      const archivedIds = new Set(data.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
+      const unlinkedCount = tenants.filter(t => !linkedIds.has(t.id) && !archivedIds.has(t.id)).length;
+      const total = nonArchived.length + unlinkedCount;
+      if (onCountChange) onCountChange(total);
     }
   };
 
@@ -93,7 +94,6 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
 
   const handleRemove = async (prop) => {
     if (prop._auto) {
-      // Save to DB as archived so it stops showing
       await supabase.from("properties").insert({
         address: prop.address,
         type: prop.type || "Single Family Home",
@@ -103,14 +103,19 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
         section8_amount: prop.section8_amount || 0,
         tenant_portion: prop.tenant_portion || 0,
       });
-      // Reload so the auto entry gets suppressed
       await load();
       if (selectedProperty?.id === prop.id) setSelectedProperty(null);
       return;
     }
     await supabase.from("properties").delete().eq("id", prop.id);
-    setProperties(prev => prev.filter(p => p.id !== prop.id));
+    const updated = properties.filter(p => p.id !== prop.id);
+    setProperties(updated);
     if (selectedProperty?.id === prop.id) setSelectedProperty(null);
+    // Recalculate count
+    const nonArchived = updated.filter(p => p.status !== "archived");
+    const linkedIds = new Set(updated.map(p => p.tenant_id).filter(Boolean));
+    const unlinked = tenants.filter(t => !linkedIds.has(t.id)).length;
+    if (onCountChange) onCountChange(nonArchived.length + unlinked);
   };
 
   return (
