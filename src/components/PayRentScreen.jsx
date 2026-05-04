@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabase";
 
 export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess }) {
   const [step, setStep] = useState("summary");
@@ -16,6 +17,14 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
   const [routing, setRouting] = useState("");
   const [account, setAccount] = useState("");
   const [accountType, setAccountType] = useState("checking");
+  const [customInvoices, setCustomInvoices] = useState([]);
+  const [payingCustomId, setPayingCustomId] = useState(null);
+
+  useEffect(() => {
+    if (!tenant?.id) return;
+    supabase.from("custom_invoices").select("*").eq("tenant_id", tenant.id).eq("paid", false)
+      .then(({ data }) => { if (data) setCustomInvoices(data); });
+  }, [tenant?.id]);
 
   const now = new Date();
   const day = now.getDate();
@@ -60,6 +69,14 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
     }
   };
 
+  const handlePayCustom = async (inv) => {
+    setPayingCustomId(inv.id);
+    const paidDate = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    await supabase.from("custom_invoices").update({ paid: true, paid_date: paidDate }).eq("id", inv.id);
+    setCustomInvoices(prev => prev.filter(i => i.id !== inv.id));
+    setPayingCustomId(null);
+  };
+
   if (invoices.length === 0 && tenant?.paid) {
     return (
       <div style={{ padding: 24, fontFamily: "'DM Sans', sans-serif" }}>
@@ -101,6 +118,33 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
 
   return (
     <div style={{ padding: 16, fontFamily: "'DM Sans', sans-serif" }}>
+
+      {/* ─── OTHER CHARGES ─────────────────────────────────────────── */}
+      {customInvoices.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <SL>Other charges</SL>
+          {customInvoices.map(inv => (
+            <div key={inv.id} style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 10, border: "1.5px solid #fca5a5" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{inv.title}</div>
+                  {inv.notes && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{inv.notes}</div>}
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Due immediately</div>
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>${Number(inv.amount).toLocaleString()}</div>
+              </div>
+              <button
+                onClick={() => handlePayCustom(inv)}
+                disabled={payingCustomId === inv.id}
+                style={{ width: "100%", background: "#dc2626", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                {payingCustomId === inv.id ? "Processing..." : `Pay $${Number(inv.amount).toLocaleString()} now →`}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ─── RENT PAYMENT ──────────────────────────────────────────── */}
       <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 16 }}>
         {[{ key: "current", label: "💳 Pay balance" }, { key: "prepay", label: "📅 Prepay rent" }].map(m => (
           <button key={m.key} onClick={() => { setPayMode(m.key); setStep("summary"); setMethod(null); }} style={{
@@ -113,7 +157,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         ))}
       </div>
 
-      {/* Invoice selector for multiple unpaid */}
       {payMode === "current" && invoices.length > 1 && (
         <div style={{ marginBottom: 14 }}>
           <SL>Select invoice to pay</SL>
@@ -138,7 +181,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       )}
 
-      {/* Late fee banner */}
       {payMode === "current" && (day < 5 ? (
         <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#166534" }}>
           ✅ No late fees yet — <strong>{daysLeft} day{daysLeft !== 1 ? "s" : ""} left</strong> before the 5th.
@@ -149,7 +191,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       ) : null)}
 
-      {/* Prepay */}
       {payMode === "prepay" && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 14, border: "1px solid rgba(0,0,0,0.07)" }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>📅 Prepay upcoming rent</div>
@@ -168,7 +209,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       )}
 
-      {/* Breakdown */}
       {payMode === "current" && selectedInvoice && (
         <>
           <SL>Payment breakdown — {selectedInvoice.month}</SL>
