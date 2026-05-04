@@ -6,10 +6,9 @@ const DOC_CATEGORIES = ["Lease agreement", "Move-in inspection", "Community rule
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 // Generate all monthly invoices for a full lease term
-async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
+async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent, skipExistingCheck = false) {
   if (!leaseStart || !leaseEnd || !rent) return 0;
 
-  // Normalize dates — strip time portion if present
   const startStr = leaseStart.split("T")[0];
   const endStr = leaseEnd.split("T")[0];
 
@@ -23,9 +22,12 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
 
   if (end <= start) return 0;
 
-  // Get existing invoices for this tenant to avoid duplicates
-  const { data: existing } = await supabase.from("invoices").select("month, year, month_num").eq("tenant_id", tenantId);
-  const existingKeys = new Set((existing || []).map(i => `${i.year}-${i.month_num}`));
+  // Only check for existing if not forced regeneration
+  let existingKeys = new Set();
+  if (!skipExistingCheck) {
+    const { data: existing } = await supabase.from("invoices").select("month, year, month_num").eq("tenant_id", tenantId);
+    existingKeys = new Set((existing || []).map(i => `${i.year}-${i.month_num}`));
+  }
 
   const invoicesToInsert = [];
   const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
@@ -37,7 +39,7 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
     const monthLabel = `${monthName} ${year}`;
     const key = `${year}-${monthNum}`;
 
-    if (!existingKeys.has(key)) {
+    if (skipExistingCheck || !existingKeys.has(key)) {
       const dueDateStr = `${year}-${String(monthNum).padStart(2, "0")}-01`;
       invoicesToInsert.push({
         tenant_id: tenantId,
@@ -132,7 +134,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
 
     // Generate invoices for fixed-term leases (not month-to-month)
     if (tenantId && !form.monthToMonth && form.leaseStart && form.leaseEnd) {
-      const count = await generateLeaseInvoices(tenantId, form.leaseStart, form.leaseEnd, form.rent);
+      const count = await generateLeaseInvoices(tenantId, form.leaseStart, form.leaseEnd, form.rent, !!editing);
       if (onInvoicesChanged) await onInvoicesChanged();
       if (count > 0) {
         setInvoiceMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} generated for the full lease term.`);
