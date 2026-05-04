@@ -16,7 +16,13 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   const end = new Date(ey, em - 1, 1);
   if (end <= start) return 0;
 
-  await supabase.from("invoices").delete().eq("tenant_id", tenantId).eq("paid", false);
+  // Only delete unpaid invoices due in the future — keep past/overdue ones
+  const today = new Date().toISOString().split("T")[0];
+  await supabase.from("invoices")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .eq("paid", false)
+    .gt("due_date", today);
 
   const invoicesToInsert = [];
   const cursor = new Date(start);
