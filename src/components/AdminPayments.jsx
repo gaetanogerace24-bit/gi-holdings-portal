@@ -658,6 +658,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [archivedTenants, setArchivedTenants] = useState([]);
   const [showSendInvoice, setShowSendInvoice] = useState(false);
+  const [showSentInvoices, setShowSentInvoices] = useState(false);
+  const [sentInvoices, setSentInvoices] = useState([]);
 
   useEffect(() => { setInvoicesLocal(propInvoices); }, [propInvoices]);
 
@@ -720,6 +722,16 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     setEditingInvoice(null);
   };
 
+  const loadSentInvoices = async () => {
+    const { data } = await supabase.from("custom_invoices").select("*").order("created_at", { ascending: false });
+    if (data) setSentInvoices(data);
+  };
+
+  const handleDeleteCustomInvoice = async (id) => {
+    await supabase.from("custom_invoices").delete().eq("id", id);
+    setSentInvoices(prev => prev.filter(i => i.id !== id));
+  };
+
   const handleArchive = async (tenant) => {
     const archivedAt = now.toISOString();
     await supabase.from("tenants").update({ archived: true, archived_at: archivedAt }).eq("id", tenant.id);
@@ -749,8 +761,11 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="All time" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedList.length} invoice${completedList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allCompleted")} />
       </div>
 
-      <button onClick={() => setShowSendInvoice(true)} style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 20, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+      <button onClick={() => setShowSendInvoice(true)} style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
         📤 Send Invoice
+      </button>
+      <button onClick={() => { loadSentInvoices(); setShowSentInvoices(true); }} style={{ width: "100%", padding: "8px", background: "none", border: "none", color: "#6b7280", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 14, fontFamily: "'DM Sans', sans-serif" }}>
+        View sent invoices →
       </button>
 
       {/* Active / Archived tabs only — Expired removed */}
@@ -867,6 +882,41 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       {sheet === "invoice" && selectedInvoice && selectedTenant && (
         <InvoiceDetailSheet inv={selectedInvoice} tenant={selectedTenant} onClose={() => { setSheet("invoices"); setSelectedInvoice(null); }} onMarkPaid={handleMarkPaid} onMarkUnpaid={handleMarkUnpaid} onEdit={inv => setEditingInvoice(inv)} onDelete={handleDelete} />
       )}
+      {showSentInvoices && (
+        <Sheet onClose={() => setShowSentInvoices(false)}>
+          <SheetHeader title="Sent Invoices" onClose={() => setShowSentInvoices(false)} />
+          <div style={{ padding: "8px 20px 4px" }}>
+            <div style={{ fontSize: 13, color: "#6b7280" }}>{sentInvoices.length} invoice{sentInvoices.length !== 1 ? "s" : ""} sent</div>
+          </div>
+          <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
+            {sentInvoices.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No invoices sent yet</div>}
+            {sentInvoices.map((inv, i) => {
+              const tenant = tenants.find(t => t.id === inv.tenant_id);
+              return (
+                <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < sentInvoices.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>{inv.title}</div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{tenant?.name} · {tenant?.address}</div>
+                    <div style={{ fontSize: 12, marginTop: 3 }}>
+                      {inv.paid
+                        ? <span style={{ color: "#16a34a" }}>✓ Paid {inv.paid_date || ""}</span>
+                        : <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Unpaid</span>}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>${Number(inv.amount).toLocaleString()}</div>
+                    <button onClick={() => handleDeleteCustomInvoice(inv.id)} style={{ fontSize: 12, color: "#dc2626", border: "1.5px solid #fca5a5", borderRadius: 8, padding: "4px 10px", background: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
+                      🗑 Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ height: 32 }} />
+        </Sheet>
+      )}
+
       {showSendInvoice && (
         <SendInvoiceModal
           tenants={activeTenants}
