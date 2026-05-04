@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
-const EMPTY_FORM = { address: "", city: "Youngstown", state: "OH", zip: "", type: "Single Family Home", notes: "" };
+const EMPTY_FORM = { address: "", city: "Youngstown", state: "OH", zip: "", type: "Single Family Home", notes: "", section8: false, section8Amount: "", tenantPortion: "" };
 
 export default function AdminProperties({ tenants = [] }) {
   const [vacantProperties, setVacantProperties] = useState([]);
@@ -44,6 +44,9 @@ export default function AdminProperties({ tenants = [] }) {
       type: form.type,
       notes: form.notes,
       status: "vacant",
+      section8: form.section8,
+      section8_amount: form.section8 ? Number(form.section8Amount) || 0 : 0,
+      tenant_portion: form.section8 ? Number(form.tenantPortion) || 0 : 0,
     }).select().single();
     if (data) {
       setVacantProperties(prev => [...prev, data]);
@@ -105,6 +108,31 @@ export default function AdminProperties({ tenants = [] }) {
               <Label>Notes</Label>
               <input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Recently renovated, needs tenant" style={inputSt} />
             </div>
+          </div>
+
+          {/* Section 8 toggle */}
+          <div style={{ padding: "14px 16px", background: "#f0f9f4", borderRadius: 10, border: "1px solid #bbf7d0", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#1b3d2a" }}>Section 8 / Housing voucher</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>Housing authority pays part of rent</div>
+              </div>
+              <Toggle on={form.section8} onToggle={() => setForm({ ...form, section8: !form.section8 })} />
+            </div>
+            {form.section8 && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
+                <div>
+                  <Label>Housing pays ($/mo)</Label>
+                  <input value={form.section8Amount} onChange={e => setForm({ ...form, section8Amount: e.target.value })}
+                    placeholder="e.g. 1014" type="number" style={inputSt} />
+                </div>
+                <div>
+                  <Label>Tenant pays ($/mo)</Label>
+                  <input value={form.tenantPortion} onChange={e => setForm({ ...form, tenantPortion: e.target.value })}
+                    placeholder="e.g. 261" type="number" style={inputSt} />
+                </div>
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={handleAddVacant} disabled={saving || !form.address.trim()} style={{ ...greenBtn, opacity: form.address.trim() ? 1 : 0.5 }}>
@@ -169,6 +197,12 @@ export default function AdminProperties({ tenants = [] }) {
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>Vacant Unit</div>
                       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: 16 }}>
                         <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 16 }}>{prop.notes || "No notes added for this property."}</div>
+                        {(prop.section8) && (
+                          <div style={{ marginBottom: 14, padding: "10px 12px", background: "#f0f9f4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#1b3d2a", marginBottom: 4 }}>Section 8 / Housing Voucher</div>
+                            <div style={{ fontSize: 13, color: "#374151" }}>Housing: <strong>${prop.section8_amount || 0}/mo</strong> · Tenant: <strong>${prop.tenant_portion || 0}/mo</strong></div>
+                          </div>
+                        )}
                         <button onClick={() => handleRemoveVacant(prop.id)} style={{ padding: "8px 16px", background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
                           🗑 Remove property
                         </button>
@@ -188,6 +222,14 @@ export default function AdminProperties({ tenants = [] }) {
           <div style={{ fontSize: 16, fontWeight: 600 }}>No properties yet</div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Toggle({ on, onToggle }) {
+  return (
+    <div onClick={onToggle} style={{ width: 44, height: 24, borderRadius: 12, cursor: "pointer", background: on ? "#1b3d2a" : "#d1d5db", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+      <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: on ? 23 : 3, transition: "left 0.2s" }} />
     </div>
   );
 }
