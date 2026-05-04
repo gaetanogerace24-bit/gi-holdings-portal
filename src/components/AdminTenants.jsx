@@ -1,8 +1,58 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 
-const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent: "", leaseStart: "", leaseEnd: "", notes: "", public_note: "", deposit: "", section8: false, section8Amount: "", tenantPortion: "" };
+const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent: "", leaseStart: "", leaseEnd: "", notes: "", public_note: "", deposit: "", section8: false, section8Amount: "", tenantPortion: "", monthToMonth: false };
 const DOC_CATEGORIES = ["Lease agreement", "Move-in inspection", "Community rules", "Other"];
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+// Generate all monthly invoices for a full lease term
+async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
+  if (!leaseStart || !leaseEnd || !rent) return;
+
+  const start = new Date(leaseStart);
+  const end = new Date(leaseEnd);
+  if (isNaN(start) || isNaN(end) || end <= start) return;
+
+  // Get existing invoices for this tenant to avoid duplicates
+  const { data: existing } = await supabase.from("invoices").select("month, year, month_num").eq("tenant_id", tenantId);
+  const existingKeys = new Set((existing || []).map(i => `${i.year}-${i.month_num}`));
+
+  const invoicesToInsert = [];
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+
+  while (cursor <= end) {
+    const year = cursor.getFullYear();
+    const monthNum = cursor.getMonth() + 1;
+    const monthName = MONTH_NAMES[cursor.getMonth()];
+    const monthLabel = `${monthName} ${year}`;
+    const key = `${year}-${monthNum}`;
+
+    if (!existingKeys.has(key)) {
+      const dueDateStr = `${year}-${String(monthNum).padStart(2, "0")}-01`;
+      invoicesToInsert.push({
+        tenant_id: tenantId,
+        month: monthLabel,
+        year,
+        month_num: monthNum,
+        rent: Number(rent),
+        late_fee: 0,
+        total: Number(rent),
+        paid: false,
+        due_date: dueDateStr,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  if (invoicesToInsert.length > 0) {
+    await supabase.from("invoices").insert(invoicesToInsert);
+  }
+
+  return invoicesToInsert.length;
+}
 
 export default function AdminTenants({ tenants, setTenants }) {
   const [showForm, setShowForm] = useState(false);
@@ -10,8 +60,10 @@ export default function AdminTenants({ tenants, setTenants }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [expandedDocs, setExpandedDocs] = useState(null);
   const [docForm, setDocForm] = useState({ name: "", category: "Lease agreement", url: "" });
+  const [saving, setSaving] = useState(false);
+  const [invoiceMsg, setInvoiceMsg] = useState(null);
 
-  const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); };
+  const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); setInvoiceMsg(null); };
   const openEdit = (t) => {
     setEditing(t.id);
     setForm({
@@ -26,13 +78,17 @@ export default function AdminTenants({ tenants, setTenants }) {
       tenantPortion: t.tenantPortion || t.tenant_portion || "",
       public_note: t.public_note || "",
       notes: t.notes || "",
+      monthToMonth: t.month_to_month || t.monthToMonth || false,
     });
     setShowForm(true);
+    setInvoiceMsg(null);
   };
-  const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); };
+  const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); setInvoiceMsg(null); };
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.rent) return;
+    setSaving(true);
+
     const tenantData = {
       name: form.name, email: form.email || "", phone: form.phone || "",
       unit: form.unit || "", address: form.address || "",
@@ -43,17 +99,39 @@ export default function AdminTenants({ tenants, setTenants }) {
       section8: Boolean(form.section8),
       section8_amount: Number(form.section8Amount || form.section8_amount) || 0,
       tenant_portion: Number(form.tenantPortion || form.tenant_portion) || 0,
+      month_to_month: Boolean(form.monthToMonth),
       emergency: "(330) 969-6464", contact_email: "tenants@giholdings.com",
       updated_at: new Date().toISOString(),
     };
+
+    let tenantId = editing;
+
     if (editing) {
       await supabase.from("tenants").update(tenantData).eq("id", editing);
       setTenants(tenants.map(t => t.id === editing ? { ...t, ...form, ...tenantData, rent: Number(form.rent), deposit: Number(form.deposit) || 0 } : t));
     } else {
       const { data } = await supabase.from("tenants").insert({ ...tenantData, paid: false, documents: [] }).select().single();
-      if (data) setTenants([...tenants, { ...data, leaseStart: data.lease_start, leaseEnd: data.lease_end, section8Amount: data.section8_amount, tenantPortion: data.tenant_portion }]);
+      if (data) {
+        tenantId = data.id;
+        setTenants([...tenants, { ...data, leaseStart: data.lease_start, leaseEnd: data.lease_end, section8Amount: data.section8_amount, tenantPortion: data.tenant_portion, monthToMonth: data.month_to_month }]);
+      }
     }
-    closeForm();
+
+    // Generate invoices for fixed-term leases (not month-to-month)
+    if (tenantId && !form.monthToMonth && form.leaseStart && form.leaseEnd) {
+      const count = await generateLeaseInvoices(tenantId, form.leaseStart, form.leaseEnd, form.rent);
+      if (count > 0) {
+        setInvoiceMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} generated for the full lease term.`);
+      } else {
+        setInvoiceMsg("✅ Tenant saved. All invoices already up to date.");
+      }
+    } else if (form.monthToMonth) {
+      setInvoiceMsg("✅ Month-to-month tenant saved. Invoices will generate on the 1st of each month.");
+    } else {
+      closeForm();
+    }
+
+    setSaving(false);
   };
 
   const handleRemove = async (id, name) => {
@@ -92,10 +170,10 @@ export default function AdminTenants({ tenants, setTenants }) {
         <button onClick={openAdd} style={greenBtn}>+ Add tenant</button>
       </div>
 
-      {/* Add/Edit form */}
       {showForm && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "24px", border: "2px solid #4caf7d", marginBottom: 24 }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a", marginBottom: 20 }}>{editing ? "✏️ Edit tenant" : "➕ Add new tenant"}</div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <FormField label="Full name *" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="e.g. Gary Thornton" />
             <FormField label="Monthly rent ($) *" value={form.rent} onChange={v => setForm({ ...form, rent: v })} placeholder="e.g. 900" type="number" />
@@ -104,10 +182,38 @@ export default function AdminTenants({ tenants, setTenants }) {
             <FormField label="Email" value={form.email || ""} onChange={v => setForm({ ...form, email: v })} placeholder="tenant@email.com" type="email" />
             <FormField label="Phone" value={form.phone || ""} onChange={v => setForm({ ...form, phone: v })} placeholder="(330) 555-0000" />
             <FormField label="Lease start" value={form.leaseStart || ""} onChange={v => setForm({ ...form, leaseStart: v, lease_start: v })} type="date" />
-            <FormField label="Lease end" value={form.leaseEnd || ""} onChange={v => setForm({ ...form, leaseEnd: v, lease_end: v })} type="date" />
+            <FormField label="Lease end" value={form.leaseEnd || ""} onChange={v => setForm({ ...form, leaseEnd: v, lease_end: v })} type="date" disabled={form.monthToMonth} />
           </div>
 
-          {/* Section 8 — keep in form for data purposes but hidden from list view */}
+          {/* Month-to-month toggle — right below lease dates */}
+          <div style={{ padding: "14px 16px", background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>Month-to-month lease</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>No fixed end date — invoices generate monthly on the 1st</div>
+              </div>
+              <Toggle on={form.monthToMonth} onToggle={() => setForm({ ...form, monthToMonth: !form.monthToMonth, leaseEnd: !form.monthToMonth ? "" : form.leaseEnd })} />
+            </div>
+          </div>
+
+          {/* Preview of invoices to be generated */}
+          {!form.monthToMonth && form.leaseStart && form.leaseEnd && (() => {
+            try {
+              const start = new Date(form.leaseStart);
+              const end = new Date(form.leaseEnd);
+              if (isNaN(start) || isNaN(end) || end <= start) return null;
+              let count = 0;
+              const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+              while (cursor <= end) { count++; cursor.setMonth(cursor.getMonth() + 1); }
+              return (
+                <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#1b3d2a" }}>
+                  📅 <strong>{count} invoices</strong> will be generated covering the full lease term ({MONTH_NAMES[start.getMonth()]} {start.getFullYear()} → {MONTH_NAMES[end.getMonth()]} {end.getFullYear()})
+                </div>
+              );
+            } catch { return null; }
+          })()}
+
+          {/* Section 8 */}
           <div style={{ padding: "14px 16px", background: "#f0f9f4", borderRadius: 10, border: "1px solid #bbf7d0", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
@@ -139,8 +245,20 @@ export default function AdminTenants({ tenants, setTenants }) {
               rows={2} style={{ width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #bbf7d0", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", resize: "none", background: "#f0f9f4" }} />
           </div>
 
+          {invoiceMsg && (
+            <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#1b3d2a" }}>
+              {invoiceMsg}
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-            <button onClick={handleSave} style={{ ...greenBtn, opacity: form.name && form.rent ? 1 : 0.5 }}>{editing ? "Save changes" : "Add tenant"}</button>
+            {invoiceMsg ? (
+              <button onClick={closeForm} style={greenBtn}>Done</button>
+            ) : (
+              <button onClick={handleSave} disabled={saving} style={{ ...greenBtn, opacity: form.name && form.rent ? 1 : 0.5 }}>
+                {saving ? "Saving..." : editing ? "Save changes" : "Add tenant"}
+              </button>
+            )}
             <button onClick={closeForm} style={{ background: "none", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 20px", fontSize: 14, color: "#6b7280", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
           </div>
         </div>
@@ -154,33 +272,27 @@ export default function AdminTenants({ tenants, setTenants }) {
         </div>
       )}
 
-      {/* Tenant cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {tenants.map(t => {
           const docsOpen = expandedDocs === t.id;
+          const isM2M = t.month_to_month || t.monthToMonth;
           return (
             <div key={t.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
               <div style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 14 }}>
-                {/* Avatar */}
                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
                   {t.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                 </div>
-
-                {/* Name + address + email */}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
                   <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
                     {t.address}{t.email ? ` · ${t.email}` : ""}
                   </div>
+                  {isM2M && <span style={{ fontSize: 11, color: "#6b7280", background: "#f3f4f6", borderRadius: 6, padding: "2px 7px", marginTop: 4, display: "inline-block" }}>Month-to-month</span>}
                 </div>
-
-                {/* Rent only */}
                 <div style={{ textAlign: "right", marginRight: 16 }}>
                   <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a" }}>${(t.rent || 0).toLocaleString()}/mo</div>
                   {t.deposit > 0 && <div style={{ fontSize: 11, color: "#9ca3af" }}>Deposit: ${(t.deposit || 0).toLocaleString()}</div>}
                 </div>
-
-                {/* Actions */}
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => setExpandedDocs(docsOpen ? null : t.id)} style={{ ...outlineBtn, borderColor: docsOpen ? "#1b3d2a" : "#e5e7eb", color: docsOpen ? "#1b3d2a" : "#6b7280" }}>
                     📄 Docs {t.documents?.length > 0 ? `(${t.documents.length})` : ""}
@@ -194,7 +306,6 @@ export default function AdminTenants({ tenants, setTenants }) {
                 <div style={{ margin: "0 20px 14px 20px", fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px" }}>📝 {t.notes}</div>
               )}
 
-              {/* Documents panel */}
               {docsOpen && (
                 <div style={{ borderTop: "1px solid #f3f4f6", padding: "16px 20px", background: "#fafafa" }}>
                   <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: "#1b3d2a" }}>📄 Documents for {t.name}</div>
@@ -263,12 +374,12 @@ function Toggle({ on, onToggle }) {
   );
 }
 
-function FormField({ label, value, onChange, placeholder, type = "text" }) {
+function FormField({ label, value, onChange, placeholder, type = "text", disabled }) {
   return (
     <div>
       <Label>{label}</Label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        style={{ width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box" }} />
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} disabled={disabled}
+        style={{ width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", opacity: disabled ? 0.5 : 1, background: disabled ? "#f9fafb" : "#fff" }} />
     </div>
   );
 }
