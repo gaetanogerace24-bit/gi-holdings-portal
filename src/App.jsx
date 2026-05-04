@@ -11,7 +11,6 @@ import { supabase } from "./supabase";
 
 const ADMIN_EMAIL = "gaetano@giholdings.com";
 const ADMIN_PASS = "GIHoldings2026!";
-const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 const TENANT_EMAILS = {
   "gthorntonjr51@gmail.com": "Gary Thornton",
@@ -66,29 +65,6 @@ export default function App() {
     } else { setScreen("login"); }
   }, [loading]);
 
-  useEffect(() => {
-    if (tenants.length === 0) return;
-    createMissingInvoices();
-  }, [tenants.length]);
-
-  async function createMissingInvoices() {
-    const now = new Date();
-    const monthName = MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
-    const monthNum = now.getMonth() + 1;
-    const year = now.getFullYear();
-    for (const tenant of tenants) {
-      if (tenant.section8) continue;
-      const exists = invoices.find(inv => inv.tenant_id === tenant.id && inv.month === monthName);
-      if (exists) continue;
-      const { data } = await supabase.from("invoices").insert({
-        tenant_id: tenant.id, month: monthName, year, month_num: monthNum,
-        rent: Number(tenant.rent) || 0, late_fee: 0, total: Number(tenant.rent) || 0,
-        paid: false, due_date: `${year}-${String(monthNum).padStart(2,'0')}-01`,
-      }).select().single();
-      if (data) setInvoices(prev => [...prev, data]);
-    }
-  }
-
   async function loadData() {
     setLoading(true);
     try {
@@ -104,12 +80,19 @@ export default function App() {
     setLoading(false);
   }
 
+  // Called by AdminTenants after generating new invoices — reloads invoices from Supabase
+  async function reloadInvoices() {
+    const { data } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
+    if (data) setInvoices(data);
+  }
+
   function normalizeTenant(t) {
     return {
       ...t, paidDate: t.paid_date, amountOwed: t.amount_owed, overrideLate: t.override_late,
       section8Amount: t.section8_amount, tenantPortion: t.tenant_portion,
       housingOwedBack: t.housing_owed_back, leaseStart: t.lease_start, leaseEnd: t.lease_end,
       contactEmail: t.contact_email, documents: t.documents || [],
+      monthToMonth: t.month_to_month,
     };
   }
 
@@ -173,7 +156,9 @@ export default function App() {
     <AdminDashboard
       onLogout={handleLogout} sharedTenants={tenants} setSharedTenants={setTenants}
       sharedTickets={tickets} setSharedTickets={setTickets}
-      sharedInvoices={invoices} setSharedInvoices={setInvoices} supabase={supabase}
+      sharedInvoices={invoices} setSharedInvoices={setInvoices}
+      onInvoicesChanged={reloadInvoices}
+      supabase={supabase}
     />
   );
 
