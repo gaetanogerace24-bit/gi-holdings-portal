@@ -3,13 +3,13 @@ import { supabase } from "../supabase";
 
 const EMPTY_FORM = { address: "", city: "Youngstown", state: "OH", zip: "", type: "Single Family Home", notes: "", section8: false, section8Amount: "", tenantPortion: "", tenant_id: "" };
 
-export default function AdminProperties({ tenants = [] }) {
+export default function AdminProperties({ tenants = [], onCountChange }) {
   const [properties, setProperties] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [assigningId, setAssigningId] = useState(null); // property id being reassigned
+  const [assigningId, setAssigningId] = useState(null);
 
   useEffect(() => {
     load();
@@ -17,7 +17,14 @@ export default function AdminProperties({ tenants = [] }) {
 
   const load = async () => {
     const { data } = await supabase.from("properties").select("*").order("created_at", { ascending: true });
-    if (data) setProperties(data);
+    if (data) {
+      setProperties(data);
+      // Count non-archived DB properties + unlinked tenants
+      const nonArchived = data.filter(p => p.status !== "archived");
+      const linkedIds = new Set(data.map(p => p.tenant_id).filter(Boolean));
+      const unlinked = tenants.filter(t => !linkedIds.has(t.id)).length;
+      if (onCountChange) onCountChange(nonArchived.length + unlinked);
+    }
   };
 
   // Merge: properties from DB + tenants not yet in properties table
@@ -68,7 +75,9 @@ export default function AdminProperties({ tenants = [] }) {
       tenant_id: form.tenant_id || null,
     }).select().single();
     if (data) {
-      setProperties(prev => [...prev, data]);
+      const updated = [...properties, data];
+      setProperties(updated);
+      if (onCountChange) onCountChange(allProperties.length + 1);
       setForm(EMPTY_FORM);
       setShowAddForm(false);
     }
