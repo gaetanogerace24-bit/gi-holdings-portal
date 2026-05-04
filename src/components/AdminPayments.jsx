@@ -248,9 +248,10 @@ function InvoiceBreakdown({ inv }) {
 }
 
 // ─── INVOICE DETAIL SHEET ─────────────────────────────────────────────────────
-function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onEdit, onDelete }) {
+function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, onEdit, onDelete }) {
   const [tab, setTab] = useState("timeline");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmUnpaid, setConfirmUnpaid] = useState(false);
   const status = getStatus(inv);
   const liveFee = inv?.paid ? Number(inv?.late_fee || 0) : calcLateFee(inv?.due_date);
   const liveTotal = Number(inv?.rent || 0) + liveFee;
@@ -279,6 +280,23 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onEdit, onDelete
           <ActionBtn icon="◉" label="Mark as paid" onClick={() => onMarkPaid(inv)} />
           <ActionBtn icon="✏️" label="Edit invoice" onClick={() => onEdit(inv)} />
           <ActionBtn icon="🗑" label="Delete invoice" onClick={() => setConfirmDelete(true)} danger />
+        </div>
+      )}
+
+      {inv?.paid && !confirmUnpaid && (
+        <div style={{ padding: "0 20px" }}>
+          <ActionBtn icon="↩️" label="Mark as unpaid (override)" onClick={() => setConfirmUnpaid(true)} />
+        </div>
+      )}
+
+      {confirmUnpaid && (
+        <div style={{ margin: "0 20px 10px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#92400e", marginBottom: 6 }}>Mark this invoice as unpaid?</div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>This will undo the payment and reset the invoice back to unpaid.</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setConfirmUnpaid(false)} style={{ flex: 1, padding: 12, border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fff", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+            <button onClick={() => { onMarkUnpaid(inv); setConfirmUnpaid(false); }} style={{ flex: 1, padding: 12, border: "none", borderRadius: 10, background: "#d97706", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Yes, mark unpaid</button>
+          </div>
         </div>
       )}
 
@@ -606,6 +624,13 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     setSelectedInvoice(null);
   };
 
+  const handleMarkUnpaid = async (inv) => {
+    await supabase.from("invoices").update({ paid: false, paid_date: null, late_fee: 0, total: Number(inv.rent), updated_at: now.toISOString() }).eq("id", inv.id);
+    setInvoices(invoices.map(i => i.id === inv.id ? { ...i, paid: false, paid_date: null, late_fee: 0, total: Number(inv.rent) } : i));
+    setSheet("invoices");
+    setSelectedInvoice(null);
+  };
+
   const handleDelete = async (inv) => {
     await supabase.from("invoices").update({ deleted: true }).eq("id", inv.id);
     setInvoices(invoices.map(i => i.id === inv.id ? { ...i, deleted: true } : i));
@@ -757,7 +782,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <InvoiceListSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => setSheet(null)} onSelect={inv => { setSelectedInvoice(inv); setSheet("invoice"); }} />
       )}
       {sheet === "invoice" && selectedInvoice && selectedTenant && (
-        <InvoiceDetailSheet inv={selectedInvoice} tenant={selectedTenant} onClose={() => { setSheet("invoices"); setSelectedInvoice(null); }} onMarkPaid={handleMarkPaid} onEdit={inv => setEditingInvoice(inv)} onDelete={handleDelete} />
+        <InvoiceDetailSheet inv={selectedInvoice} tenant={selectedTenant} onClose={() => { setSheet("invoices"); setSelectedInvoice(null); }} onMarkPaid={handleMarkPaid} onMarkUnpaid={handleMarkUnpaid} onEdit={inv => setEditingInvoice(inv)} onDelete={handleDelete} />
       )}
       {editingInvoice && (
         <EditModal inv={editingInvoice} onClose={() => setEditingInvoice(null)} onSave={handleEditSave} />
