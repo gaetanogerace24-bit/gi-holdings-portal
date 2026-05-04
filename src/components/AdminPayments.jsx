@@ -521,8 +521,9 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onAr
 }
 
 // ─── ARCHIVED TENANT CARD ─────────────────────────────────────────────────────
-function ArchivedTenantCard({ tenant, invoices, onSelect }) {
+function ArchivedTenantCard({ tenant, invoices, onSelect, onDelete }) {
   const [expanded, setExpanded] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
   const totalPaid = invoices.filter(i => i.paid).reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
   const archivedAt = tenant.archived_at ? fmtDate(tenant.archived_at) : "—";
@@ -587,6 +588,22 @@ function ArchivedTenantCard({ tenant, invoices, onSelect }) {
                 </div>
               );
             })}
+          </div>
+          <div style={{ marginTop: 14, borderTop: "1px solid #e5e7eb", paddingTop: 14 }}>
+            {!confirmDelete ? (
+              <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 16px", background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                🗑 Delete from archive
+              </button>
+            ) : (
+              <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 10, padding: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#991b1b", marginBottom: 4 }}>Delete {tenant.name} from archive?</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>This permanently removes all their records. This cannot be undone.</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: 10, border: "1.5px solid #e5e7eb", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+                  <button onClick={() => onDelete(tenant)} style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, background: "#dc2626", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Yes, delete</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -709,6 +726,11 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     setSelectedTenant(null);
   };
 
+  const handleDeleteArchived = async (tenant) => {
+    await supabase.from("tenants").delete().eq("id", tenant.id);
+    setArchivedTenants(prev => prev.filter(t => t.id !== tenant.id));
+  };
+
   return (
     <div className="admin-page-content" style={{ padding: 24, fontFamily: "'DM Sans', sans-serif", maxWidth: 580 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
@@ -794,6 +816,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                 tenant={tenant}
                 invoices={allActive.filter(i => i.tenant_id === tenant.id)}
                 onSelect={(inv, t) => { setSelectedInvoice(inv); setSelectedTenant(t); setSheet("invoice"); }}
+                onDelete={handleDeleteArchived}
               />
             ))
           )}
