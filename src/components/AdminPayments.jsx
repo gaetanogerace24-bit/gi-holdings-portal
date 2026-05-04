@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
+import SendInvoiceModal from "./SendInvoiceModal";
 
 // ─── LATE FEE CALCULATOR ─────────────────────────────────────────────────────
 function calcLateFee(dueDateStr) {
@@ -656,6 +657,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [archivedTenants, setArchivedTenants] = useState([]);
+  const [showSendInvoice, setShowSendInvoice] = useState(false);
 
   useEffect(() => { setInvoicesLocal(propInvoices); }, [propInvoices]);
 
@@ -747,8 +749,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="All time" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedList.length} invoice${completedList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allCompleted")} />
       </div>
 
-      <button style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 20, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-        + Set up rent collection
+      <button onClick={() => setShowSendInvoice(true)} style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 20, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        📤 Send Invoice
       </button>
 
       {/* Active / Archived tabs only — Expired removed */}
@@ -864,6 +866,13 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       )}
       {sheet === "invoice" && selectedInvoice && selectedTenant && (
         <InvoiceDetailSheet inv={selectedInvoice} tenant={selectedTenant} onClose={() => { setSheet("invoices"); setSelectedInvoice(null); }} onMarkPaid={handleMarkPaid} onMarkUnpaid={handleMarkUnpaid} onEdit={inv => setEditingInvoice(inv)} onDelete={handleDelete} />
+      )}
+      {showSendInvoice && (
+        <SendInvoiceModal
+          tenants={activeTenants}
+          onClose={() => setShowSendInvoice(false)}
+          onSent={() => setShowSendInvoice(false)}
+        />
       )}
       {editingInvoice && <EditModal inv={editingInvoice} onClose={() => setEditingInvoice(null)} onSave={handleEditSave} />}
     </div>
