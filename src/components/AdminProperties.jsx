@@ -24,7 +24,8 @@ export default function AdminProperties({ tenants = [] }) {
   // Tenants already linked show their property from DB
   // Tenants not linked show as auto-occupied entries derived from tenants table
   const linkedTenantIds = new Set(properties.map(p => p.tenant_id).filter(Boolean));
-  const unlinkedTenants = tenants.filter(t => !linkedTenantIds.has(t.id));
+  const archivedTenantIds = new Set(properties.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
+  const unlinkedTenants = tenants.filter(t => !linkedTenantIds.has(t.id) && !archivedTenantIds.has(t.id));
 
   const autoOccupied = unlinkedTenants.map(t => ({
     _auto: true,
@@ -40,7 +41,7 @@ export default function AdminProperties({ tenants = [] }) {
 
   const allProperties = [
     ...autoOccupied,
-    ...properties.map(p => ({
+    ...properties.filter(p => p.status !== "archived").map(p => ({
       ...p,
       status: p.tenant_id ? "occupied" : "vacant",
     })),
@@ -82,7 +83,22 @@ export default function AdminProperties({ tenants = [] }) {
   };
 
   const handleRemove = async (prop) => {
-    if (prop._auto) return; // can't remove auto entries
+    if (prop._auto) {
+      // Save to DB as archived so it stops showing
+      await supabase.from("properties").insert({
+        address: prop.address,
+        type: prop.type || "Single Family Home",
+        status: "archived",
+        tenant_id: prop.tenant_id,
+        section8: prop.section8 || false,
+        section8_amount: prop.section8_amount || 0,
+        tenant_portion: prop.tenant_portion || 0,
+      });
+      // Reload so the auto entry gets suppressed
+      await load();
+      if (selectedProperty?.id === prop.id) setSelectedProperty(null);
+      return;
+    }
     await supabase.from("properties").delete().eq("id", prop.id);
     setProperties(prev => prev.filter(p => p.id !== prop.id));
     if (selectedProperty?.id === prop.id) setSelectedProperty(null);
@@ -228,7 +244,6 @@ export default function AdminProperties({ tenants = [] }) {
                         </div>
                         {t.notes && <div style={{ marginTop: 12, padding: "10px 12px", background: "#f9fafb", borderRadius: 8, fontSize: 12, color: "#6b7280" }}>📝 {t.notes}</div>}
 
-                        {/* Reassign / unassign — only for DB properties */}
                         {!prop._auto && (
                           <div style={{ marginTop: 14, borderTop: "1px solid #f3f4f6", paddingTop: 14 }}>
                             {assigningId === prop.id ? (
@@ -247,6 +262,11 @@ export default function AdminProperties({ tenants = [] }) {
                             )}
                           </div>
                         )}
+                        <div style={{ marginTop: 12 }}>
+                          <button onClick={() => handleRemove(prop)} style={{ padding: "8px 16px", background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                            🗑 Remove property
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -281,11 +301,9 @@ export default function AdminProperties({ tenants = [] }) {
                           </div>
                         )}
 
-                        {!prop._auto && (
-                          <button onClick={() => handleRemove(prop)} style={{ padding: "8px 16px", background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-                            🗑 Remove property
-                          </button>
-                        )}
+                        <button onClick={() => handleRemove(prop)} style={{ padding: "8px 16px", background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                          🗑 Remove property
+                        </button>
                       </div>
                     </div>
                   )}
