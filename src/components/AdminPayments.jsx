@@ -21,19 +21,10 @@ function calcTotal(inv) {
   return Number(inv.rent || 0) + calcLateFee(inv.due_date);
 }
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+function getCurrentMonthName() { const now = new Date(); return MONTH_NAMES[now.getMonth()] + " " + now.getFullYear(); }
+function fmt(amount) { return "$" + Number(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
-function getCurrentMonthName() {
-  const now = new Date();
-  return MONTH_NAMES[now.getMonth()] + " " + now.getFullYear();
-}
-
-function fmt(amount) {
-  return "$" + Number(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-// Fix timezone issue — parse date string without converting to UTC
 function fmtDate(dateStr) {
   if (!dateStr) return "—";
   if (dateStr.includes("T") || dateStr.includes(",")) {
@@ -109,6 +100,7 @@ function Badge({ status }) {
     overdue:   { color: "#dc2626", icon: "⏱",  label: "Overdue"  },
     completed: { color: "#16a34a", icon: "✓",  label: "Completed" },
     current:   { color: "#16a34a", icon: "✓",  label: "Current"  },
+    archived:  { color: "#6b7280", icon: "📦", label: "Archived"  },
   }[status] || { color: "#2563eb", icon: "📅", label: "Upcoming" };
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, color: cfg.color, border: `1.5px solid ${cfg.color}` }}>
@@ -117,9 +109,11 @@ function Badge({ status }) {
   );
 }
 
-function ActionBtn({ icon, label, onClick, danger }) {
+function ActionBtn({ icon, label, onClick, danger, warning }) {
+  const borderColor = danger ? "#fee2e2" : warning ? "#fef3c7" : "#e5e7eb";
+  const textColor = danger ? "#dc2626" : warning ? "#d97706" : "#1f2937";
   return (
-    <button onClick={onClick} style={{ width: "100%", padding: 14, border: `1.5px solid ${danger ? "#fee2e2" : "#e5e7eb"}`, borderRadius: 12, background: "#fff", fontSize: 15, fontWeight: 600, color: danger ? "#dc2626" : "#1f2937", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "'DM Sans', sans-serif" }}>
+    <button onClick={onClick} style={{ width: "100%", padding: 14, border: `1.5px solid ${borderColor}`, borderRadius: 12, background: "#fff", fontSize: 15, fontWeight: 600, color: textColor, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "'DM Sans', sans-serif" }}>
       {icon} {label}
     </button>
   );
@@ -146,15 +140,12 @@ function PaymentTimeline({ inv }) {
   const events = [];
   const today = new Date();
   today.setHours(23, 59, 0, 0);
-
   const createdAt = new Date(inv.created_at || inv.due_date);
   events.push({ date: createdAt, label: "Invoice created", color: "#2563eb" });
-
   const parts = (inv.due_date || "").split("T")[0].split("-");
   const due = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(inv.due_date);
   const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
   const overdueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate() + 1);
-
   if (inv.paid) {
     if (Number(inv.late_fee) > 0) {
       events.push({ date: overdueDay, label: "Payment overdue", color: "#dc2626", expand: true });
@@ -163,9 +154,7 @@ function PaymentTimeline({ inv }) {
     if (inv.paid_date) {
       const pdStr = inv.paid_date.split("T")[0];
       const pdParts = pdStr.split("-");
-      const pd = pdParts.length === 3
-        ? new Date(Number(pdParts[0]), Number(pdParts[1]) - 1, Number(pdParts[2]))
-        : new Date(inv.paid_date);
+      const pd = pdParts.length === 3 ? new Date(Number(pdParts[0]), Number(pdParts[1]) - 1, Number(pdParts[2])) : new Date(inv.paid_date);
       const dayBefore = new Date(pd.getFullYear(), pd.getMonth(), pd.getDate() - 1);
       events.push({ date: dayBefore, label: "Tenant scheduled payment", color: "#2563eb", expand: true });
       events.push({ date: dayBefore, label: "Payment processing initiated", color: "#2563eb" });
@@ -188,7 +177,6 @@ function PaymentTimeline({ inv }) {
     }
     events.push({ date: null, label: "Waiting for tenant to schedule payment", color: "ghost" });
   }
-
   return (
     <div style={{ padding: "16px 0" }}>
       {events.map((ev, i) => (
@@ -197,13 +185,8 @@ function PaymentTimeline({ inv }) {
             {ev.date ? ev.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 16, flexShrink: 0 }}>
-            {ev.color === "ghost"
-              ? <div style={{ width: 11, height: 11, borderRadius: "50%", border: "2px dashed #d1d5db", background: "#fff" }} />
-              : <div style={{ width: 11, height: 11, borderRadius: "50%", background: ev.color }} />
-            }
-            {i < events.length - 1 && (
-              <div style={{ width: 2, minHeight: 22, flex: 1, background: ev.color === "ghost" ? "#e5e7eb" : ev.color === "#dc2626" ? "#fca5a5" : "#93c5fd", margin: "2px 0" }} />
-            )}
+            {ev.color === "ghost" ? <div style={{ width: 11, height: 11, borderRadius: "50%", border: "2px dashed #d1d5db", background: "#fff" }} /> : <div style={{ width: 11, height: 11, borderRadius: "50%", background: ev.color }} />}
+            {i < events.length - 1 && <div style={{ width: 2, minHeight: 22, flex: 1, background: ev.color === "ghost" ? "#e5e7eb" : ev.color === "#dc2626" ? "#fca5a5" : "#93c5fd", margin: "2px 0" }} />}
           </div>
           <div style={{ flex: 1, paddingLeft: 10, paddingBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <span style={{ fontSize: 13, color: ev.color === "ghost" ? "#9ca3af" : "#1f2937", fontWeight: ev.bold ? 700 : 400 }}>{ev.label}</span>
@@ -263,7 +246,6 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
         <div style={{ fontSize: 17, fontWeight: 700 }}>{tenant?.address}</div>
         <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant?.name}</div>
       </div>
-
       <div style={{ margin: "14px 20px", background: "#f9fafb", borderRadius: 12, padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <div style={{ fontSize: 13, color: "#6b7280" }}>Rent & Fees</div>
@@ -285,7 +267,7 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
 
       {inv?.paid && !confirmUnpaid && (
         <div style={{ padding: "0 20px" }}>
-          <ActionBtn icon="↩️" label="Mark as unpaid (override)" onClick={() => setConfirmUnpaid(true)} />
+          <ActionBtn icon="↩️" label="Mark as unpaid (override)" onClick={() => setConfirmUnpaid(true)} warning />
         </div>
       )}
 
@@ -325,7 +307,6 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
 function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
   const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
   const active = invoices.filter(i => !i.deleted);
-
   return (
     <Sheet onClose={onClose}>
       <SheetHeader title="Invoices" onClose={onClose} />
@@ -333,20 +314,16 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
         <div style={{ fontSize: 16, fontWeight: 700 }}>{tenant?.address}</div>
         <div style={{ fontSize: 13, color: "#6b7280" }}>{tenant?.name}</div>
       </div>
-
       <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid #f3f4f6" }}>
         <div>
           <div style={{ fontSize: 12, color: "#6b7280" }}>Total amount</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>
-            {fmt(active.reduce((s, i) => s + (i.paid ? Number(i.total || i.rent) : Number(i.rent) + calcLateFee(i.due_date)), 0))}
-          </div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(active.reduce((s, i) => s + (i.paid ? Number(i.total || i.rent) : Number(i.rent) + calcLateFee(i.due_date)), 0))}</div>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 12, color: "#6b7280" }}>Invoices</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{active.length}</div>
         </div>
       </div>
-
       <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
         {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No invoices yet</div>}
         {sorted.map((inv, i) => {
@@ -366,8 +343,7 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
                   {isDeleted ? <span style={{ color: "#9ca3af" }}>🗑 Deleted</span>
                     : status === "completed" ? <span style={{ color: "#16a34a" }}>✓ Completed {inv.paid_date ? fmtDate(inv.paid_date) : ""}</span>
                     : status === "overdue" ? <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>
-                    : <span style={{ color: "#2563eb" }}>📅 Upcoming</span>
-                  }
+                    : <span style={{ color: "#2563eb" }}>📅 Upcoming</span>}
                 </div>
               </div>
             </div>
@@ -419,7 +395,7 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect }) {
   );
 }
 
-// ─── PROCESSING COMING SOON SHEET ─────────────────────────────────────────────
+// ─── PROCESSING SHEET ─────────────────────────────────────────────────────────
 function ProcessingSheet({ onClose }) {
   return (
     <Sheet onClose={onClose}>
@@ -427,17 +403,16 @@ function ProcessingSheet({ onClose }) {
       <div style={{ padding: "40px 20px", textAlign: "center" }}>
         <div style={{ fontSize: 40, marginBottom: 16 }}>↻</div>
         <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Payment Processing</div>
-        <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-          This section will show payments currently in processing once your merchant account is connected.
-        </div>
+        <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>This section will show payments currently in processing once your merchant account is connected.</div>
       </div>
       <div style={{ height: 32 }} />
     </Sheet>
   );
 }
 
-// ─── RENT COLLECTION DETAIL SHEET ────────────────────────────────────────────
-function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices }) {
+// ─── COLLECTION DETAIL SHEET ─────────────────────────────────────────────────
+function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onArchive }) {
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
   const paid = sorted.filter(i => i.paid);
   const lastPayment = paid[0] || null;
@@ -466,16 +441,12 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices }) {
           <div style={{ fontSize: 15, fontWeight: 700 }}>Payments</div>
           <button onClick={onViewInvoices} style={{ background: "none", border: "none", cursor: "pointer", color: "#2563eb", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>View all invoices</button>
         </div>
-
         {overdueList.length > 0 && (
           <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 10, padding: "12px 14px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#dc2626", fontWeight: 600 }}>
-              ✕ {overdueList.length} Overdue invoice{overdueList.length > 1 ? "s" : ""}
-            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#dc2626", fontWeight: 600 }}>✕ {overdueList.length} Overdue invoice{overdueList.length > 1 ? "s" : ""}</div>
             <button onClick={onViewInvoices} style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: 13, fontWeight: 700, textDecoration: "underline", fontFamily: "'DM Sans', sans-serif" }}>View</button>
           </div>
         )}
-
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Last Payment</div>
@@ -526,11 +497,100 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices }) {
 
       <div style={{ padding: "20px 20px 0" }}>
         <div style={{ fontSize: 15, fontWeight: 700 }}>End & archive rent collection</div>
-        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4, marginBottom: 12 }}>Any unpaid invoices will be canceled, and your tenant will be notified.</div>
-        <button style={{ width: "100%", padding: 16, background: "#dc2626", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>End & archive</button>
+        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4, marginBottom: 12 }}>
+          Tenant will be moved to the Archived tab. All their records and invoice history will be saved permanently.
+        </div>
+        {!confirmArchive ? (
+          <button onClick={() => setConfirmArchive(true)} style={{ width: "100%", padding: 16, background: "#dc2626", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+            End & archive
+          </button>
+        ) : (
+          <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#991b1b", marginBottom: 6 }}>Are you sure?</div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>This will end {tenant?.name}'s tenancy and move them to the archived tab. Their full history is preserved.</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirmArchive(false)} style={{ flex: 1, padding: 12, border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fff", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+              <button onClick={() => { onArchive(tenant); setConfirmArchive(false); }} style={{ flex: 1, padding: 12, border: "none", borderRadius: 10, background: "#dc2626", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Yes, archive</button>
+            </div>
+          </div>
+        )}
       </div>
       <div style={{ height: 32 }} />
     </Sheet>
+  );
+}
+
+// ─── ARCHIVED TENANT CARD ─────────────────────────────────────────────────────
+function ArchivedTenantCard({ tenant, invoices, onSelect }) {
+  const [expanded, setExpanded] = useState(false);
+  const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
+  const totalPaid = invoices.filter(i => i.paid).reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
+  const archivedAt = tenant.archived_at ? fmtDate(tenant.archived_at) : "—";
+
+  return (
+    <div style={{ borderBottom: "1px solid #f3f4f6", padding: "16px 0" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setExpanded(!expanded)}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flex: 1 }}>
+          <div style={{ fontSize: 20, marginTop: 2, opacity: 0.5 }}>🏢</div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#6b7280" }}>{tenant.address}</div>
+            <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 2 }}>{tenant.name}</div>
+            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Archived {archivedAt}</div>
+          </div>
+        </div>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <Badge status="archived" />
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{invoices.length} invoice{invoices.length !== 1 ? "s" : ""}</div>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: 14, background: "#f9fafb", borderRadius: 12, padding: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", fontWeight: 600 }}>Email</div>
+              <div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>{tenant.email || "—"}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", fontWeight: 600 }}>Phone</div>
+              <div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>{tenant.phone || "—"}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", fontWeight: 600 }}>Rent</div>
+              <div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>{fmt(tenant.rent)}/mo</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", fontWeight: 600 }}>Total collected</div>
+              <div style={{ fontSize: 13, color: "#16a34a", fontWeight: 700, marginTop: 2 }}>{fmt(totalPaid)}</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 8 }}>Invoice history ({invoices.length})</div>
+          <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+            {sorted.length === 0 && <div style={{ padding: 16, textAlign: "center", color: "#9ca3af", fontSize: 13 }}>No invoices</div>}
+            {sorted.map((inv, i) => {
+              const status = getStatus(inv);
+              const liveTotal = inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + calcLateFee(inv.due_date);
+              return (
+                <div key={inv.id} onClick={() => onSelect(inv, tenant)}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer", background: "#fff" }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: "#374151" }}>{inv.month}</div>
+                    <div style={{ fontSize: 11, color: "#9ca3af" }}>Due {fmtDate(inv.due_date)}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{fmt(liveTotal)}</div>
+                    <div style={{ fontSize: 11, marginTop: 2 }}>
+                      {status === "completed" ? <span style={{ color: "#16a34a" }}>✓ Paid</span>
+                        : <span style={{ color: "#dc2626" }}>Unpaid</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -539,7 +599,6 @@ function EditModal({ inv, onClose, onSave }) {
   const [rent, setRent] = useState(String(inv?.rent || ""));
   const [dueDate, setDueDate] = useState(inv?.due_date || "");
   const [saving, setSaving] = useState(false);
-
   const handleSave = async () => {
     setSaving(true);
     const lateFee = calcLateFee(dueDate);
@@ -547,7 +606,6 @@ function EditModal({ inv, onClose, onSave }) {
     setSaving(false);
     onClose();
   };
-
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 400 }}>
@@ -575,33 +633,32 @@ function EditModal({ inv, onClose, onSave }) {
 export default function AdminPayments({ tenants = [], invoices: propInvoices = [], setInvoices: propSetInvoices }) {
   const [invoices, setInvoicesLocal] = useState(propInvoices);
   const setInvoices = (val) => { setInvoicesLocal(val); if (propSetInvoices) propSetInvoices(val); };
-
   const [mainTab, setMainTab] = useState("active");
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [sheet, setSheet] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [editingInvoice, setEditingInvoice] = useState(null);
+  const [archivedTenants, setArchivedTenants] = useState([]);
 
   useEffect(() => { setInvoicesLocal(propInvoices); }, [propInvoices]);
+
+  // Load archived tenants from Supabase
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("tenants").select("*").eq("archived", true);
+      if (data) setArchivedTenants(data);
+    };
+    load();
+  }, []);
 
   const now = new Date();
   const currentMonthName = getCurrentMonthName();
   const allActive = invoices.filter(i => !i.deleted);
+  const activeTenants = tenants.filter(t => !t.archived);
 
   const upcomingList  = allActive.filter(i => !i.paid && getStatus(i) === "upcoming");
   const overdueList   = allActive.filter(i => !i.paid && getStatus(i) === "overdue");
-  // FIX: completed = all paid invoices (not filtered to current month only)
   const completedList = allActive.filter(i => i.paid);
-  // For "this month" display, filter completed to current month
-  const completedThisMonth = completedList.filter(i => {
-    if (!i.due_date) return false;
-    const parts = i.due_date.split("T")[0].split("-");
-    if (parts.length !== 3) return false;
-    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    const n = new Date();
-    return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
-  });
-
   const upcomingTotal  = upcomingList.reduce((s, i) => s + Number(i.rent || 0), 0);
   const overdueTotal   = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
   const completedTotal = completedList.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
@@ -644,6 +701,14 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     setEditingInvoice(null);
   };
 
+  const handleArchive = async (tenant) => {
+    const archivedAt = now.toISOString();
+    await supabase.from("tenants").update({ archived: true, archived_at: archivedAt }).eq("id", tenant.id);
+    setArchivedTenants(prev => [...prev, { ...tenant, archived: true, archived_at: archivedAt }]);
+    setSheet(null);
+    setSelectedTenant(null);
+  };
+
   return (
     <div className="admin-page-content" style={{ padding: 24, fontFamily: "'DM Sans', sans-serif", maxWidth: 580 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
@@ -652,99 +717,93 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-        <SummaryCard
-          badgeColor="#6b7280" badgeLabel="📅 Upcoming" badgeBorder={false}
-          sub="This month" amount={fmt(upcomingTotal)}
-          count={`${upcomingList.length} invoice${upcomingList.length !== 1 ? "s" : ""}`}
-          onClick={() => setSheet("allUpcoming")}
-        />
-        <SummaryCard
-          badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true}
-          sub="All time" amount="$0.00" count="0 invoices"
-          onClick={() => setSheet("processing")}
-        />
+        <SummaryCard badgeColor="#6b7280" badgeLabel="📅 Upcoming" badgeBorder={false} sub="This month" amount={fmt(upcomingTotal)} count={`${upcomingList.length} invoice${upcomingList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
+        <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount="$0.00" count="0 invoices" onClick={() => setSheet("processing")} />
         <div onClick={() => overdueList.length > 0 && setSheet("allOverdue")} style={{ cursor: overdueList.length > 0 ? "pointer" : "default" }}>
           <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
         </div>
-        <SummaryCard
-          badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true}
-          sub="All time" amount={fmt(completedTotal)} amountColor="#16a34a"
-          count={`${completedList.length} invoice${completedList.length !== 1 ? "s" : ""}`}
-          onClick={() => setSheet("allCompleted")}
-        />
+        <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="All time" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedList.length} invoice${completedList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allCompleted")} />
       </div>
 
       <button style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 20, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
         + Set up rent collection
       </button>
 
+      {/* Active / Archived tabs only — Expired removed */}
       <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 20 }}>
-        {["active", "expired", "archived"].map(t => (
+        {["active", "archived"].map(t => (
           <button key={t} onClick={() => setMainTab(t)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: mainTab === t ? "#fff" : "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: mainTab === t ? "#1f2937" : "#6b7280", boxShadow: mainTab === t ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === "archived" && archivedTenants.length > 0 && (
+              <span style={{ marginLeft: 6, background: "#e5e7eb", color: "#6b7280", fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 6 }}>{archivedTenants.length}</span>
+            )}
           </button>
         ))}
       </div>
 
-      <div>
-        {tenants.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>No properties yet</div>}
-        {tenants.map(tenant => {
-          const status = getPropertyStatus(tenant);
-          const overdueCount = getOverdueCount(tenant);
-          const amount = getDisplayAmount(tenant);
-          return (
-            <div key={tenant.id} style={{ borderBottom: "1px solid #f3f4f6", padding: "16px 0" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flex: 1 }}>
-                  <div style={{ fontSize: 20, marginTop: 2 }}>🏢</div>
-                  <div style={{ flex: 1 }}>
-                    <button onClick={() => { setSelectedTenant(tenant); setSheet("detail"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", fontFamily: "'DM Sans', sans-serif" }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: "#1f2937" }}>{tenant.address}</div>
-                    </button>
-                    <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant.name}</div>
+      {/* Active tab */}
+      {mainTab === "active" && (
+        <div>
+          {activeTenants.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>No active tenants</div>}
+          {activeTenants.map(tenant => {
+            const status = getPropertyStatus(tenant);
+            const overdueCount = getOverdueCount(tenant);
+            const amount = getDisplayAmount(tenant);
+            return (
+              <div key={tenant.id} style={{ borderBottom: "1px solid #f3f4f6", padding: "16px 0" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flex: 1 }}>
+                    <div style={{ fontSize: 20, marginTop: 2 }}>🏢</div>
+                    <div style={{ flex: 1 }}>
+                      <button onClick={() => { setSelectedTenant(tenant); setSheet("detail"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", fontFamily: "'DM Sans', sans-serif" }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#1f2937" }}>{tenant.address}</div>
+                      </button>
+                      <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant.name}</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{fmt(amount)}</div>
+                    {overdueCount > 0 ? (
+                      <button onClick={() => { setSelectedTenant(tenant); setSheet("invoices"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                        <span style={{ fontSize: 12, color: "#dc2626", border: "1.5px solid #dc2626", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>⏱ {overdueCount}</span>
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "#16a34a", border: "1.5px solid #16a34a", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>✓ Current</span>
+                    )}
                   </div>
                 </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{fmt(amount)}</div>
-                  {overdueCount > 0 ? (
-                    <button onClick={() => { setSelectedTenant(tenant); setSheet("invoices"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                      <span style={{ fontSize: 12, color: "#dc2626", border: "1.5px solid #dc2626", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>⏱ {overdueCount}</span>
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: 12, color: "#16a34a", border: "1.5px solid #16a34a", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>✓ Current</span>
-                  )}
-                </div>
               </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Archived tab */}
+      {mainTab === "archived" && (
+        <div>
+          {archivedTenants.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>📦</div>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No archived tenants</div>
+              <div style={{ fontSize: 13 }}>When you end a tenancy, the tenant will appear here with their full history.</div>
             </div>
-          );
-        })}
-      </div>
+          ) : (
+            archivedTenants.map(tenant => (
+              <ArchivedTenantCard
+                key={tenant.id}
+                tenant={tenant}
+                invoices={allActive.filter(i => i.tenant_id === tenant.id)}
+                onSelect={(inv, t) => { setSelectedInvoice(inv); setSelectedTenant(t); setSheet("invoice"); }}
+              />
+            ))
+          )}
+        </div>
+      )}
 
       {/* ── SHEETS ── */}
-      {sheet === "allUpcoming" && (
-        <FilteredInvoiceSheet
-          title="Upcoming Invoices"
-          invoices={upcomingList}
-          tenants={tenants}
-          onClose={() => setSheet(null)}
-          onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }}
-        />
-      )}
-
-      {sheet === "allCompleted" && (
-        <FilteredInvoiceSheet
-          title="Completed Invoices"
-          invoices={completedList}
-          tenants={tenants}
-          onClose={() => setSheet(null)}
-          onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }}
-        />
-      )}
-
-      {sheet === "processing" && (
-        <ProcessingSheet onClose={() => setSheet(null)} />
-      )}
-
+      {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} />}
+      {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={completedList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} />}
+      {sheet === "processing" && <ProcessingSheet onClose={() => setSheet(null)} />}
       {sheet === "allOverdue" && (
         <Sheet onClose={() => setSheet(null)}>
           <SheetHeader title="Overdue Invoices" onClose={() => setSheet(null)} />
@@ -774,9 +833,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
           <div style={{ height: 32 }} />
         </Sheet>
       )}
-
       {sheet === "detail" && selectedTenant && (
-        <CollectionDetailSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => { setSheet(null); setSelectedTenant(null); }} onViewInvoices={() => setSheet("invoices")} />
+        <CollectionDetailSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => { setSheet(null); setSelectedTenant(null); }} onViewInvoices={() => setSheet("invoices")} onArchive={handleArchive} />
       )}
       {sheet === "invoices" && selectedTenant && (
         <InvoiceListSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => setSheet(null)} onSelect={inv => { setSelectedInvoice(inv); setSheet("invoice"); }} />
@@ -784,9 +842,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       {sheet === "invoice" && selectedInvoice && selectedTenant && (
         <InvoiceDetailSheet inv={selectedInvoice} tenant={selectedTenant} onClose={() => { setSheet("invoices"); setSelectedInvoice(null); }} onMarkPaid={handleMarkPaid} onMarkUnpaid={handleMarkUnpaid} onEdit={inv => setEditingInvoice(inv)} onDelete={handleDelete} />
       )}
-      {editingInvoice && (
-        <EditModal inv={editingInvoice} onClose={() => setEditingInvoice(null)} onSave={handleEditSave} />
-      )}
+      {editingInvoice && <EditModal inv={editingInvoice} onClose={() => setEditingInvoice(null)} onSave={handleEditSave} />}
     </div>
   );
 }
