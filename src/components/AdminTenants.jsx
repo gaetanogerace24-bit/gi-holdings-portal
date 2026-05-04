@@ -5,65 +5,48 @@ const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent
 const DOC_CATEGORIES = ["Lease agreement", "Move-in inspection", "Community rules", "Other"];
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-// Generate all monthly invoices for a full lease term
-async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent, skipExistingCheck = false) {
+async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   if (!leaseStart || !leaseEnd || !rent) return 0;
-
   const startStr = leaseStart.split("T")[0];
   const endStr = leaseEnd.split("T")[0];
-
-  const [sy, sm, sd] = startStr.split("-").map(Number);
-  const [ey, em, ed] = endStr.split("-").map(Number);
-
+  const [sy, sm] = startStr.split("-").map(Number);
+  const [ey, em] = endStr.split("-").map(Number);
   if (!sy || !sm || !ey || !em) return 0;
-
-  const start = new Date(sy, sm - 1, sd || 1);
-  const end = new Date(ey, em - 1, ed || 1);
-
+  const start = new Date(sy, sm - 1, 1);
+  const end = new Date(ey, em - 1, 1);
   if (end <= start) return 0;
 
-  // Only check for existing if not forced regeneration
-  let existingKeys = new Set();
-  if (!skipExistingCheck) {
-    const { data: existing } = await supabase.from("invoices").select("month, year, month_num").eq("tenant_id", tenantId);
-    existingKeys = new Set((existing || []).map(i => `${i.year}-${i.month_num}`));
-  }
+  // Delete all unpaid invoices first
+  await supabase.from("invoices").delete().eq("tenant_id", tenantId).eq("paid", false);
 
+  // Build invoice list for entire term
   const invoicesToInsert = [];
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-
+  const cursor = new Date(start);
   while (cursor < end) {
     const year = cursor.getFullYear();
     const monthNum = cursor.getMonth() + 1;
     const monthName = MONTH_NAMES[cursor.getMonth()];
-    const monthLabel = `${monthName} ${year}`;
-    const key = `${year}-${monthNum}`;
-
-    if (skipExistingCheck || !existingKeys.has(key)) {
-      const dueDateStr = `${year}-${String(monthNum).padStart(2, "0")}-01`;
-      invoicesToInsert.push({
-        tenant_id: tenantId,
-        month: monthLabel,
-        year,
-        month_num: monthNum,
-        rent: Number(rent),
-        late_fee: 0,
-        total: Number(rent),
-        paid: false,
-        due_date: dueDateStr,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-    }
-
+    invoicesToInsert.push({
+      tenant_id: tenantId,
+      month: `${monthName} ${year}`,
+      year,
+      month_num: monthNum,
+      rent: Number(rent),
+      late_fee: 0,
+      total: Number(rent),
+      paid: false,
+      due_date: `${year}-${String(monthNum).padStart(2, "0")}-01`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
     cursor.setMonth(cursor.getMonth() + 1);
   }
 
   if (invoicesToInsert.length > 0) {
     await supabase.from("invoices").insert(invoicesToInsert);
   }
-
   return invoicesToInsert.length;
+}
 
 export default function AdminTenants({ tenants, setTenants, onInvoicesChanged }) {
   const [showForm, setShowForm] = useState(false);
@@ -72,6 +55,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
   const [expandedDocs, setExpandedDocs] = useState(null);
   const [docForm, setDocForm] = useState({ name: "", category: "Lease agreement", url: "" });
   const [saving, setSaving] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [invoiceMsg, setInvoiceMsg] = useState(null);
 
   const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); setInvoiceMsg(null); };
@@ -99,13 +83,11 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
   const handleSave = async () => {
     if (!form.name.trim() || !form.rent) return;
     setSaving(true);
-
     const tenantData = {
       name: form.name, email: form.email || "", phone: form.phone || "",
       unit: form.unit || "", address: form.address || "",
       rent: Number(form.rent) || 0, deposit: Number(form.deposit) || 0,
-      lease_start: form.leaseStart || form.lease_start || "",
-      lease_end: form.leaseEnd || form.lease_end || "",
+      lease_start: form.leaseStart || "", lease_end: form.leaseEnd || "",
       notes: form.notes || "", public_note: form.public_note || "",
       section8: Boolean(form.section8),
       section8_amount: Number(form.section8Amount || form.section8_amount) || 0,
@@ -120,10 +102,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
     if (editing) {
       await supabase.from("tenants").update(tenantData).eq("id", editing);
       setTenants(tenants.map(t => t.id === editing ? { ...t, ...form, ...tenantData, rent: Number(form.rent), deposit: Number(form.deposit) || 0 } : t));
-      // Delete all unpaid invoices so we can regenerate fresh
-      if (!form.monthToMonth && form.leaseStart && form.leaseEnd) {
-        await supabase.from("invoices").delete().eq("tenant_id", editing).eq("paid", false);
-      }
     } else {
       const { data } = await supabase.from("tenants").insert({ ...tenantData, paid: false, documents: [] }).select().single();
       if (data) {
@@ -132,22 +110,26 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
       }
     }
 
-    // Generate invoices for fixed-term leases (not month-to-month)
+    // Generate invoices for fixed-term leases
     if (tenantId && !form.monthToMonth && form.leaseStart && form.leaseEnd) {
-      const count = await generateLeaseInvoices(tenantId, form.leaseStart, form.leaseEnd, form.rent, !!editing);
+      const count = await generateLeaseInvoices(tenantId, form.leaseStart, form.leaseEnd, form.rent);
       if (onInvoicesChanged) await onInvoicesChanged();
-      if (count > 0) {
-        setInvoiceMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} generated for the full lease term.`);
-      } else {
-        setInvoiceMsg("✅ Tenant saved. All invoices already up to date.");
-      }
+      setInvoiceMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} generated for the full lease term.`);
     } else if (form.monthToMonth) {
-      setInvoiceMsg("✅ Month-to-month tenant saved. Invoices will generate on the 1st of each month.");
+      setInvoiceMsg("✅ Month-to-month tenant saved. Invoices generate on the 1st of each month.");
     } else {
       closeForm();
     }
-
     setSaving(false);
+  };
+
+  const handleRegenerate = async () => {
+    if (!editing || !form.leaseStart || !form.leaseEnd) return;
+    setRegenerating(true);
+    const count = await generateLeaseInvoices(editing, form.leaseStart, form.leaseEnd, form.rent);
+    if (onInvoicesChanged) await onInvoicesChanged();
+    setInvoiceMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} regenerated for the full lease term.`);
+    setRegenerating(false);
   };
 
   const handleRemove = async (id, name) => {
@@ -174,6 +156,22 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
     setTenants(tenants.map(t => t.id === tenantId ? { ...t, documents: newDocs } : t));
   };
 
+  // Preview invoice count
+  const invoicePreview = (() => {
+    if (form.monthToMonth || !form.leaseStart || !form.leaseEnd) return null;
+    try {
+      const [sy, sm] = form.leaseStart.split("T")[0].split("-").map(Number);
+      const [ey, em] = form.leaseEnd.split("T")[0].split("-").map(Number);
+      const start = new Date(sy, sm - 1, 1);
+      const end = new Date(ey, em - 1, 1);
+      if (!sy || !sm || !ey || !em || end <= start) return null;
+      let count = 0;
+      const cursor = new Date(start);
+      while (cursor < end) { count++; cursor.setMonth(cursor.getMonth() + 1); }
+      return { count, startLabel: `${MONTH_NAMES[sm-1]} ${sy}`, endLabel: `${MONTH_NAMES[em-1]} ${ey}` };
+    } catch { return null; }
+  })();
+
   return (
     <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -197,11 +195,11 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
             <FormField label="Security deposit ($)" value={form.deposit} onChange={v => setForm({ ...form, deposit: v })} placeholder="e.g. 850" type="number" />
             <FormField label="Email" value={form.email || ""} onChange={v => setForm({ ...form, email: v })} placeholder="tenant@email.com" type="email" />
             <FormField label="Phone" value={form.phone || ""} onChange={v => setForm({ ...form, phone: v })} placeholder="(330) 555-0000" />
-            <FormField label="Lease start" value={form.leaseStart || ""} onChange={v => setForm({ ...form, leaseStart: v, lease_start: v })} type="date" />
-            <FormField label="Lease end" value={form.leaseEnd || ""} onChange={v => setForm({ ...form, leaseEnd: v, lease_end: v })} type="date" disabled={form.monthToMonth} />
+            <FormField label="Lease start" value={form.leaseStart || ""} onChange={v => setForm({ ...form, leaseStart: v })} type="date" />
+            <FormField label="Lease end" value={form.leaseEnd || ""} onChange={v => setForm({ ...form, leaseEnd: v })} type="date" disabled={form.monthToMonth} />
           </div>
 
-          {/* Month-to-month toggle — right below lease dates */}
+          {/* Month-to-month toggle */}
           <div style={{ padding: "14px 16px", background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
@@ -212,24 +210,17 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
             </div>
           </div>
 
-          {/* Preview of invoices to be generated */}
-          {!form.monthToMonth && form.leaseStart && form.leaseEnd && (() => {
-            try {
-              const [sy, sm] = form.leaseStart.split("T")[0].split("-").map(Number);
-              const [ey, em] = form.leaseEnd.split("T")[0].split("-").map(Number);
-              const start = new Date(sy, sm - 1, 1);
-              const end = new Date(ey, em - 1, 1);
-              if (!sy || !sm || !ey || !em || end <= start) return null;
-              let count = 0;
-              const cursor = new Date(start);
-              while (cursor < end) { count++; cursor.setMonth(cursor.getMonth() + 1); }
-              return (
-                <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#1b3d2a" }}>
-                  📅 <strong>{count} invoice{count !== 1 ? "s" : ""}</strong> will be generated covering the full lease term ({MONTH_NAMES[sm-1]} {sy} → {MONTH_NAMES[em-1]} {ey})
-                </div>
-              );
-            } catch { return null; }
-          })()}
+          {/* Invoice preview */}
+          {invoicePreview && (
+            <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#1b3d2a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>📅 <strong>{invoicePreview.count} invoice{invoicePreview.count !== 1 ? "s" : ""}</strong> covering {invoicePreview.startLabel} → {invoicePreview.endLabel}</span>
+              {editing && (
+                <button onClick={handleRegenerate} disabled={regenerating} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                  {regenerating ? "Regenerating..." : "🔄 Regenerate"}
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Section 8 */}
           <div style={{ padding: "14px 16px", background: "#f0f9f4", borderRadius: 10, border: "1px solid #bbf7d0", marginBottom: 14 }}>
@@ -302,9 +293,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
-                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
-                    {t.address}{t.email ? ` · ${t.email}` : ""}
-                  </div>
+                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{t.address}{t.email ? ` · ${t.email}` : ""}</div>
                   {isM2M && <span style={{ fontSize: 11, color: "#6b7280", background: "#f3f4f6", borderRadius: 6, padding: "2px 7px", marginTop: 4, display: "inline-block" }}>Month-to-month</span>}
                 </div>
                 <div style={{ textAlign: "right", marginRight: 16 }}>
@@ -319,11 +308,9 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
                   <button onClick={() => handleRemove(t.id, t.name)} style={{ ...outlineBtn, borderColor: "#fee2e2", color: "#dc2626" }}>Remove</button>
                 </div>
               </div>
-
               {t.notes && (
                 <div style={{ margin: "0 20px 14px 20px", fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px" }}>📝 {t.notes}</div>
               )}
-
               {docsOpen && (
                 <div style={{ borderTop: "1px solid #f3f4f6", padding: "16px 20px", background: "#fafafa" }}>
                   <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: "#1b3d2a" }}>📄 Documents for {t.name}</div>
@@ -347,7 +334,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
                     </div>
                     <button onClick={() => addDocument(t.id)} style={{ ...greenBtn, fontSize: 13, padding: "8px 18px" }}>+ Add document</button>
                   </div>
-
                   {(!t.documents || t.documents.length === 0) ? (
                     <div style={{ textAlign: "center", padding: "20px", color: "#9ca3af", fontSize: 13 }}>No documents yet — add one above</div>
                   ) : (
