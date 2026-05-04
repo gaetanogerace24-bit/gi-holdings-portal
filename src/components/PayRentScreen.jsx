@@ -18,15 +18,13 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
   const [account, setAccount] = useState("");
   const [accountType, setAccountType] = useState("checking");
   const [customInvoices, setCustomInvoices] = useState([]);
-  const [payingCustomId, setPayingCustomId] = useState(null);
+  const [payingCustomInvoice, setPayingCustomInvoice] = useState(null);
 
   useEffect(() => {
     if (!tenant?.id) return;
     supabase.from("custom_invoices").select("*").eq("tenant_id", tenant.id).eq("paid", false)
       .then(({ data }) => { if (data) setCustomInvoices(data); });
-  }, [tenant?.id]);
-
-  const now = new Date();
+  }, [tenant?.id]);  const now = new Date();
   const day = now.getDate();
   const daysLeft = Math.max(0, 5 - day);
   const month = now.toLocaleString("default", { month: "long", year: "numeric" });
@@ -40,7 +38,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
   const daysLate = invoiceLateFee > 35 ? Math.round((invoiceLateFee - 35) / 10) : 0;
 
   const prepayTotal = base * prepayMonths;
-  const total = payMode === "prepay" ? prepayTotal : invoiceTotal;
+  const total = payingCustomInvoice ? Number(payingCustomInvoice.amount) : payMode === "prepay" ? prepayTotal : invoiceTotal;
 
   const formatCard = (v) => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
   const formatExpiry = (v) => { const d = v.replace(/\D/g, "").slice(0, 4); return d.length >= 3 ? d.slice(0, 2) + "/" + d.slice(2) : d; };
@@ -59,7 +57,13 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setTimeout(() => {
+      setTimeout(async () => {
+        // If paying a custom invoice, mark it paid in Supabase
+        if (payingCustomInvoice) {
+          const paidDate = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          await supabase.from("custom_invoices").update({ paid: true, paid_date: paidDate }).eq("id", payingCustomInvoice.id);
+          setCustomInvoices(prev => prev.filter(i => i.id !== payingCustomInvoice.id));
+        }
         setStep("success");
         if (onPaymentSuccess && selectedInvoice) onPaymentSuccess(tenant.id, selectedInvoice.id, total);
       }, 1500);
@@ -67,14 +71,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
       setError(err.message || "Payment failed. Please try again.");
       setStep("checkout");
     }
-  };
-
-  const handlePayCustom = async (inv) => {
-    setPayingCustomId(inv.id);
-    const paidDate = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    await supabase.from("custom_invoices").update({ paid: true, paid_date: paidDate }).eq("id", inv.id);
-    setCustomInvoices(prev => prev.filter(i => i.id !== inv.id));
-    setPayingCustomId(null);
   };
 
   if (invoices.length === 0 && tenant?.paid) {
@@ -134,18 +130,37 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
                 <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>${Number(inv.amount).toLocaleString()}</div>
               </div>
               <button
-                onClick={() => handlePayCustom(inv)}
-                disabled={payingCustomId === inv.id}
+                onClick={() => {
+                  setPayingCustomInvoice(inv);
+                  setPayMode("custom");
+                  setStep("summary");
+                  setMethod(null);
+                }}
                 style={{ width: "100%", background: "#dc2626", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                {payingCustomId === inv.id ? "Processing..." : `Pay $${Number(inv.amount).toLocaleString()} now →`}
+                Pay ${Number(inv.amount).toLocaleString()} now →
               </button>
             </div>
           ))}
         </div>
       )}
 
+      {/* ─── CUSTOM INVOICE PAYMENT FLOW ───────────────────────────── */}
+      {payingCustomInvoice && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 2 }}>Paying charge</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#991b1b", marginBottom: 2 }}>{payingCustomInvoice.title}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#dc2626" }}>${Number(payingCustomInvoice.amount).toLocaleString()}</div>
+            <button onClick={() => { setPayingCustomInvoice(null); setPayMode("current"); setStep("summary"); setMethod(null); }}
+              style={{ marginTop: 8, fontSize: 12, color: "#9ca3af", background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+              ← Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ─── RENT PAYMENT ──────────────────────────────────────────── */}
-      <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 16 }}>
+      {!payingCustomInvoice && <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 16 }}>
         {[{ key: "current", label: "💳 Pay balance" }, { key: "prepay", label: "📅 Prepay rent" }].map(m => (
           <button key={m.key} onClick={() => { setPayMode(m.key); setStep("summary"); setMethod(null); }} style={{
             flex: 1, padding: "9px", borderRadius: 8, border: "none", cursor: "pointer",
@@ -155,7 +170,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
             boxShadow: payMode === m.key ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
           }}>{m.label}</button>
         ))}
-      </div>
+      </div>}
 
       {payMode === "current" && invoices.length > 1 && (
         <div style={{ marginBottom: 14 }}>
