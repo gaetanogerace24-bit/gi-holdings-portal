@@ -18,7 +18,7 @@ const NAV = [
   { key: "settings", icon: "⚙️", label: "Settings" },
 ];
 
-export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, supabase }) {
+export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, onInvoicesChanged, supabase }) {
   const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
   const [totalPropertyCount, setTotalPropertyCount] = useState(0);
@@ -103,7 +103,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         <div className="admin-main" style={{ flex: 1, overflowY: "auto" }}>
           {active === "payments"    && <AdminPayments tenants={tenants} invoices={sharedInvoices} setInvoices={setSharedInvoices} />}
           {active === "tickets"     && <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />}
-          {active === "tenants"     && <AdminTenants tenants={tenants} setTenants={setTenants} />}
+          {active === "tenants"     && <AdminTenants tenants={tenants} setTenants={setTenants} onInvoicesChanged={onInvoicesChanged} />}
           {active === "properties"  && <AdminProperties tenants={tenants} setTenants={setTenants} onCountChange={setTotalPropertyCount} />}
           {active === "documents"   && <AdminDocuments tenants={tenants} setTenants={setTenants} />}
           {active === "messages"    && <AdminMessages tenants={tenants} supabase={supabase} />}
