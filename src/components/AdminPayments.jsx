@@ -272,10 +272,6 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onEdit, onDelete
         <div style={{ fontSize: 13, color: "#6b7280" }}>Due {fmtDate(inv?.due_date)}</div>
         {inv?.paid && liveFee > 0 && <div style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>Paid Late</div>}
         <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6 }}>Invoice {invoiceNum(inv?.id)}</div>
-        <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 12, paddingTop: 12 }}>
-          <div style={{ fontSize: 12, color: "#9ca3af" }}>Receiving bank account</div>
-          <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>M&T Bank Checking - 4248</div>
-        </div>
       </div>
 
       {!inv?.paid && !confirmDelete && (
@@ -499,15 +495,6 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices }) {
           <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{fmt(tenant?.rent)}<span style={{ fontSize: 14, fontWeight: 400, color: "#6b7280" }}>/month</span></div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 4 }}>📅 Due on <strong style={{ color: "#1f2937" }}>1st</strong> of every month</div>
           <div style={{ fontSize: 13, color: "#6b7280" }}>ⓘ Late fee: <strong style={{ color: "#1f2937" }}>$35.00 + $10.00/day</strong></div>
-        </div>
-      </div>
-
-      <div style={{ padding: "16px 20px 0" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Receiving bank accounts</div>
-        <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
-          <div style={{ fontSize: 12, color: "#9ca3af" }}>For rent & fees</div>
-          <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>M&T Bank</div>
-          <div style={{ fontSize: 13, color: "#6b7280" }}>Checking Account - 4248</div>
         </div>
       </div>
 
