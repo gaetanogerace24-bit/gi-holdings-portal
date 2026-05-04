@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { supabase as sb } from "../supabase";
+import { useState } from "react";
 import AdminTickets from "./AdminTickets";
 import AdminTenants from "./AdminTenants";
 import AdminMessages from "./AdminMessages";
@@ -21,20 +20,8 @@ const NAV = [
 export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, supabase }) {
   const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
-  const [totalPropertyCount, setTotalPropertyCount] = useState(0);
+  const [totalPropertyCount, setTotalPropertyCount] = useState(sharedTenants?.length || 0);
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
-
-  useEffect(() => {
-    const load = async () => {
-      const { count } = await sb.from("properties").select("*", { count: "exact", head: true }).neq("status", "archived");
-      // Add unlinked tenants
-      const { data: props } = await sb.from("properties").select("tenant_id").neq("status", "archived");
-      const linkedIds = new Set((props || []).map(p => p.tenant_id).filter(Boolean));
-      const unlinked = (sharedTenants || []).filter(t => !linkedIds.has(t.id)).length;
-      setTotalPropertyCount((count || 0) + unlinked);
-    };
-    load();
-  }, [active]);
 
   return (
     <div className="admin-layout" style={{ fontFamily: "'DM Sans', sans-serif" }}>
