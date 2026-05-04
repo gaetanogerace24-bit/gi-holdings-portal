@@ -16,39 +16,44 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   const end = new Date(ey, em - 1, 1);
   if (end <= start) return 0;
 
-  // Delete all unpaid invoices first
   await supabase.from("invoices").delete().eq("tenant_id", tenantId).eq("paid", false);
 
   const invoicesToInsert = [];
   const cursor = new Date(start);
 
+  // Full months up to (not including) the end month
   while (cursor < end) {
     const year = cursor.getFullYear();
     const monthNum = cursor.getMonth() + 1;
     const monthName = MONTH_NAMES[cursor.getMonth()];
-    const dueDateStr = `${year}-${String(monthNum).padStart(2, "0")}-01`;
-
-    // Check if this is the last month and lease ends mid-month
-    const isLastMonth = cursor.getFullYear() === ey && cursor.getMonth() === em - 1;
-    const endDay = ed || 1;
-    const daysInMonth = new Date(year, monthNum, 0).getDate();
-    const isProrated = isLastMonth && endDay > 1 && endDay < daysInMonth;
-    const proratedRent = isProrated ? Math.round((Number(rent) / daysInMonth) * endDay * 100) / 100 : Number(rent);
-
     invoicesToInsert.push({
       tenant_id: tenantId,
-      month: isProrated ? `${monthName} ${year} (Prorated ${endDay} days)` : `${monthName} ${year}`,
-      year,
-      month_num: monthNum,
-      rent: proratedRent,
-      late_fee: 0,
-      total: proratedRent,
+      month: `${monthName} ${year}`,
+      year, month_num: monthNum,
+      rent: Number(rent), late_fee: 0, total: Number(rent),
       paid: false,
-      due_date: dueDateStr,
+      due_date: `${year}-${String(monthNum).padStart(2, "0")}-01`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
     cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  // Add prorated last month if lease ends mid-month (ed > 1)
+  const endDay = ed || 1;
+  const daysInEndMonth = new Date(ey, em, 0).getDate();
+  if (endDay > 1) {
+    const proratedRent = Math.round((Number(rent) / daysInEndMonth) * endDay * 100) / 100;
+    invoicesToInsert.push({
+      tenant_id: tenantId,
+      month: `${MONTH_NAMES[em - 1]} ${ey} (Prorated ${endDay} days)`,
+      year: ey, month_num: em,
+      rent: proratedRent, late_fee: 0, total: proratedRent,
+      paid: false,
+      due_date: `${ey}-${String(em).padStart(2, "0")}-01`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
   }
 
   if (invoicesToInsert.length > 0) {
@@ -177,11 +182,11 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
       let count = 0;
       const cursor = new Date(start);
       while (cursor < end) { count++; cursor.setMonth(cursor.getMonth() + 1); }
-      // Check if last month is prorated
-      const daysInLastMonth = new Date(ey, em, 0).getDate();
       const endDay = ed || 1;
-      const isProrated = endDay > 1 && endDay < daysInLastMonth;
-      const proratedRent = isProrated ? Math.round((Number(form.rent) / daysInLastMonth) * endDay * 100) / 100 : null;
+      const daysInEndMonth = new Date(ey, em, 0).getDate();
+      const isProrated = endDay > 1;
+      if (isProrated) count++; // include prorated month
+      const proratedRent = isProrated ? Math.round((Number(form.rent) / daysInEndMonth) * endDay * 100) / 100 : null;
       return { count, startLabel: `${MONTH_NAMES[sm-1]} ${sy}`, endLabel: `${MONTH_NAMES[em-1]} ${ey}`, isProrated, proratedRent, endDay };
     } catch { return null; }
   })();
