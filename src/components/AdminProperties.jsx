@@ -1,41 +1,58 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
-const EMPTY_FORM = { address: "", city: "Youngstown", state: "OH", zip: "", type: "Single Family Home", notes: "", section8: false, section8Amount: "", tenantPortion: "" };
+const EMPTY_FORM = { address: "", city: "Youngstown", state: "OH", zip: "", type: "Single Family Home", notes: "", section8: false, section8Amount: "", tenantPortion: "", tenant_id: "" };
 
 export default function AdminProperties({ tenants = [] }) {
-  const [vacantProperties, setVacantProperties] = useState([]);
+  const [properties, setProperties] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [assigningId, setAssigningId] = useState(null); // property id being reassigned
 
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase.from("properties").select("*").eq("status", "vacant").order("created_at", { ascending: true });
-      if (data) setVacantProperties(data);
-    };
     load();
   }, []);
 
-  const occupiedProperties = tenants.map(t => ({
-    id: t.id,
+  const load = async () => {
+    const { data } = await supabase.from("properties").select("*").order("created_at", { ascending: true });
+    if (data) setProperties(data);
+  };
+
+  // Merge: properties from DB + tenants not yet in properties table
+  // Tenants already linked show their property from DB
+  // Tenants not linked show as auto-occupied entries derived from tenants table
+  const linkedTenantIds = new Set(properties.map(p => p.tenant_id).filter(Boolean));
+  const unlinkedTenants = tenants.filter(t => !linkedTenantIds.has(t.id));
+
+  const autoOccupied = unlinkedTenants.map(t => ({
+    _auto: true,
+    id: `auto-${t.id}`,
     address: t.address,
     type: "Single Family Home",
     status: "occupied",
-    tenant: t,
+    tenant_id: t.id,
+    section8: t.section8 || false,
+    section8_amount: t.section8_amount || t.section8Amount || 0,
+    tenant_portion: t.tenant_portion || t.tenantPortion || 0,
   }));
 
   const allProperties = [
-    ...occupiedProperties,
-    ...vacantProperties.map(p => ({ ...p, status: "vacant", tenant: null })),
+    ...autoOccupied,
+    ...properties.map(p => ({
+      ...p,
+      status: p.tenant_id ? "occupied" : "vacant",
+    })),
   ];
 
   const totalUnits = allProperties.length;
-  const occupiedCount = occupiedProperties.length;
-  const vacantCount = vacantProperties.length;
+  const occupiedCount = allProperties.filter(p => p.status === "occupied").length;
+  const vacantCount = allProperties.filter(p => p.status === "vacant").length;
 
-  const handleAddVacant = async () => {
+  const getTenant = (prop) => tenants.find(t => t.id === prop.tenant_id) || null;
+
+  const handleAdd = async () => {
     if (!form.address.trim()) return;
     setSaving(true);
     const address = `${form.address}, ${form.city} ${form.state}${form.zip ? " " + form.zip : ""}`.trim();
@@ -43,23 +60,32 @@ export default function AdminProperties({ tenants = [] }) {
       address,
       type: form.type,
       notes: form.notes,
-      status: "vacant",
+      status: form.tenant_id ? "occupied" : "vacant",
       section8: form.section8,
       section8_amount: form.section8 ? Number(form.section8Amount) || 0 : 0,
       tenant_portion: form.section8 ? Number(form.tenantPortion) || 0 : 0,
+      tenant_id: form.tenant_id || null,
     }).select().single();
     if (data) {
-      setVacantProperties(prev => [...prev, data]);
+      setProperties(prev => [...prev, data]);
       setForm(EMPTY_FORM);
       setShowAddForm(false);
     }
     setSaving(false);
   };
 
-  const handleRemoveVacant = async (id) => {
-    await supabase.from("properties").delete().eq("id", id);
-    setVacantProperties(prev => prev.filter(p => p.id !== id));
-    if (selectedProperty?.id === id) setSelectedProperty(null);
+  const handleAssignTenant = async (propId, tenantId) => {
+    const updates = { tenant_id: tenantId || null, status: tenantId ? "occupied" : "vacant" };
+    await supabase.from("properties").update(updates).eq("id", propId);
+    setProperties(prev => prev.map(p => p.id === propId ? { ...p, ...updates } : p));
+    setAssigningId(null);
+  };
+
+  const handleRemove = async (prop) => {
+    if (prop._auto) return; // can't remove auto entries
+    await supabase.from("properties").delete().eq("id", prop.id);
+    setProperties(prev => prev.filter(p => p.id !== prop.id));
+    if (selectedProperty?.id === prop.id) setSelectedProperty(null);
   };
 
   return (
@@ -80,7 +106,7 @@ export default function AdminProperties({ tenants = [] }) {
 
       {showAddForm && (
         <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "2px solid #4caf7d", marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1b3d2a", marginBottom: 16 }}>➕ Add vacant property</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#1b3d2a", marginBottom: 16 }}>➕ Add property</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div style={{ gridColumn: "1 / -1" }}>
               <Label>Street address</Label>
@@ -104,6 +130,18 @@ export default function AdminProperties({ tenants = [] }) {
                 <option>Condo</option>
               </select>
             </div>
+
+            {/* Assign tenant dropdown */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Label>Assign tenant (optional)</Label>
+              <select value={form.tenant_id} onChange={e => setForm({ ...form, tenant_id: e.target.value })} style={inputSt}>
+                <option value="">— Vacant / No tenant —</option>
+                {tenants.map(t => (
+                  <option key={t.id} value={t.id}>{t.name} · {t.address}</option>
+                ))}
+              </select>
+            </div>
+
             <div style={{ gridColumn: "1 / -1" }}>
               <Label>Notes</Label>
               <input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Recently renovated, needs tenant" style={inputSt} />
@@ -123,19 +161,18 @@ export default function AdminProperties({ tenants = [] }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
                 <div>
                   <Label>Housing pays ($/mo)</Label>
-                  <input value={form.section8Amount} onChange={e => setForm({ ...form, section8Amount: e.target.value })}
-                    placeholder="e.g. 1014" type="number" style={inputSt} />
+                  <input value={form.section8Amount} onChange={e => setForm({ ...form, section8Amount: e.target.value })} placeholder="e.g. 1014" type="number" style={inputSt} />
                 </div>
                 <div>
                   <Label>Tenant pays ($/mo)</Label>
-                  <input value={form.tenantPortion} onChange={e => setForm({ ...form, tenantPortion: e.target.value })}
-                    placeholder="e.g. 261" type="number" style={inputSt} />
+                  <input value={form.tenantPortion} onChange={e => setForm({ ...form, tenantPortion: e.target.value })} placeholder="e.g. 261" type="number" style={inputSt} />
                 </div>
               </div>
             )}
           </div>
+
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={handleAddVacant} disabled={saving || !form.address.trim()} style={{ ...greenBtn, opacity: form.address.trim() ? 1 : 0.5 }}>
+            <button onClick={handleAdd} disabled={saving || !form.address.trim()} style={{ ...greenBtn, opacity: form.address.trim() ? 1 : 0.5 }}>
               {saving ? "Saving..." : "Add property"}
             </button>
             <button onClick={() => { setShowAddForm(false); setForm(EMPTY_FORM); }} style={{ background: "none", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "11px 20px", fontSize: 14, color: "#6b7280", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
@@ -148,14 +185,14 @@ export default function AdminProperties({ tenants = [] }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {allProperties.map(prop => {
           const isSelected = selectedProperty?.id === prop.id;
-          const t = prop.tenant;
+          const t = getTenant(prop);
           return (
             <div key={prop.id} style={{ background: "#fff", borderRadius: 14, border: `1.5px solid ${isSelected ? "#1b3d2a" : "#e5e7eb"}`, overflow: "hidden" }}>
               <div onClick={() => setSelectedProperty(isSelected ? null : prop)} style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: prop.status === "occupied" ? "#f0f9f4" : "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏠</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{prop.address}</div>
-                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{prop.type}</div>
+                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{prop.type || "Single Family Home"}{t ? ` · ${t.name}` : ""}</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {prop.status === "occupied"
@@ -168,7 +205,7 @@ export default function AdminProperties({ tenants = [] }) {
 
               {isSelected && (
                 <div style={{ borderTop: "1px solid #f3f4f6", padding: "20px", background: "#fafafa" }}>
-                  {prop.status === "occupied" && t ? (
+                  {t ? (
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>Current Tenant</div>
                       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: 16 }}>
@@ -190,22 +227,65 @@ export default function AdminProperties({ tenants = [] }) {
                           {t.section8 && <InfoRow label="Section 8" value={`Housing: $${t.section8_amount || t.section8Amount || 0} · Tenant: $${t.tenant_portion || t.tenantPortion || 0}`} />}
                         </div>
                         {t.notes && <div style={{ marginTop: 12, padding: "10px 12px", background: "#f9fafb", borderRadius: 8, fontSize: 12, color: "#6b7280" }}>📝 {t.notes}</div>}
+
+                        {/* Reassign / unassign — only for DB properties */}
+                        {!prop._auto && (
+                          <div style={{ marginTop: 14, borderTop: "1px solid #f3f4f6", paddingTop: 14 }}>
+                            {assigningId === prop.id ? (
+                              <div>
+                                <Label>Assign different tenant</Label>
+                                <select defaultValue={prop.tenant_id || ""} onChange={e => handleAssignTenant(prop.id, e.target.value)} style={{ ...inputSt, marginBottom: 8 }}>
+                                  <option value="">— Mark as vacant —</option>
+                                  {tenants.map(t2 => <option key={t2.id} value={t2.id}>{t2.name} · {t2.address}</option>)}
+                                </select>
+                                <button onClick={() => setAssigningId(null)} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setAssigningId(prop.id)} style={{ fontSize: 13, fontWeight: 600, color: "#2563eb", background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                                🔄 Change / remove tenant
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>Vacant Unit</div>
                       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: 16 }}>
-                        <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 16 }}>{prop.notes || "No notes added for this property."}</div>
-                        {(prop.section8) && (
+                        {prop.notes && <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 12 }}>{prop.notes}</div>}
+                        {prop.section8 && (
                           <div style={{ marginBottom: 14, padding: "10px 12px", background: "#f0f9f4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: "#1b3d2a", marginBottom: 4 }}>Section 8 / Housing Voucher</div>
                             <div style={{ fontSize: 13, color: "#374151" }}>Housing: <strong>${prop.section8_amount || 0}/mo</strong> · Tenant: <strong>${prop.tenant_portion || 0}/mo</strong></div>
                           </div>
                         )}
-                        <button onClick={() => handleRemoveVacant(prop.id)} style={{ padding: "8px 16px", background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-                          🗑 Remove property
-                        </button>
+
+                        {/* Assign tenant */}
+                        {!prop._auto && (
+                          <div style={{ marginBottom: 14 }}>
+                            {assigningId === prop.id ? (
+                              <div>
+                                <Label>Assign a tenant</Label>
+                                <select defaultValue="" onChange={e => handleAssignTenant(prop.id, e.target.value)} style={{ ...inputSt, marginBottom: 8 }}>
+                                  <option value="">— Select tenant —</option>
+                                  {tenants.map(t2 => <option key={t2.id} value={t2.id}>{t2.name} · {t2.address}</option>)}
+                                </select>
+                                <button onClick={() => setAssigningId(null)} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setAssigningId(prop.id)} style={{ ...greenBtn, fontSize: 13, padding: "9px 16px", marginBottom: 10 }}>
+                                👤 Assign tenant
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {!prop._auto && (
+                          <button onClick={() => handleRemove(prop)} style={{ padding: "8px 16px", background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                            🗑 Remove property
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
