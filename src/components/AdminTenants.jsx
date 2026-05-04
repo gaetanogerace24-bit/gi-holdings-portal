@@ -212,11 +212,13 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
 
           {/* Invoice preview */}
           {invoicePreview && (
-            <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#1b3d2a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>📅 <strong>{invoicePreview.count} invoice{invoicePreview.count !== 1 ? "s" : ""}</strong> covering {invoicePreview.startLabel} → {invoicePreview.endLabel}</span>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 8, fontSize: 13, color: "#1b3d2a" }}>
+                📅 <strong>{invoicePreview.count} invoice{invoicePreview.count !== 1 ? "s" : ""}</strong> covering {invoicePreview.startLabel} → {invoicePreview.endLabel}
+              </div>
               {editing && (
-                <button onClick={handleRegenerate} disabled={regenerating} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-                  {regenerating ? "Regenerating..." : "🔄 Regenerate"}
+                <button onClick={handleRegenerate} disabled={regenerating} style={{ width: "100%", padding: "10px", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                  {regenerating ? "⏳ Regenerating..." : "🔄 Regenerate invoices for this lease term"}
                 </button>
               )}
             </div>
