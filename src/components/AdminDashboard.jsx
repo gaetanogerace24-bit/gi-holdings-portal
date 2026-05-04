@@ -21,13 +21,17 @@ const NAV = [
 export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, supabase }) {
   const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
-  const [vacantCount, setVacantCount] = useState(0);
+  const [totalPropertyCount, setTotalPropertyCount] = useState(0);
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
 
   useEffect(() => {
     const load = async () => {
-      const { count } = await sb.from("properties").select("*", { count: "exact", head: true }).eq("status", "vacant");
-      setVacantCount(count || 0);
+      const { count } = await sb.from("properties").select("*", { count: "exact", head: true }).neq("status", "archived");
+      // Add unlinked tenants
+      const { data: props } = await sb.from("properties").select("tenant_id").neq("status", "archived");
+      const linkedIds = new Set((props || []).map(p => p.tenant_id).filter(Boolean));
+      const unlinked = (sharedTenants || []).filter(t => !linkedIds.has(t.id)).length;
+      setTotalPropertyCount((count || 0) + unlinked);
     };
     load();
   }, [active]);
@@ -71,8 +75,8 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
               {n.key === "tenants" && tenants.length > 0 && (
                 <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length}</span>
               )}
-              {n.key === "properties" && (tenants.length + vacantCount) > 0 && (
-                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length + vacantCount}</span>
+              {n.key === "properties" && totalPropertyCount > 0 && (
+                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{totalPropertyCount}</span>
               )}
             </button>
           ))}
@@ -99,7 +103,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           {active === "payments"    && <AdminPayments tenants={tenants} invoices={sharedInvoices} setInvoices={setSharedInvoices} />}
           {active === "tickets"     && <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />}
           {active === "tenants"     && <AdminTenants tenants={tenants} setTenants={setTenants} />}
-          {active === "properties"  && <AdminProperties tenants={tenants} setTenants={setTenants} />}
+          {active === "properties"  && <AdminProperties tenants={tenants} setTenants={setTenants} onCountChange={setTotalPropertyCount} />}
           {active === "documents"   && <AdminDocuments tenants={tenants} setTenants={setTenants} />}
           {active === "messages"    && <AdminMessages tenants={tenants} supabase={supabase} />}
           {active === "settings"    && <AdminSettings supabase={supabase} />}
