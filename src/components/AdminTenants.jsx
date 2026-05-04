@@ -7,11 +7,21 @@ const MONTH_NAMES = ["January","February","March","April","May","June","July","A
 
 // Generate all monthly invoices for a full lease term
 async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
-  if (!leaseStart || !leaseEnd || !rent) return;
+  if (!leaseStart || !leaseEnd || !rent) return 0;
 
-  const start = new Date(leaseStart);
-  const end = new Date(leaseEnd);
-  if (isNaN(start) || isNaN(end) || end <= start) return;
+  // Normalize dates — strip time portion if present
+  const startStr = leaseStart.split("T")[0];
+  const endStr = leaseEnd.split("T")[0];
+
+  const [sy, sm, sd] = startStr.split("-").map(Number);
+  const [ey, em, ed] = endStr.split("-").map(Number);
+
+  if (!sy || !sm || !ey || !em) return 0;
+
+  const start = new Date(sy, sm - 1, sd || 1);
+  const end = new Date(ey, em - 1, ed || 1);
+
+  if (end <= start) return 0;
 
   // Get existing invoices for this tenant to avoid duplicates
   const { data: existing } = await supabase.from("invoices").select("month, year, month_num").eq("tenant_id", tenantId);
@@ -52,7 +62,6 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   }
 
   return invoicesToInsert.length;
-}
 
 export default function AdminTenants({ tenants, setTenants, onInvoicesChanged }) {
   const [showForm, setShowForm] = useState(false);
@@ -120,7 +129,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
     // Generate invoices for fixed-term leases (not month-to-month)
     if (tenantId && !form.monthToMonth && form.leaseStart && form.leaseEnd) {
       const count = await generateLeaseInvoices(tenantId, form.leaseStart, form.leaseEnd, form.rent);
-      if (onInvoicesChanged) await onInvoicesChanged(); // reload invoices in App.jsx
+      if (onInvoicesChanged) await onInvoicesChanged();
       if (count > 0) {
         setInvoiceMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} generated for the full lease term.`);
       } else {
@@ -200,15 +209,17 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
           {/* Preview of invoices to be generated */}
           {!form.monthToMonth && form.leaseStart && form.leaseEnd && (() => {
             try {
-              const start = new Date(form.leaseStart);
-              const end = new Date(form.leaseEnd);
-              if (isNaN(start) || isNaN(end) || end <= start) return null;
+              const [sy, sm] = form.leaseStart.split("T")[0].split("-").map(Number);
+              const [ey, em] = form.leaseEnd.split("T")[0].split("-").map(Number);
+              const start = new Date(sy, sm - 1, 1);
+              const end = new Date(ey, em - 1, 1);
+              if (!sy || !sm || !ey || !em || end <= start) return null;
               let count = 0;
-              const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+              const cursor = new Date(start);
               while (cursor < end) { count++; cursor.setMonth(cursor.getMonth() + 1); }
               return (
                 <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#1b3d2a" }}>
-                  📅 <strong>{count} invoices</strong> will be generated covering the full lease term ({MONTH_NAMES[start.getMonth()]} {start.getFullYear()} → {MONTH_NAMES[end.getMonth()]} {end.getFullYear()})
+                  📅 <strong>{count} invoice{count !== 1 ? "s" : ""}</strong> will be generated covering the full lease term ({MONTH_NAMES[sm-1]} {sy} → {MONTH_NAMES[em-1]} {ey})
                 </div>
               );
             } catch { return null; }
