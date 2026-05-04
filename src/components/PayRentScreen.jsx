@@ -247,32 +247,14 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
       {step === "summary" && (
         <>
           <SL>Choose payment method</SL>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-            {[{ key: "card", icon: "💳", label: "Credit / Debit", sub: "Visa, Mastercard, Amex" }, { key: "ach", icon: "🏦", label: "Bank Transfer", sub: "ACH · Checking or Savings" }].map(m => (
-              <button key={m.key} onClick={() => { setMethod(m.key); setStep("checkout"); }} style={{ padding: "18px 12px", borderRadius: 12, cursor: "pointer", textAlign: "center", border: "1.5px solid #e5e7eb", background: "#fff", fontFamily: "'DM Sans', sans-serif" }}>
-                <div style={{ fontSize: 28, marginBottom: 6 }}>{m.icon}</div>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{m.label}</div>
-                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{m.sub}</div>
-              </button>
-            ))}
+          <div style={{ marginBottom: 16 }}>
+            <button onClick={() => { setMethod("ach"); setStep("checkout"); }} style={{ width: "100%", padding: "18px 12px", borderRadius: 12, cursor: "pointer", textAlign: "center", border: "1.5px solid #e5e7eb", background: "#fff", fontFamily: "'DM Sans', sans-serif" }}>
+              <div style={{ fontSize: 28, marginBottom: 6 }}>🏦</div>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>Bank Transfer (ACH)</div>
+              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Checking or Savings · 3–5 business days</div>
+            </button>
           </div>
         </>
-      )}
-
-      {step === "checkout" && method === "card" && (
-        <div style={{ background: "#fff", borderRadius: 14, padding: "18px", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: "#1b3d2a" }}>💳 Enter card details</div>
-          <FF label="Name on card" value={cardName} onChange={setCardName} placeholder={tenant?.name} />
-          <FF label="Card number" value={cardNum} onChange={v => setCardNum(formatCard(v))} placeholder="1234 5678 9012 3456" inputMode="numeric" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-            <FF label="Expiry" value={expiry} onChange={v => setExpiry(formatExpiry(v))} placeholder="MM/YY" inputMode="numeric" />
-            <FF label="CVV" value={cvv} onChange={v => setCvv(v.replace(/\D/g, "").slice(0, 4))} placeholder="123" inputMode="numeric" />
-            <FF label="ZIP" value={zip} onChange={v => setZip(v.replace(/\D/g, "").slice(0, 5))} placeholder="44511" inputMode="numeric" />
-          </div>
-          {error && <ErrBox msg={error} />}
-          <button onClick={handlePay} style={payBtnStyle}>Pay ${total.toLocaleString()} now →</button>
-          <button onClick={() => { setStep("summary"); setError(null); }} style={backBtnStyle}>← Back</button>
-        </div>
       )}
 
       {step === "checkout" && method === "ach" && (
