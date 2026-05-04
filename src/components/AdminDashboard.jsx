@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase as sb } from "../supabase";
 import AdminTickets from "./AdminTickets";
 import AdminTenants from "./AdminTenants";
 import AdminMessages from "./AdminMessages";
@@ -20,7 +21,16 @@ const NAV = [
 export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, supabase }) {
   const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
+  const [vacantCount, setVacantCount] = useState(0);
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
+
+  useEffect(() => {
+    const load = async () => {
+      const { count } = await sb.from("properties").select("*", { count: "exact", head: true }).eq("status", "vacant");
+      setVacantCount(count || 0);
+    };
+    load();
+  }, [active]);
 
   return (
     <div className="admin-layout" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -61,8 +71,8 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
               {n.key === "tenants" && tenants.length > 0 && (
                 <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length}</span>
               )}
-              {n.key === "properties" && tenants.length > 0 && (
-                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length}</span>
+              {n.key === "properties" && (tenants.length + vacantCount) > 0 && (
+                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length + vacantCount}</span>
               )}
             </button>
           ))}
