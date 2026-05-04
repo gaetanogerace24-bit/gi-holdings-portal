@@ -115,17 +115,20 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
 
     if (editing) {
       await supabase.from("tenants").update(tenantData).eq("id", editing);
-      setTenants(tenants.map(t => t.id === editing ? { 
-        ...t, ...form, ...tenantData, 
-        rent: Number(form.rent), 
-        deposit: Number(form.deposit) || 0,
-        leaseStart: form.leaseStart,
-        leaseEnd: form.leaseEnd,
-        lease_start: form.leaseStart,
-        lease_end: form.leaseEnd,
-        monthToMonth: form.monthToMonth,
-        month_to_month: form.monthToMonth,
-      } : t));
+      // Reload fresh from Supabase to ensure correct data
+      const { data: fresh } = await supabase.from("tenants").select("*").eq("id", editing).single();
+      if (fresh) {
+        setTenants(tenants.map(t => t.id === editing ? {
+          ...fresh,
+          leaseStart: fresh.lease_start,
+          leaseEnd: fresh.lease_end,
+          section8Amount: fresh.section8_amount,
+          tenantPortion: fresh.tenant_portion,
+          monthToMonth: fresh.month_to_month,
+          contactEmail: fresh.contact_email,
+          documents: fresh.documents || [],
+        } : t));
+      }
     } else {
       const { data } = await supabase.from("tenants").insert({ ...tenantData, paid: false, documents: [] }).select().single();
       if (data) {
