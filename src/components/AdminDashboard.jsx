@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabase";
 import AdminTickets from "./AdminTickets";
 import AdminTenants from "./AdminTenants";
 import AdminMessages from "./AdminMessages";
@@ -20,8 +21,21 @@ const NAV = [
 export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, supabase }) {
   const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
-  const [totalPropertyCount, setTotalPropertyCount] = useState(sharedTenants?.length || 0);
+  const [totalPropertyCount, setTotalPropertyCount] = useState(0);
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      const { data } = await supabase.from("properties").select("tenant_id, status");
+      if (!data) return;
+      const nonArchived = data.filter(p => p.status !== "archived");
+      const linkedIds = new Set(nonArchived.map(p => p.tenant_id).filter(Boolean));
+      const archivedIds = new Set(data.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
+      const unlinked = (sharedTenants || []).filter(t => !linkedIds.has(t.id) && !archivedIds.has(t.id)).length;
+      setTotalPropertyCount(nonArchived.length + unlinked);
+    };
+    fetchCount();
+  }, []);
 
   return (
     <div className="admin-layout" style={{ fontFamily: "'DM Sans', sans-serif" }}>
