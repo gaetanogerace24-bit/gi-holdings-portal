@@ -9,8 +9,8 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   if (!leaseStart || !leaseEnd || !rent) return 0;
   const startStr = leaseStart.split("T")[0];
   const endStr = leaseEnd.split("T")[0];
-  const [sy, sm] = startStr.split("-").map(Number);
-  const [ey, em] = endStr.split("-").map(Number);
+  const [sy, sm, sd] = startStr.split("-").map(Number);
+  const [ey, em, ed] = endStr.split("-").map(Number);
   if (!sy || !sm || !ey || !em) return 0;
   const start = new Date(sy, sm - 1, 1);
   const end = new Date(ey, em - 1, 1);
@@ -19,23 +19,32 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   // Delete all unpaid invoices first
   await supabase.from("invoices").delete().eq("tenant_id", tenantId).eq("paid", false);
 
-  // Build invoice list for entire term
   const invoicesToInsert = [];
   const cursor = new Date(start);
+
   while (cursor < end) {
     const year = cursor.getFullYear();
     const monthNum = cursor.getMonth() + 1;
     const monthName = MONTH_NAMES[cursor.getMonth()];
+    const dueDateStr = `${year}-${String(monthNum).padStart(2, "0")}-01`;
+
+    // Check if this is the last month and lease ends mid-month
+    const isLastMonth = cursor.getFullYear() === ey && cursor.getMonth() === em - 1;
+    const endDay = ed || 1;
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+    const isProrated = isLastMonth && endDay > 1 && endDay < daysInMonth;
+    const proratedRent = isProrated ? Math.round((Number(rent) / daysInMonth) * endDay * 100) / 100 : Number(rent);
+
     invoicesToInsert.push({
       tenant_id: tenantId,
-      month: `${monthName} ${year}`,
+      month: isProrated ? `${monthName} ${year} (Prorated ${endDay} days)` : `${monthName} ${year}`,
       year,
       month_num: monthNum,
-      rent: Number(rent),
+      rent: proratedRent,
       late_fee: 0,
-      total: Number(rent),
+      total: proratedRent,
       paid: false,
-      due_date: `${year}-${String(monthNum).padStart(2, "0")}-01`,
+      due_date: dueDateStr,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
@@ -161,14 +170,19 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
     if (form.monthToMonth || !form.leaseStart || !form.leaseEnd) return null;
     try {
       const [sy, sm] = form.leaseStart.split("T")[0].split("-").map(Number);
-      const [ey, em] = form.leaseEnd.split("T")[0].split("-").map(Number);
+      const [ey, em, ed] = form.leaseEnd.split("T")[0].split("-").map(Number);
       const start = new Date(sy, sm - 1, 1);
       const end = new Date(ey, em - 1, 1);
       if (!sy || !sm || !ey || !em || end <= start) return null;
       let count = 0;
       const cursor = new Date(start);
       while (cursor < end) { count++; cursor.setMonth(cursor.getMonth() + 1); }
-      return { count, startLabel: `${MONTH_NAMES[sm-1]} ${sy}`, endLabel: `${MONTH_NAMES[em-1]} ${ey}` };
+      // Check if last month is prorated
+      const daysInLastMonth = new Date(ey, em, 0).getDate();
+      const endDay = ed || 1;
+      const isProrated = endDay > 1 && endDay < daysInLastMonth;
+      const proratedRent = isProrated ? Math.round((Number(form.rent) / daysInLastMonth) * endDay * 100) / 100 : null;
+      return { count, startLabel: `${MONTH_NAMES[sm-1]} ${sy}`, endLabel: `${MONTH_NAMES[em-1]} ${ey}`, isProrated, proratedRent, endDay };
     } catch { return null; }
   })();
 
@@ -215,6 +229,11 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
             <div style={{ marginBottom: 14 }}>
               <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 8, fontSize: 13, color: "#1b3d2a" }}>
                 📅 <strong>{invoicePreview.count} invoice{invoicePreview.count !== 1 ? "s" : ""}</strong> covering {invoicePreview.startLabel} → {invoicePreview.endLabel}
+                {invoicePreview.isProrated && (
+                  <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+                    Last invoice prorated: {invoicePreview.endDay} days × ${invoicePreview.proratedRent?.toLocaleString()}
+                  </div>
+                )}
               </div>
               {editing && (
                 <button onClick={handleRegenerate} disabled={regenerating} style={{ width: "100%", padding: "10px", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
