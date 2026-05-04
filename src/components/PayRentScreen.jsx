@@ -196,15 +196,17 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       )}
 
-      {payMode === "current" && (day < 5 ? (
-        <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#166534" }}>
-          ✅ No late fees yet — <strong>{daysLeft} day{daysLeft !== 1 ? "s" : ""} left</strong> before the 5th.
-        </div>
-      ) : invoiceLateFee > 0 ? (
-        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#991b1b" }}>
-          ⚠️ <strong>Late fee applied.</strong> ${invoiceLateFee} total late fees on this invoice.
-        </div>
-      ) : null)}
+      {payMode === "current" && !payingCustomInvoice && (
+        invoiceLateFee > 0 ? (
+          <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#991b1b" }}>
+            ⚠️ <strong>+$10.00 every day until paid.</strong> You currently owe <strong>${invoiceLateFee}</strong> in late fees on this invoice.
+          </div>
+        ) : day < 5 ? (
+          <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#166534" }}>
+            ✅ No late fees yet — <strong>{daysLeft} day{daysLeft !== 1 ? "s" : ""} left</strong> before the 5th.
+          </div>
+        ) : null
+      )}
 
       {payMode === "prepay" && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 14, border: "1px solid rgba(0,0,0,0.07)" }}>
