@@ -47,18 +47,9 @@ export default function App() {
   const [loggedInTenantId, setLoggedInTenantId] = useState(null);
 
   const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const currentTenantInvoices = invoices.filter(inv => {
-    if (inv.tenant_id !== currentTenant?.id) return false;
-    if (inv.paid) return false;
-    if (inv.deleted) return false;
-    // Only show invoices due this month or earlier
-    const parts = (inv.due_date || "").split("T")[0].split("-");
-    if (parts.length !== 3) return true;
-    const due = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    return due <= new Date(today.getFullYear(), today.getMonth() + 1, 0); // up to end of current month
-  });
+  const currentTenantInvoices = invoices.filter(inv =>
+    inv.tenant_id === currentTenant?.id && !inv.paid && !inv.deleted
+  );
 
   useEffect(() => { loadData(); }, []);
 
