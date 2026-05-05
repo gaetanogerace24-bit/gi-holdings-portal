@@ -8,7 +8,7 @@ const DOC_ICONS = {
 };
 
 export default function AdminDocuments({ tenants, setTenants }) {
-  const [selectedTenantId, setSelectedTenantId] = useState(null);
+  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: "", type: "Lease agreement", tenantId: "" });
   const [file, setFile] = useState(null);
@@ -22,9 +22,7 @@ export default function AdminDocuments({ tenants, setTenants }) {
     (t.documents || []).map(d => ({ ...d, tenantName: t.name, tenantId: t.id }))
   );
 
-  const filteredDocs = selectedTenantId === null
-    ? allDocs
-    : allDocs.filter(d => String(d.tenantId) === String(selectedTenantId));
+  const filteredDocs = selectedTenantId === "" ? [] : allDocs.filter(d => String(d.tenantId) === String(selectedTenantId));
 
   const handleFileDrop = (e) => {
     e.preventDefault();
@@ -230,8 +228,8 @@ export default function AdminDocuments({ tenants, setTenants }) {
       {filteredDocs.length === 0 ? (
         <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>📁</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>No documents yet</div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Click "Add document" to upload a lease or other file for a tenant.</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>{selectedTenantId ? "No documents yet" : "Select a tenant"}</div>
+          <div style={{ fontSize: 14, color: "#6b7280" }}>{selectedTenantId ? "Click "Add document" to upload a file." : "Click a tenant name above to view their documents."}</div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
