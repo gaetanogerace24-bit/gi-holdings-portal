@@ -18,27 +18,35 @@ const DEFAULTS = {
 };
 
 export default function AdminSettings() {
-  const [settings, setSettings] = useState(DEFAULTS);
-  const [status, setStatus] = useState("idle"); // idle | saving | saved | error
+  const [settings, setSettings] = useState(null); // null = loading
+  const [status, setStatus] = useState("idle");
 
-  // Load from Supabase on mount
   useEffect(() => {
     async function load() {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("settings")
           .select("value")
           .eq("key", "portal_settings")
           .maybeSingle();
-        if (data?.value) {
-          setSettings({ ...DEFAULTS, ...data.value });
-        }
+        setSettings({ ...DEFAULTS, ...(data?.value || {}) });
       } catch (e) {
         console.error("Failed to load settings:", e);
+        setSettings(DEFAULTS); // fallback to defaults on error
       }
     }
     load();
   }, []);
+
+  // Don't render until settings are loaded — prevents flash
+  if (settings === null) {
+    return (
+      <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, marginBottom: 8 }}>Settings</h1>
+        <div style={{ color: "#9ca3af", fontSize: 14 }}>Loading...</div>
+      </div>
+    );
+  }
 
   const update = (key, val) => setSettings(s => ({ ...s, [key]: val }));
 
