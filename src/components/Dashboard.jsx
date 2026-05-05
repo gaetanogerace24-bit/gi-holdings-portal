@@ -1,4 +1,10 @@
-// Live late fee calculator — matches admin and PayRentScreen exactly
+// Format currency — shows cents only when needed
+function fmt(n) {
+  const num = Number(n) || 0;
+  return num % 1 === 0
+    ? "$" + num.toLocaleString()
+    : "$" + num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 function calcLateFee(dueDateStr) {
   if (!dueDateStr) return 0;
   const today = new Date();
@@ -58,14 +64,14 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>
               {displayTotal === 0 ? "All paid up" : "Total balance due"}
             </div>
-            <div style={{ fontSize: 34, fontWeight: 700, color: "#fff", letterSpacing: "-1.5px" }}>${displayTotal.toLocaleString()}</div>
+            <div style={{ fontSize: 34, fontWeight: 700, color: "#fff", letterSpacing: "-1.5px" }}>{fmt(displayTotal)}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 3 }}>
               {invoices.length > 1 ? `${invoices.length} open invoices` : `Due the 1st · ${tenant?.unit || tenant?.address?.split(",")[0]}`}
             </div>
           </div>
           {displayLateFees > 0 && (
             <div style={{ background: "rgba(231,76,60,0.2)", border: "1px solid rgba(231,76,60,0.4)", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#ff8a80", fontWeight: 600 }}>
-              + ${displayLateFees.toLocaleString()} late fees
+              + {fmt(displayLateFees)} late fees
             </div>
           )}
         </div>
@@ -75,9 +81,9 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
             {invoicesWithLive.map(inv => (
               <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
                 <span style={{ color: "rgba(255,255,255,0.6)" }}>
-                  {inv.month}{inv.liveFee > 0 ? ` (incl. $${inv.liveFee.toLocaleString()} late fees)` : ""}
+                  {inv.month}{inv.liveFee > 0 ? ` (incl. ${fmt(inv.liveFee)} late fees)` : ""}
                 </span>
-                <span style={{ fontWeight: 700, color: inv.liveFee > 0 ? "#ff8a80" : "#fff" }}>${inv.liveTotal.toLocaleString()}</span>
+                <span style={{ fontWeight: 700, color: inv.liveFee > 0 ? "#ff8a80" : "#fff" }}>{fmt(inv.liveTotal)}</span>
               </div>
             ))}
           </div>
