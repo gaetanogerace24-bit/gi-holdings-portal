@@ -25,20 +25,21 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
   const rent = Number(tenant?.rent) || 0;
   const hasInvoices = invoices.length > 0;
 
-  // Calculate everything live
   const invoicesWithLive = invoices.map(inv => {
     const liveFee = calcLateFee(inv.due_date);
     const liveTotal = Number(inv.rent || 0) + liveFee;
-    // Determine if overdue or current month
     const parts = (inv.due_date || "").split("T")[0].split("-");
     const due = parts.length === 3
       ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
       : null;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const isOverdue = due && today > due;
     const isCurrentMonth = due &&
       due.getMonth() === now.getMonth() &&
       due.getFullYear() === now.getFullYear();
+    // Overdue = prior month or earlier (never the current month)
+    const isOverdue = due && !isCurrentMonth && (
+      due.getFullYear() < now.getFullYear() ||
+      (due.getFullYear() === now.getFullYear() && due.getMonth() < now.getMonth())
+    );
     return { ...inv, liveFee, liveTotal, isOverdue, isCurrentMonth };
   });
 
@@ -50,12 +51,10 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
   const displayTotal = hasInvoices ? totalBalance : fallbackTotal;
   const displayLateFees = hasInvoices ? totalLateFees : (tenant?.paid ? 0 : autoFee);
 
-  // Only show overdue + current month in the summary card
+  // Only overdue + current month — no future, no hidden count
   const visibleInvoices = invoicesWithLive
     .filter(inv => inv.isOverdue || inv.isCurrentMonth)
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
-
-  const hiddenCount = invoicesWithLive.length - visibleInvoices.length;
 
   return (
     <div style={{ background: "linear-gradient(160deg, #1b3d2a 0%, #2d5c42 100%)", padding: "22px 20px 26px" }}>
@@ -95,7 +94,6 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
           )}
         </div>
 
-        {/* Only overdue + current month shown here */}
         {visibleInvoices.length > 0 && (
           <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10 }}>
             {visibleInvoices.map(inv => (
@@ -106,11 +104,6 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
                 <span style={{ fontWeight: 700, color: inv.isOverdue ? "#ff8a80" : "#fff" }}>{fmt(inv.liveTotal)}</span>
               </div>
             ))}
-            {hiddenCount > 0 && (
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 6 }}>
-                + {hiddenCount} future invoice{hiddenCount !== 1 ? "s" : ""} hidden — prepay in Pay Rent tab
-              </div>
-            )}
           </div>
         )}
 
