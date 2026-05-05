@@ -8,7 +8,7 @@ const DOC_ICONS = {
 };
 
 export default function AdminDocuments({ tenants, setTenants }) {
-  const [selectedTenantId, setSelectedTenantId] = useState("all");
+  const [selectedTenantId, setSelectedTenantId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: "", type: "Lease agreement", tenantId: "" });
   const [file, setFile] = useState(null);
@@ -22,7 +22,7 @@ export default function AdminDocuments({ tenants, setTenants }) {
     (t.documents || []).map(d => ({ ...d, tenantName: t.name, tenantId: t.id }))
   );
 
-  const filteredDocs = selectedTenantId === "all"
+  const filteredDocs = selectedTenantId === null
     ? allDocs
     : allDocs.filter(d => String(d.tenantId) === String(selectedTenantId));
 
@@ -218,7 +218,7 @@ export default function AdminDocuments({ tenants, setTenants }) {
 
       {/* Filter by tenant */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        <FilterBtn label={`All (${allDocs.length})`} active={selectedTenantId === "all"} onClick={() => setSelectedTenantId("all")} />
+        
         {tenants.map(t => (
           <FilterBtn key={t.id} label={`${t.name.split(" ")[0]} (${(t.documents || []).length})`}
             active={String(selectedTenantId) === String(t.id)}
