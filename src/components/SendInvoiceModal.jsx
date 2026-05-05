@@ -1,5 +1,3 @@
-// ─── SEND CUSTOM INVOICE MODAL ────────────────────────────────────────────────
-// Drop this inside AdminPayments.jsx as a component, or import separately
 import { useState } from "react";
 import { supabase } from "../supabase";
 
@@ -14,17 +12,44 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
   const handleSend = async () => {
     if (!tenantId || !title.trim() || !amount) return;
     setSaving(true);
-    const { error } = await supabase.from("custom_invoices").insert({
+
+    const now = new Date().toISOString();
+    const numAmount = Number(amount);
+
+    // 1. Insert into custom_invoices — shows in tenant portal "Other Charges"
+    const { error: customError } = await supabase.from("custom_invoices").insert({
       tenant_id: tenantId,
       title: title.trim(),
-      amount: Number(amount),
+      amount: numAmount,
       notes: notes.trim() || null,
       paid: false,
-      due_date: new Date().toISOString(),
-      created_at: new Date().toISOString(),
+      due_date: now,
+      created_at: now,
     });
+
+    // 2. Also insert into invoices table — shows under "All Invoices" in admin
+    if (!customError) {
+      const today = new Date();
+      const monthName = today.toLocaleString("default", { month: "long", year: "numeric" });
+      await supabase.from("invoices").insert({
+        tenant_id: tenantId,
+        month: `${title.trim()} — ${monthName}`,
+        year: today.getFullYear(),
+        month_num: today.getMonth() + 1,
+        rent: numAmount,
+        late_fee: 0,
+        total: numAmount,
+        paid: false,
+        due_date: today.toISOString().split("T")[0],
+        notes: notes.trim() || null,
+        is_custom: true,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+
     setSaving(false);
-    if (!error) {
+    if (!customError) {
       setSent(true);
       if (onSent) onSent();
     }
@@ -39,7 +64,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
           <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Invoice sent!</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>
-            <strong>{tenant?.name}</strong> will see "{title}" in their portal under Other Charges.
+            <strong>{tenant?.name}</strong> will see "{title}" in their portal under Other Charges, and it's logged under their invoices.
           </div>
           <button onClick={onClose} style={greenBtn}>Done</button>
         </div>
