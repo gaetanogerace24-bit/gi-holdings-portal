@@ -1,6 +1,21 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
+// Live late fee calculator — same logic as admin side
+function calcLateFee(dueDateStr) {
+  if (!dueDateStr) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const parts = dueDateStr.split("T")[0].split("-");
+  if (parts.length !== 3) return 0;
+  const due = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
+  if (today < feeStart) return 0;
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysAfterFeeStart = Math.floor((today - feeStart) / msPerDay);
+  return 35 + daysAfterFeeStart * 10;
+}
+
 export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess }) {
   const [step, setStep] = useState("summary");
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(invoices[0]?.id || null);
@@ -33,8 +48,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
 
   const selectedInvoice = invoices.find(inv => inv.id === selectedInvoiceId) || invoices[0];
   const invoiceRent = Number(selectedInvoice?.rent) || rent;
-  const invoiceLateFee = Number(selectedInvoice?.late_fee) || 0;
-  const invoiceTotal = Number(selectedInvoice?.total) || invoiceRent;
+  const invoiceLateFee = calcLateFee(selectedInvoice?.due_date); // live calculation
+  const invoiceTotal = invoiceRent + invoiceLateFee;
   const daysLate = invoiceLateFee > 35 ? Math.round((invoiceLateFee - 35) / 10) : 0;
 
   const prepayTotal = base * prepayMonths;
