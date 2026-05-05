@@ -93,7 +93,6 @@ export default function App() {
     setLoading(false);
   }
 
-  // Called by AdminTenants after generating new invoices — reloads invoices from Supabase
   async function reloadInvoices() {
     const { data } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
     if (data) setInvoices(data);
@@ -130,13 +129,30 @@ export default function App() {
 
   const handlePaymentSuccess = async (tenantId, invoiceId) => {
     const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    await supabase.from("invoices").update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() }).eq("id", invoiceId);
-    setInvoices(prev => prev.map(inv => inv.id === invoiceId ? { ...inv, paid: true, paid_date: paidDate } : inv));
-    const remaining = invoices.filter(inv => inv.tenant_id === tenantId && !inv.paid && inv.id !== invoiceId);
+
+    // Mark invoice paid in Supabase
+    await supabase.from("invoices")
+      .update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() })
+      .eq("id", invoiceId);
+
+    // Update local invoices state
+    const updatedInvoices = invoices.map(inv =>
+      inv.id === invoiceId ? { ...inv, paid: true, paid_date: paidDate } : inv
+    );
+    setInvoices(updatedInvoices);
+
+    // Use updatedInvoices (not stale invoices) to check if anything still unpaid
+    const remaining = updatedInvoices.filter(inv =>
+      inv.tenant_id === tenantId && !inv.paid && !inv.deleted
+    );
+
     if (remaining.length === 0) {
       setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, paid: true, paidDate } : t));
-      await supabase.from("tenants").update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() }).eq("id", tenantId);
+      await supabase.from("tenants")
+        .update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() })
+        .eq("id", tenantId);
     }
+
     setActiveTab("tickets");
   };
 
