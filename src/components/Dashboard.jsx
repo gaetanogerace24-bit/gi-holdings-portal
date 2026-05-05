@@ -1,13 +1,34 @@
+// Live late fee calculator — matches admin and PayRentScreen exactly
+function calcLateFee(dueDateStr) {
+  if (!dueDateStr) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const parts = dueDateStr.split("T")[0].split("-");
+  if (parts.length !== 3) return 0;
+  const due = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
+  if (today < feeStart) return 0;
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysAfterFeeStart = Math.floor((today - feeStart) / msPerDay);
+  return 35 + daysAfterFeeStart * 10;
+}
+
 export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout }) {
   const now = new Date();
   const day = now.getDate();
   const rent = Number(tenant?.rent) || 0;
-
-  const totalBalance = invoices.reduce((sum, inv) => sum + Number(inv.total), 0);
-  const totalLateFees = invoices.reduce((sum, inv) => sum + Number(inv.late_fee), 0);
   const hasInvoices = invoices.length > 0;
 
-  // Fallback
+  // Calculate everything live
+  const invoicesWithLive = invoices.map(inv => {
+    const liveFee = calcLateFee(inv.due_date);
+    const liveTotal = Number(inv.rent || 0) + liveFee;
+    return { ...inv, liveFee, liveTotal };
+  });
+
+  const totalBalance = invoicesWithLive.reduce((sum, inv) => sum + inv.liveTotal, 0);
+  const totalLateFees = invoicesWithLive.reduce((sum, inv) => sum + inv.liveFee, 0);
+
   const autoFee = (() => { if (day < 5) return 0; return 35 + Math.max(0, (day - 4) - 1) * 10; })();
   const fallbackTotal = tenant?.paid ? 0 : (rent + (tenant?.section8 ? 0 : autoFee));
   const displayTotal = hasInvoices ? totalBalance : fallbackTotal;
@@ -44,19 +65,19 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
           </div>
           {displayLateFees > 0 && (
             <div style={{ background: "rgba(231,76,60,0.2)", border: "1px solid rgba(231,76,60,0.4)", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#ff8a80", fontWeight: 600 }}>
-              + ${displayLateFees} late fees
+              + ${displayLateFees.toLocaleString()} late fees
             </div>
           )}
         </div>
 
-        {invoices.length > 1 && (
+        {invoicesWithLive.length > 1 && (
           <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10 }}>
-            {invoices.map(inv => (
+            {invoicesWithLive.map(inv => (
               <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
                 <span style={{ color: "rgba(255,255,255,0.6)" }}>
-                  {inv.month} {Number(inv.late_fee) > 0 ? `(incl. $${Number(inv.late_fee)} late fees)` : ""}
+                  {inv.month}{inv.liveFee > 0 ? ` (incl. $${inv.liveFee.toLocaleString()} late fees)` : ""}
                 </span>
-                <span style={{ fontWeight: 700, color: Number(inv.late_fee) > 0 ? "#ff8a80" : "#fff" }}>${Number(inv.total).toLocaleString()}</span>
+                <span style={{ fontWeight: 700, color: inv.liveFee > 0 ? "#ff8a80" : "#fff" }}>${inv.liveTotal.toLocaleString()}</span>
               </div>
             ))}
           </div>
