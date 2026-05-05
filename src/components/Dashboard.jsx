@@ -1,4 +1,3 @@
-// Format currency — shows cents only when needed
 function fmt(n) {
   const num = Number(n) || 0;
   return num % 1 === 0
@@ -24,6 +23,8 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
   const day = now.getDate();
   const rent = Number(tenant?.rent) || 0;
 
+  // invoices passed in are already filtered to unpaid only by App.jsx
+  // so current month disappears naturally after payment — no extra logic needed
   const invoicesWithLive = invoices.map(inv => {
     const liveFee = calcLateFee(inv.due_date);
     const liveTotal = Number(inv.rent || 0) + liveFee;
@@ -34,6 +35,7 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
     const isCurrentMonth = due &&
       due.getMonth() === now.getMonth() &&
       due.getFullYear() === now.getFullYear();
+    // Overdue = strictly prior month or earlier, never current month
     const isOverdue = due && !isCurrentMonth && (
       due.getFullYear() < now.getFullYear() ||
       (due.getFullYear() === now.getFullYear() && due.getMonth() < now.getMonth())
@@ -41,20 +43,22 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
     return { ...inv, liveFee, liveTotal, isOverdue, isCurrentMonth };
   });
 
-  // Only overdue + current month — this is ALL we show and ALL we total
+  // Only overdue + current month shown in summary card
   const visibleInvoices = invoicesWithLive
     .filter(inv => inv.isOverdue || inv.isCurrentMonth)
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
+  // Total and late fees only from visible invoices
   const displayTotal = visibleInvoices.reduce((sum, inv) => sum + inv.liveTotal, 0);
   const displayLateFees = visibleInvoices.reduce((sum, inv) => sum + inv.liveFee, 0);
 
-  // Fallback if no invoices at all
+  // Fallback if no invoices
   const autoFee = day < 5 ? 0 : 35 + Math.max(0, (day - 4) - 1) * 10;
   const fallbackTotal = tenant?.paid ? 0 : (rent + (tenant?.section8 ? 0 : autoFee));
   const finalTotal = invoices.length > 0 ? displayTotal : fallbackTotal;
 
   const overdueCount = visibleInvoices.filter(i => i.isOverdue).length;
+  const allPaidUp = finalTotal === 0 && invoices.length === 0;
 
   return (
     <div style={{ background: "linear-gradient(160deg, #1b3d2a 0%, #2d5c42 100%)", padding: "22px 20px 26px" }}>
@@ -78,9 +82,11 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>
-              {finalTotal === 0 ? "All paid up" : "Balance due"}
+              {allPaidUp ? "All paid up" : "Balance due"}
             </div>
-            <div style={{ fontSize: 34, fontWeight: 700, color: "#fff", letterSpacing: "-1.5px" }}>{fmt(finalTotal)}</div>
+            <div style={{ fontSize: 34, fontWeight: 700, color: "#fff", letterSpacing: "-1.5px" }}>
+              {allPaidUp ? "$0" : fmt(finalTotal)}
+            </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 3 }}>
               {overdueCount > 0
                 ? `${overdueCount} overdue · ${tenant?.address?.split(",")[0]}`
@@ -94,6 +100,7 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
           )}
         </div>
 
+        {/* Only show overdue + current month — disappears when paid, reappears next 1st */}
         {visibleInvoices.length > 0 && (
           <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10 }}>
             {visibleInvoices.map(inv => (
@@ -107,8 +114,15 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
           </div>
         )}
 
+        {/* All paid up message */}
+        {allPaidUp && (
+          <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, fontSize: 12, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
+            ✅ You're all caught up! Next invoice appears on the 1st.
+          </div>
+        )}
+
         <button onClick={() => onTabClick("pay")} style={{ width: "100%", marginTop: 14, padding: "12px", background: "#4caf7d", border: "none", borderRadius: 11, color: "#fff", fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-          {finalTotal === 0 ? "Prepay upcoming rent" : "Pay now"}
+          {allPaidUp ? "Prepay upcoming rent" : "Pay now"}
         </button>
       </div>
     </div>
