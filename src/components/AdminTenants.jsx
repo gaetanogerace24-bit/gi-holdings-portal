@@ -53,7 +53,7 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   return invoicesToInsert.length;
 }
 
-export default function AdminTenants({ tenants, setTenants, onInvoicesChanged }) {
+export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, onNavigateToDocuments }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -417,7 +417,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
                   {t.deposit > 0 && <div style={{ fontSize: 11, color: "#9ca3af" }}>Deposit: ${(t.deposit || 0).toLocaleString()}</div>}
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={() => setExpandedDocs(docsOpen ? null : t.id)} style={{ ...outlineBtn, borderColor: docsOpen ? "#1b3d2a" : "#e5e7eb", color: docsOpen ? "#1b3d2a" : "#6b7280" }}>
+                  <button onClick={() => onNavigateToDocuments ? onNavigateToDocuments(t.id) : setExpandedDocs(docsOpen ? null : t.id)} style={{ ...outlineBtn, borderColor: "#e5e7eb", color: "#6b7280" }}>
                     📄 Docs {t.documents?.length > 0 ? `(${t.documents.length})` : ""}
                   </button>
                   <button onClick={() => openEdit(t)} style={outlineBtn}>Edit</button>
