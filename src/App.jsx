@@ -62,6 +62,17 @@ export default function App() {
 
   useEffect(() => { loadData(); }, []);
 
+  // Real-time subscription — any invoice change from admin instantly updates tenant portal
+  useEffect(() => {
+    const sub = supabase
+      .channel("invoices-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoices" }, () => {
+        reloadInvoices();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, []);
+
   useEffect(() => {
     if (loading) return;
     const session = loadSession();
