@@ -12,12 +12,6 @@ import { supabase } from "./supabase";
 const ADMIN_EMAIL = "gaetano@giholdings.com";
 const ADMIN_PASS = "GIHoldings2026!";
 
-const TENANT_EMAILS = {
-  "gthorntonjr51@gmail.com": "Gary Thornton",
-  "apate636@icloud.com": "Angelisa Pate",
-  "timmylapearl92@gmail.com": "Danielle Russell",
-};
-
 function saveSession(screen, tenantId) {
   try { localStorage.setItem("gi_session", JSON.stringify({ screen, tenantId, ts: Date.now() })); } catch (e) {}
 }
@@ -46,6 +40,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loggedInTenantId, setLoggedInTenantId] = useState(null);
   const [defaultPayMode, setDefaultPayMode] = useState("current");
+  const [loginError, setLoginError] = useState(null);
 
   const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
   const currentTenantInvoices = invoices.filter(inv =>
@@ -54,7 +49,6 @@ export default function App() {
 
   useEffect(() => { loadData(); }, []);
 
-  // Real-time subscription — any invoice change from admin instantly updates tenant portal
   useEffect(() => {
     const sub = supabase
       .channel("invoices-realtime")
@@ -113,47 +107,64 @@ export default function App() {
     return { ...t, tenantId: t.tenant_id, tenantName: t.tenant_name };
   }
 
-  const handleLogin = (email, password) => {
+  // ── Login: admin uses hardcoded creds, tenants use email + portal_password from Supabase
+  const handleLogin = async (email, password) => {
     const lowerEmail = email.toLowerCase().trim();
+    setLoginError(null);
+
+    // Admin login — hardcoded, only you
     if (lowerEmail === ADMIN_EMAIL && password === ADMIN_PASS) {
-      saveSession("admin", null); setScreen("admin");
-    } else if (TENANT_EMAILS[lowerEmail]) {
-      const tenantName = TENANT_EMAILS[lowerEmail];
-      const matchedTenant = tenants.find(t => t.name === tenantName);
-      if (matchedTenant) {
-        saveSession("portal", matchedTenant.id); setLoggedInTenantId(matchedTenant.id); setScreen("portal");
-      } else { alert("Account found but tenant not set up yet. Contact your landlord."); return false; }
-    } else { return false; }
+      saveSession("admin", null);
+      setScreen("admin");
+      return true;
+    }
+
+    // Tenant login — check against Supabase portal_password
+    const matchedTenant = tenants.find(t =>
+      t.email?.toLowerCase().trim() === lowerEmail
+    );
+
+    if (matchedTenant) {
+      // Check portal_password set by admin
+      if (!matchedTenant.portal_password) {
+        setLoginError("Your account doesn't have a password set yet. Contact your landlord.");
+        return false;
+      }
+      if (matchedTenant.portal_password === password) {
+        saveSession("portal", matchedTenant.id);
+        setLoggedInTenantId(matchedTenant.id);
+        setScreen("portal");
+        return true;
+      } else {
+        setLoginError("Incorrect password. Contact your landlord if you need help.");
+        return false;
+      }
+    }
+
+    setLoginError("No account found with that email.");
+    return false;
   };
 
-  const handleLogout = () => { clearSession(); setScreen("login"); setActiveTab("tickets"); setLoggedInTenantId(null); };
+  const handleLogout = () => { clearSession(); setScreen("login"); setActiveTab("tickets"); setLoggedInTenantId(null); setLoginError(null); };
 
   const handlePaymentSuccess = async (tenantId, invoiceId) => {
     const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-    // Mark invoice paid in Supabase
     await supabase.from("invoices")
       .update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() })
       .eq("id", invoiceId);
-
-    // Update local invoices state
     const updatedInvoices = invoices.map(inv =>
       inv.id === invoiceId ? { ...inv, paid: true, paid_date: paidDate } : inv
     );
     setInvoices(updatedInvoices);
-
-    // Use updatedInvoices (not stale invoices) to check if anything still unpaid
     const remaining = updatedInvoices.filter(inv =>
       inv.tenant_id === tenantId && !inv.paid && !inv.deleted
     );
-
     if (remaining.length === 0) {
       setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, paid: true, paidDate } : t));
       await supabase.from("tenants")
         .update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() })
         .eq("id", tenantId);
     }
-
     setActiveTab("tickets");
   };
 
@@ -180,7 +191,7 @@ export default function App() {
     );
   }
 
-  if (screen === "login") return <LoginScreen onLogin={handleLogin} />;
+  if (screen === "login") return <LoginScreen onLogin={handleLogin} loginError={loginError} />;
 
   if (screen === "admin") return (
     <AdminDashboard
