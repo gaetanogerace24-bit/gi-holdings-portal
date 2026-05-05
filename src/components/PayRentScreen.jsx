@@ -34,6 +34,11 @@ function classifyInvoice(inv, now) {
   return isOverdue ? "overdue" : isCurrentMonth ? "current" : "future";
 }
 
+function getFutureInvoices(invoices, n, now) {
+  const sorted = [...invoices].sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+  return sorted.filter(inv => classifyInvoice(inv, now) === "future").slice(0, n);
+}
+
 export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess }) {
   const now = new Date();
   const day = now.getDate();
@@ -47,21 +52,62 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
   const [step, setStep] = useState("summary");
   const [payMode, setPayMode] = useState("current");
   const [prepayMonths, setPrepayMonths] = useState(1);
-  const [prepayAll, setPrepayAll] = useState(false); // "remainder of lease" mode
+  const [prepayAll, setPrepayAll] = useState(false);
   const [method, setMethod] = useState(null);
   const [error, setError] = useState(null);
   const [achName, setAchName] = useState("");
   const [routing, setRouting] = useState("");
   const [account, setAccount] = useState("");
   const [accountType, setAccountType] = useState("checking");
+  const [savedBankInfo, setSavedBankInfo] = useState(null);
+  const [savingBank, setSavingBank] = useState(false);
+  const [bankSaved, setBankSaved] = useState(false);
   const [customInvoices, setCustomInvoices] = useState([]);
   const [payingCustomInvoice, setPayingCustomInvoice] = useState(null);
+
+  // Load saved ACH info from tenant record
+  useEffect(() => {
+    if (!tenant?.id) return;
+    const loadBankInfo = async () => {
+      const { data } = await supabase
+        .from("tenants")
+        .select("bank_routing, bank_account, bank_account_type, bank_name")
+        .eq("id", tenant.id)
+        .single();
+      if (data?.bank_routing) {
+        setSavedBankInfo(data);
+        setRouting(data.bank_routing || "");
+        setAccount(data.bank_account || "");
+        setAccountType(data.bank_account_type || "checking");
+        setAchName(data.bank_name || tenant.name || "");
+      } else {
+        setAchName(tenant.name || "");
+      }
+    };
+    loadBankInfo();
+  }, [tenant?.id]);
 
   useEffect(() => {
     if (!tenant?.id) return;
     supabase.from("custom_invoices").select("*").eq("tenant_id", tenant.id).eq("paid", false)
       .then(({ data }) => { if (data) setCustomInvoices(data); });
   }, [tenant?.id]);
+
+  const handleSaveBankInfo = async () => {
+    if (!tenant?.id || !routing || !account) return;
+    setSavingBank(true);
+    await supabase.from("tenants").update({
+      bank_routing: routing,
+      bank_account: account,
+      bank_account_type: accountType,
+      bank_name: achName,
+      updated_at: new Date().toISOString(),
+    }).eq("id", tenant.id);
+    setSavedBankInfo({ bank_routing: routing, bank_account: account, bank_account_type: accountType, bank_name: achName });
+    setSavingBank(false);
+    setBankSaved(true);
+    setTimeout(() => setBankSaved(false), 3000);
+  };
 
   // Classify invoices
   const classified = invoices.map(inv => ({
@@ -71,25 +117,18 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
     liveTotal: Number(inv.rent || 0) + calcLateFee(inv.due_date),
   }));
 
-  // Overdue + current — selectable in Pay balance tab
   const payableInvoices = classified
     .filter(inv => inv._type === "overdue" || inv._type === "current")
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
-  // All future invoices sorted
   const futureInvoices = classified
     .filter(inv => inv._type === "future")
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
   const totalFutureMonths = futureInvoices.length;
-
-  // Standard prepay options — only show if enough invoices exist
   const prepayOptions = [1, 2, 3, 6].filter(n => n <= totalFutureMonths);
-
-  // "Remainder of lease" = all future invoices, show only if > 6
   const showRemainderOption = totalFutureMonths > 6;
 
-  // Selected prepay invoices
   const activePrepayInvoices = prepayAll
     ? futureInvoices
     : futureInvoices.slice(0, prepayMonths);
@@ -98,7 +137,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
     (sum, inv) => sum + Number(inv.rent || base), 0
   );
 
-  // Selected invoice for Pay balance tab
   const defaultInvoice = payableInvoices.find(i => i._type === "overdue") || payableInvoices[0] || null;
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(defaultInvoice?.id || null);
 
@@ -274,7 +312,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
             </div>
           ) : null}
 
-          {/* Multiple selectable invoices */}
           {payableInvoices.length > 1 && (
             <div style={{ marginBottom: 14 }}>
               <SL>Select invoice to pay</SL>
@@ -303,7 +340,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
             </div>
           )}
 
-          {/* Single invoice card */}
           {payableInvoices.length === 1 && selectedInvoice && (
             <div style={{ background: isSelectedOverdue ? "#fef2f2" : "#f0fdf4", border: `2px solid ${isSelectedOverdue ? "#fca5a5" : "#86efac"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: isSelectedOverdue ? "#991b1b" : "#166534", marginBottom: 4 }}>
@@ -339,11 +375,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 14, border: "1px solid rgba(0,0,0,0.07)" }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>📅 Prepay upcoming rent</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>Lock in now — no late fees, no stress.</div>
-
           {totalFutureMonths === 0 ? (
-            <div style={{ fontSize: 13, color: "#9ca3af", textAlign: "center", padding: "12px 0" }}>
-              No upcoming invoices found. Contact your landlord.
-            </div>
+            <div style={{ fontSize: 13, color: "#9ca3af", textAlign: "center", padding: "12px 0" }}>No upcoming invoices found. Contact your landlord.</div>
           ) : (
             <>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: showRemainderOption ? 10 : 16 }}>
@@ -362,8 +395,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
                   );
                 })}
               </div>
-
-              {/* Remainder of lease button — only if > 6 months remaining */}
               {showRemainderOption && (
                 <button onClick={() => { setPrepayAll(true); setPrepayMonths(totalFutureMonths); }} style={{
                   width: "100%", padding: "12px 16px", borderRadius: 9, cursor: "pointer", marginBottom: 16,
@@ -379,8 +410,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
                   </span>
                 </button>
               )}
-
-              {/* Months covered breakdown */}
               {activePrepayInvoices.length > 0 && (
                 <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 14px" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: "#9ca3af", marginBottom: 8 }}>Months covered</div>
@@ -410,6 +439,9 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
               <div style={{ fontSize: 28, marginBottom: 6 }}>🏦</div>
               <div style={{ fontSize: 14, fontWeight: 700 }}>Bank Transfer (ACH)</div>
               <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Checking or Savings · 3–5 business days</div>
+              {savedBankInfo?.bank_routing && (
+                <div style={{ fontSize: 11, color: "#166534", marginTop: 4, fontWeight: 600 }}>✓ Saved bank info on file</div>
+              )}
             </button>
           </div>
         </>
@@ -419,6 +451,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         <div style={{ background: "#fff", borderRadius: 14, padding: "18px", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8, color: "#1b3d2a" }}>🏦 Enter bank details</div>
           <div style={{ fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>ACH transfers take 3–5 business days.</div>
+
           <FF label="Account holder name" value={achName} onChange={setAchName} placeholder={tenant?.name} />
           <div style={{ marginBottom: 12 }}>
             <Label>Account type</Label>
@@ -430,6 +463,20 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
           </div>
           <FF label="Routing number (9 digits)" value={routing} onChange={v => setRouting(v.replace(/\D/g, "").slice(0, 9))} placeholder="021000021" inputMode="numeric" />
           <FF label="Account number" value={account} onChange={v => setAccount(v.replace(/\D/g, "").slice(0, 17))} placeholder="Your account number" inputMode="numeric" />
+
+          {/* Save bank info button */}
+          <button
+            onClick={handleSaveBankInfo}
+            disabled={savingBank || !routing || !account || routing.length !== 9}
+            style={{
+              width: "100%", padding: "11px", borderRadius: 10, cursor: "pointer", marginBottom: 12,
+              border: "1.5px solid #bbf7d0", background: bankSaved ? "#f0fdf4" : "#fff",
+              color: bankSaved ? "#166534" : "#1b3d2a", fontFamily: "'DM Sans', sans-serif",
+              fontSize: 13, fontWeight: 600, opacity: (!routing || !account || routing.length !== 9) ? 0.5 : 1,
+            }}>
+            {savingBank ? "Saving..." : bankSaved ? "✓ Bank info saved!" : "💾 Save bank info for next time"}
+          </button>
+
           {error && <ErrBox msg={error} />}
           <button onClick={handlePay} style={payBtnStyle}>Submit ACH — {fmt(total)} →</button>
           <button onClick={() => { setStep("summary"); setError(null); }} style={backBtnStyle}>← Back</button>
