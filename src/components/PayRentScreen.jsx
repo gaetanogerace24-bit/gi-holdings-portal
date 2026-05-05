@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
-// Live late fee calculator — same logic as admin side
+// Format currency — always shows cents if not a whole number
+function fmt(n) {
+  const num = Number(n) || 0;
+  return num % 1 === 0
+    ? "$" + num.toLocaleString()
+    : "$" + num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 function calcLateFee(dueDateStr) {
   if (!dueDateStr) return 0;
   const today = new Date();
@@ -113,10 +119,10 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
       <div style={{ background: "#fff", borderRadius: 16, padding: "40px 28px", textAlign: "center", border: "1px solid rgba(0,0,0,0.07)" }}>
         <div style={{ fontSize: 56, marginBottom: 14 }}>🎉</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#166534", marginBottom: 6 }}>Payment received!</div>
-        <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20 }}>${total.toLocaleString()} sent to G&I Holdings LLC</div>
+        <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20 }}>${fmt(total)} sent to G&I Holdings LLC</div>
         <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "16px 20px", textAlign: "left", fontSize: 13, lineHeight: 2 }}>
           <div style={{ fontWeight: 700, color: "#166534", marginBottom: 4 }}>Payment confirmation</div>
-          <div>Amount: <strong>${total.toLocaleString()}</strong></div>
+          <div>Amount: <strong>${fmt(total)}</strong></div>
           <div>Invoice: {selectedInvoice?.month || month}</div>
           <div>Property: {tenant?.address}</div>
           <div>Method: {method === "card" ? "Credit/Debit Card" : "ACH Bank Transfer"}</div>
@@ -142,7 +148,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
                   {inv.notes && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{inv.notes}</div>}
                   <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Due immediately</div>
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>${Number(inv.amount).toLocaleString()}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>${fmt(inv.amount)}</div>
               </div>
               <button
                 onClick={() => {
@@ -152,7 +158,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
                   setMethod(null);
                 }}
                 style={{ width: "100%", background: "#dc2626", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                Pay ${Number(inv.amount).toLocaleString()} now →
+                Pay ${fmt(inv.amount)} now →
               </button>
             </div>
           ))}
@@ -165,7 +171,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
           <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
             <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 2 }}>Paying charge</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#991b1b", marginBottom: 2 }}>{payingCustomInvoice.title}</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: "#dc2626" }}>${Number(payingCustomInvoice.amount).toLocaleString()}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#dc2626" }}>${fmt(payingCustomInvoice.amount)}</div>
             <button onClick={() => { setPayingCustomInvoice(null); setPayMode("current"); setStep("summary"); setMethod(null); }}
               style={{ marginTop: 8, fontSize: 12, color: "#9ca3af", background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
               ← Cancel
@@ -212,7 +218,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
                   </div>
                   {liveFee > 0 && <div style={{ fontSize: 12, color: "#dc2626" }}>$35 base + ${daysLate * 10} ({daysLate} days × $10) = ${liveFee} late fees</div>}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: isOverdue ? "#991b1b" : "#1b3d2a" }}>${liveTotal.toLocaleString()}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: isOverdue ? "#991b1b" : "#1b3d2a" }}>${fmt(liveTotal)}</div>
               </button>
             );
           })}
@@ -243,7 +249,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
                 background: prepayMonths === n ? "#f0f9f4" : "#fff",
                 color: prepayMonths === n ? "#1b3d2a" : "#6b7280",
                 fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
-              }}>{n} mo{n > 1 ? "s" : ""} — ${(base * n).toLocaleString()}</button>
+              }}>{n} mo{n > 1 ? "s" : ""} — ${fmt(base * n)}</button>
             ))}
           </div>
         </div>
@@ -253,7 +259,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         <>
           <SL>Payment breakdown — {selectedInvoice.month}</SL>
           <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,0,0,0.07)" }}>
-            <Row label="Monthly rent" value={`$${invoiceRent.toLocaleString()}.00`} />
+            <Row label="Monthly rent" value={`${fmt(invoiceRent)}`} />
             {invoiceLateFee > 0 && <>
               <Row label="Base late fee (day 1 — Apr 5)" value="+ $35.00" danger />
               {daysLate > 0 && <Row label={`Daily fees ($10 × ${daysLate} days)`} value={`+ $${daysLate * 10}.00`} danger />}
@@ -261,7 +267,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
             {invoiceLateFee === 0 && <Row label="Late fee" value="$0.00" />}
             <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 10, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 15, fontWeight: 700 }}>Total due</span>
-              <span style={{ fontSize: 24, fontWeight: 800, color: "#1b3d2a" }}>${invoiceTotal.toLocaleString()}.00</span>
+              <span style={{ fontSize: 24, fontWeight: 800, color: "#1b3d2a" }}>${fmt(invoiceTotal)}</span>
             </div>
           </div>
         </>
@@ -296,7 +302,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
           <FF label="Routing number (9 digits)" value={routing} onChange={v => setRouting(v.replace(/\D/g, "").slice(0, 9))} placeholder="021000021" inputMode="numeric" />
           <FF label="Account number" value={account} onChange={v => setAccount(v.replace(/\D/g, "").slice(0, 17))} placeholder="Your account number" inputMode="numeric" />
           {error && <ErrBox msg={error} />}
-          <button onClick={handlePay} style={payBtnStyle}>Submit ACH — ${total.toLocaleString()} →</button>
+          <button onClick={handlePay} style={payBtnStyle}>Submit ACH — ${fmt(total)} →</button>
           <button onClick={() => { setStep("summary"); setError(null); }} style={backBtnStyle}>← Back</button>
         </div>
       )}
