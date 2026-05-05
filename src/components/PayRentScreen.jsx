@@ -39,7 +39,8 @@ function getFutureInvoices(invoices, n, now) {
   return sorted.filter(inv => classifyInvoice(inv, now) === "future").slice(0, n);
 }
 
-export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess }) {
+// ── ONLY CHANGE: accept defaultPayMode prop, default to "current"
+export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess, defaultPayMode = "current" }) {
   const now = new Date();
   const day = now.getDate();
   const daysLeft = Math.max(0, 5 - day);
@@ -50,7 +51,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
     : rent;
 
   const [step, setStep] = useState("summary");
-  const [payMode, setPayMode] = useState("current");
+  // ── ONLY CHANGE: initialize payMode from defaultPayMode prop
+  const [payMode, setPayMode] = useState(defaultPayMode);
   const [prepayMonths, setPrepayMonths] = useState(1);
   const [prepayAll, setPrepayAll] = useState(false);
   const [method, setMethod] = useState(null);
@@ -109,7 +111,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
     setTimeout(() => setBankSaved(false), 3000);
   };
 
-  // Classify invoices
   const classified = invoices.map(inv => ({
     ...inv,
     _type: classifyInvoice(inv, now),
@@ -246,7 +247,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
   return (
     <div style={{ padding: 16, fontFamily: "'DM Sans', sans-serif" }}>
 
-      {/* ─── OTHER CHARGES ─────────────────────────────────────────── */}
       {customInvoices.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <SL>Other charges</SL>
@@ -269,7 +269,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       )}
 
-      {/* ─── CUSTOM INVOICE FLOW ────────────────────────────────────── */}
       {payingCustomInvoice && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
@@ -284,7 +283,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       )}
 
-      {/* ─── TABS ───────────────────────────────────────────────────── */}
       {!payingCustomInvoice && (
         <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 16 }}>
           {[{ key: "current", label: "💳 Pay balance" }, { key: "prepay", label: "📅 Prepay rent" }].map(m => (
@@ -299,7 +297,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       )}
 
-      {/* ─── PAY BALANCE ────────────────────────────────────────────── */}
       {payMode === "current" && !payingCustomInvoice && (
         <>
           {invoiceLateFee > 0 ? (
@@ -370,7 +367,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </>
       )}
 
-      {/* ─── PREPAY ─────────────────────────────────────────────────── */}
       {payMode === "prepay" && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 14, border: "1px solid rgba(0,0,0,0.07)" }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>📅 Prepay upcoming rent</div>
@@ -430,7 +426,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       )}
 
-      {/* ─── PAYMENT METHOD ────────────────────────────────────────── */}
       {step === "summary" && (
         <>
           <SL>Choose payment method</SL>
@@ -451,7 +446,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         <div style={{ background: "#fff", borderRadius: 14, padding: "18px", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8, color: "#1b3d2a" }}>🏦 Enter bank details</div>
           <div style={{ fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>ACH transfers take 3–5 business days.</div>
-
           <FF label="Account holder name" value={achName} onChange={setAchName} placeholder={tenant?.name} />
           <div style={{ marginBottom: 12 }}>
             <Label>Account type</Label>
@@ -463,8 +457,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
           </div>
           <FF label="Routing number (9 digits)" value={routing} onChange={v => setRouting(v.replace(/\D/g, "").slice(0, 9))} placeholder="021000021" inputMode="numeric" />
           <FF label="Account number" value={account} onChange={v => setAccount(v.replace(/\D/g, "").slice(0, 17))} placeholder="Your account number" inputMode="numeric" />
-
-          {/* Save bank info button */}
           <button
             onClick={handleSaveBankInfo}
             disabled={savingBank || !routing || !account || routing.length !== 9}
@@ -476,7 +468,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
             }}>
             {savingBank ? "Saving..." : bankSaved ? "✓ Bank info saved!" : "💾 Save bank info for next time"}
           </button>
-
           {error && <ErrBox msg={error} />}
           <button onClick={handlePay} style={payBtnStyle}>Submit ACH — {fmt(total)} →</button>
           <button onClick={() => { setStep("summary"); setError(null); }} style={backBtnStyle}>← Back</button>
