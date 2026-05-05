@@ -8,13 +8,17 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [sent, setSent] = useState(false);
+  const [invoiceError, setInvoiceError] = useState(null);
 
   const handleSend = async () => {
     if (!tenantId || !title.trim() || !amount) return;
     setSaving(true);
+    setInvoiceError(null);
 
     const now = new Date().toISOString();
     const numAmount = Number(amount);
+    const today = new Date();
+    const monthName = today.toLocaleString("default", { month: "long", year: "numeric" });
 
     // 1. Insert into custom_invoices — shows in tenant portal "Other Charges"
     const { error: customError } = await supabase.from("custom_invoices").insert({
@@ -27,32 +31,51 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
       created_at: now,
     });
 
-    // 2. Also insert into invoices table — shows under "All Invoices" in admin
-    if (!customError) {
-      const today = new Date();
-      const monthName = today.toLocaleString("default", { month: "long", year: "numeric" });
-      await supabase.from("invoices").insert({
-        tenant_id: tenantId,
-        month: `${title.trim()} — ${monthName}`,
-        year: today.getFullYear(),
-        month_num: today.getMonth() + 1,
-        rent: numAmount,
-        late_fee: 0,
-        total: numAmount,
-        paid: false,
-        due_date: today.toISOString().split("T")[0],
-        notes: notes.trim() || null,
-        is_custom: true,
-        created_at: now,
-        updated_at: now,
-      });
+    if (customError) {
+      console.error("custom_invoices insert error:", customError);
+      setSaving(false);
+      setInvoiceError("Failed to send invoice: " + customError.message);
+      return;
+    }
+
+    // 2. Insert into invoices table — shows under tenant's All Invoices in admin
+    const invoicePayload = {
+      tenant_id: tenantId,
+      month: `${title.trim()} — ${monthName}`,
+      year: today.getFullYear(),
+      month_num: today.getMonth() + 1,
+      rent: numAmount,
+      late_fee: 0,
+      total: numAmount,
+      paid: false,
+      due_date: today.toISOString().split("T")[0],
+      is_custom: true,
+      created_at: now,
+      updated_at: now,
+    };
+
+    // Only include notes if column exists
+    try {
+      invoicePayload.notes = notes.trim() || null;
+    } catch(e) {}
+
+    const { error: invoiceErr, data: invoiceData } = await supabase
+      .from("invoices")
+      .insert(invoicePayload)
+      .select()
+      .single();
+
+    if (invoiceErr) {
+      console.error("invoices insert error:", invoiceErr);
+      // Still mark as sent since custom_invoices worked — but show warning
+      setInvoiceError("Warning: saved to tenant portal but admin log failed: " + invoiceErr.message);
+    } else {
+      console.log("Invoice created in invoices table:", invoiceData);
     }
 
     setSaving(false);
-    if (!customError) {
-      setSent(true);
-      if (onSent) onSent();
-    }
+    setSent(true);
+    if (onSent) onSent();
   };
 
   const tenant = tenants.find(t => t.id === tenantId);
@@ -61,11 +84,16 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
     <div style={overlay}>
       <div style={modal}>
         <div style={{ textAlign: "center", padding: "20px 0" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>{invoiceError ? "⚠️" : "✅"}</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Invoice sent!</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>
-            <strong>{tenant?.name}</strong> will see "{title}" in their portal under Other Charges, and it's logged under their invoices.
+            <strong>{tenant?.name}</strong> will see "{title}" in their portal under Other Charges.
           </div>
+          {invoiceError && (
+            <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#dc2626", marginBottom: 16, textAlign: "left" }}>
+              {invoiceError}
+            </div>
+          )}
           <button onClick={onClose} style={greenBtn}>Done</button>
         </div>
       </div>
@@ -111,6 +139,12 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
             rows={2}
             style={{ ...inputSt, resize: "none", lineHeight: 1.5 }} />
         </div>
+
+        {invoiceError && (
+          <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#dc2626", marginBottom: 12 }}>
+            ⚠️ {invoiceError}
+          </div>
+        )}
 
         {tenantId && title && amount && (
           <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 16, fontSize: 13, color: "#1b3d2a" }}>
