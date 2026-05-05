@@ -23,6 +23,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
   const [visited, setVisited] = useState(new Set(["payments", "properties", "settings"]));
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
   const [totalPropertyCount, setTotalPropertyCount] = useState(0);
+  const [documentsTenantId, setDocumentsTenantId] = useState("");
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
 
   const handleTabClick = (key) => {
@@ -118,7 +119,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           )}
           {visited.has("tenants") && (
             <div style={{ display: active === "tenants" ? "block" : "none" }}>
-              <AdminTenants tenants={tenants} setTenants={setTenants} onInvoicesChanged={onInvoicesChanged} />
+              <AdminTenants tenants={tenants} setTenants={setTenants} onInvoicesChanged={onInvoicesChanged} onNavigateToDocuments={(tenantId) => { handleTabClick("documents"); setDocumentsTenantId(tenantId); }} />
             </div>
           )}
           {visited.has("properties") && (
@@ -128,7 +129,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           )}
           {visited.has("documents") && (
             <div style={{ display: active === "documents" ? "block" : "none" }}>
-              <AdminDocuments tenants={tenants} setTenants={setTenants} />
+              <AdminDocuments tenants={tenants} setTenants={setTenants} initialTenantId={documentsTenantId} />
             </div>
           )}
           {visited.has("messages") && (
