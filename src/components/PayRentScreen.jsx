@@ -34,12 +34,6 @@ function classifyInvoice(inv, now) {
   return isOverdue ? "overdue" : isCurrentMonth ? "current" : "future";
 }
 
-// Get next N future invoices for prepay
-function getFutureInvoices(invoices, n, now) {
-  const sorted = [...invoices].sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
-  return sorted.filter(inv => classifyInvoice(inv, now) === "future").slice(0, n);
-}
-
 export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess }) {
   const now = new Date();
   const day = now.getDate();
@@ -53,6 +47,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
   const [step, setStep] = useState("summary");
   const [payMode, setPayMode] = useState("current");
   const [prepayMonths, setPrepayMonths] = useState(1);
+  const [prepayAll, setPrepayAll] = useState(false); // "remainder of lease" mode
   const [method, setMethod] = useState(null);
   const [error, setError] = useState(null);
   const [achName, setAchName] = useState("");
@@ -62,24 +57,51 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
   const [customInvoices, setCustomInvoices] = useState([]);
   const [payingCustomInvoice, setPayingCustomInvoice] = useState(null);
 
-  // Classify all invoices
+  useEffect(() => {
+    if (!tenant?.id) return;
+    supabase.from("custom_invoices").select("*").eq("tenant_id", tenant.id).eq("paid", false)
+      .then(({ data }) => { if (data) setCustomInvoices(data); });
+  }, [tenant?.id]);
+
+  // Classify invoices
   const classified = invoices.map(inv => ({
     ...inv,
     _type: classifyInvoice(inv, now),
     liveFee: calcLateFee(inv.due_date),
-    get liveTotal() { return Number(this.rent || 0) + this.liveFee; },
+    liveTotal: Number(inv.rent || 0) + calcLateFee(inv.due_date),
   }));
 
-  // Overdue + current only — sorted oldest first
+  // Overdue + current — selectable in Pay balance tab
   const payableInvoices = classified
     .filter(inv => inv._type === "overdue" || inv._type === "current")
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
-  // Default selected = oldest overdue, else current month
+  // All future invoices sorted
+  const futureInvoices = classified
+    .filter(inv => inv._type === "future")
+    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+
+  const totalFutureMonths = futureInvoices.length;
+
+  // Standard prepay options — only show if enough invoices exist
+  const prepayOptions = [1, 2, 3, 6].filter(n => n <= totalFutureMonths);
+
+  // "Remainder of lease" = all future invoices, show only if > 6
+  const showRemainderOption = totalFutureMonths > 6;
+
+  // Selected prepay invoices
+  const activePrepayInvoices = prepayAll
+    ? futureInvoices
+    : futureInvoices.slice(0, prepayMonths);
+
+  const prepayTotal = activePrepayInvoices.reduce(
+    (sum, inv) => sum + Number(inv.rent || base), 0
+  );
+
+  // Selected invoice for Pay balance tab
   const defaultInvoice = payableInvoices.find(i => i._type === "overdue") || payableInvoices[0] || null;
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(defaultInvoice?.id || null);
 
-  // Keep selectedInvoiceId in sync if invoices reload
   useEffect(() => {
     if (!selectedInvoiceId && defaultInvoice) setSelectedInvoiceId(defaultInvoice.id);
   }, [invoices.length]);
@@ -91,21 +113,9 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
   const daysLate = invoiceLateFee > 35 ? Math.round((invoiceLateFee - 35) / 10) : 0;
   const isSelectedOverdue = selectedInvoice?._type === "overdue";
 
-  // Prepay
-  const prepayInvoices = getFutureInvoices(invoices, prepayMonths, now);
-  const prepayTotal = prepayInvoices.length > 0
-    ? prepayInvoices.reduce((sum, inv) => sum + Number(inv.rent || base), 0)
-    : base * prepayMonths;
-
   const total = payingCustomInvoice
     ? Number(payingCustomInvoice.amount)
     : payMode === "prepay" ? prepayTotal : invoiceTotal;
-
-  useEffect(() => {
-    if (!tenant?.id) return;
-    supabase.from("custom_invoices").select("*").eq("tenant_id", tenant.id).eq("paid", false)
-      .then(({ data }) => { if (data) setCustomInvoices(data); });
-  }, [tenant?.id]);
 
   const handlePay = async () => {
     if (!method) return;
@@ -126,7 +136,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
           address: tenant.address,
           paymentType: method,
           invoiceIds: payMode === "prepay"
-            ? prepayInvoices.map(i => i.id)
+            ? activePrepayInvoices.map(i => i.id)
             : selectedInvoice ? [selectedInvoice.id] : [],
         }),
       });
@@ -141,7 +151,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         setStep("success");
         if (onPaymentSuccess) {
           if (payMode === "prepay") {
-            prepayInvoices.forEach(inv => onPaymentSuccess(tenant.id, inv.id, Number(inv.rent || base)));
+            activePrepayInvoices.forEach(inv => onPaymentSuccess(tenant.id, inv.id, Number(inv.rent || base)));
           } else if (selectedInvoice) {
             onPaymentSuccess(tenant.id, selectedInvoice.id, total);
           }
@@ -183,7 +193,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
           <div style={{ fontWeight: 700, color: "#166534", marginBottom: 4 }}>Payment confirmation</div>
           <div>Amount: <strong>{fmt(total)}</strong></div>
           {payMode === "prepay"
-            ? <div>Months covered: <strong>{prepayInvoices.map(i => i.month).join(", ") || `${prepayMonths} months`}</strong></div>
+            ? <div>Months covered: <strong>{activePrepayInvoices.map(i => i.month).join(", ") || "—"}</strong></div>
             : <div>Invoice: <strong>{selectedInvoice?.month || month}</strong></div>
           }
           <div>Property: {tenant?.address}</div>
@@ -236,7 +246,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       )}
 
-      {/* ─── PAY BALANCE / PREPAY TABS ─────────────────────────────── */}
+      {/* ─── TABS ───────────────────────────────────────────────────── */}
       {!payingCustomInvoice && (
         <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 16 }}>
           {[{ key: "current", label: "💳 Pay balance" }, { key: "prepay", label: "📅 Prepay rent" }].map(m => (
@@ -251,10 +261,9 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         </div>
       )}
 
-      {/* ─── PAY BALANCE: all overdue + current selectable ─────────── */}
+      {/* ─── PAY BALANCE ────────────────────────────────────────────── */}
       {payMode === "current" && !payingCustomInvoice && (
         <>
-          {/* Late fee banner for selected invoice */}
           {invoiceLateFee > 0 ? (
             <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#991b1b" }}>
               ⚠️ <strong>+$10.00 every day until paid.</strong> You currently owe <strong>{fmt(invoiceLateFee)}</strong> in late fees on this invoice.
@@ -265,21 +274,19 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
             </div>
           ) : null}
 
-          {/* Invoice selector — overdue + current month only */}
+          {/* Multiple selectable invoices */}
           {payableInvoices.length > 1 && (
             <div style={{ marginBottom: 14 }}>
               <SL>Select invoice to pay</SL>
               {payableInvoices.map(inv => {
                 const fee = calcLateFee(inv.due_date);
-                const total = Number(inv.rent || 0) + fee;
+                const t = Number(inv.rent || 0) + fee;
                 const isOverdue = inv._type === "overdue";
                 const isSelected = selectedInvoiceId === inv.id;
                 return (
                   <button key={inv.id} onClick={() => { setSelectedInvoiceId(inv.id); setStep("summary"); setMethod(null); }} style={{
                     width: "100%", marginBottom: 8, padding: "14px 16px", borderRadius: 10, cursor: "pointer", textAlign: "left",
-                    border: isSelected
-                      ? `2px solid ${isOverdue ? "#dc2626" : "#166534"}`
-                      : "1.5px solid #e5e7eb",
+                    border: isSelected ? `2px solid ${isOverdue ? "#dc2626" : "#166534"}` : "1.5px solid #e5e7eb",
                     background: isSelected ? (isOverdue ? "#fef2f2" : "#f0fdf4") : "#fff",
                     fontFamily: "'DM Sans', sans-serif", display: "flex", justifyContent: "space-between", alignItems: "center",
                   }}>
@@ -289,20 +296,16 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
                       </div>
                       {fee > 0 && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 2 }}>{fmt(fee)} in late fees</div>}
                     </div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: isOverdue ? "#991b1b" : "#1b3d2a" }}>{fmt(total)}</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: isOverdue ? "#991b1b" : "#1b3d2a" }}>{fmt(t)}</div>
                   </button>
                 );
               })}
             </div>
           )}
 
-          {/* Single invoice card (when only one) */}
+          {/* Single invoice card */}
           {payableInvoices.length === 1 && selectedInvoice && (
-            <div style={{
-              background: isSelectedOverdue ? "#fef2f2" : "#f0fdf4",
-              border: `2px solid ${isSelectedOverdue ? "#fca5a5" : "#86efac"}`,
-              borderRadius: 14, padding: "16px 18px", marginBottom: 14,
-            }}>
+            <div style={{ background: isSelectedOverdue ? "#fef2f2" : "#f0fdf4", border: `2px solid ${isSelectedOverdue ? "#fca5a5" : "#86efac"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: isSelectedOverdue ? "#991b1b" : "#166534", marginBottom: 4 }}>
                 {isSelectedOverdue ? "⚠️ Overdue" : "📅 Current invoice"}
               </div>
@@ -311,7 +314,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
             </div>
           )}
 
-          {/* Payment breakdown */}
           {selectedInvoice && (
             <>
               <SL>Payment breakdown — {selectedInvoice.month}</SL>
@@ -337,38 +339,64 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 14, border: "1px solid rgba(0,0,0,0.07)" }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>📅 Prepay upcoming rent</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>Lock in now — no late fees, no stress.</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            {[1, 2, 3, 6].map(n => {
-              const invs = getFutureInvoices(invoices, n, now);
-              const t = invs.length > 0 ? invs.reduce((s, i) => s + Number(i.rent || base), 0) : base * n;
-              return (
-                <button key={n} onClick={() => setPrepayMonths(n)} style={{
-                  padding: "10px 16px", borderRadius: 9, cursor: "pointer",
-                  border: prepayMonths === n ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
-                  background: prepayMonths === n ? "#f0f9f4" : "#fff",
-                  color: prepayMonths === n ? "#1b3d2a" : "#6b7280",
-                  fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
-                }}>{n} mo{n > 1 ? "s" : ""} — {fmt(t)}</button>
-              );
-            })}
-          </div>
-          {prepayInvoices.length > 0 && (
-            <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: "#9ca3af", marginBottom: 8 }}>Months covered</div>
-              {prepayInvoices.map(inv => (
-                <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f3f4f6", fontSize: 14 }}>
-                  <span style={{ color: "#374151" }}>{inv.month}</span>
-                  <span style={{ fontWeight: 600, color: "#1b3d2a" }}>{fmt(inv.rent || base)}</span>
-                </div>
-              ))}
-              <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 10, marginTop: 2 }}>
-                <span style={{ fontSize: 14, fontWeight: 700 }}>Total</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: "#1b3d2a" }}>{fmt(prepayTotal)}</span>
-              </div>
+
+          {totalFutureMonths === 0 ? (
+            <div style={{ fontSize: 13, color: "#9ca3af", textAlign: "center", padding: "12px 0" }}>
+              No upcoming invoices found. Contact your landlord.
             </div>
-          )}
-          {prepayInvoices.length === 0 && (
-            <div style={{ fontSize: 13, color: "#9ca3af", textAlign: "center", padding: "12px 0" }}>No upcoming invoices found. Contact your landlord.</div>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: showRemainderOption ? 10 : 16 }}>
+                {prepayOptions.map(n => {
+                  const invs = futureInvoices.slice(0, n);
+                  const t = invs.reduce((s, i) => s + Number(i.rent || base), 0);
+                  const isActive = !prepayAll && prepayMonths === n;
+                  return (
+                    <button key={n} onClick={() => { setPrepayMonths(n); setPrepayAll(false); }} style={{
+                      padding: "10px 16px", borderRadius: 9, cursor: "pointer",
+                      border: isActive ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                      background: isActive ? "#f0f9f4" : "#fff",
+                      color: isActive ? "#1b3d2a" : "#6b7280",
+                      fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
+                    }}>{n} mo{n > 1 ? "s" : ""} — {fmt(t)}</button>
+                  );
+                })}
+              </div>
+
+              {/* Remainder of lease button — only if > 6 months remaining */}
+              {showRemainderOption && (
+                <button onClick={() => { setPrepayAll(true); setPrepayMonths(totalFutureMonths); }} style={{
+                  width: "100%", padding: "12px 16px", borderRadius: 9, cursor: "pointer", marginBottom: 16,
+                  border: prepayAll ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                  background: prepayAll ? "#f0f9f4" : "#fff",
+                  color: prepayAll ? "#1b3d2a" : "#6b7280",
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, textAlign: "left",
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                }}>
+                  <span>🏠 Remainder of lease ({totalFutureMonths} months)</span>
+                  <span style={{ fontWeight: 800, color: prepayAll ? "#1b3d2a" : "#374151" }}>
+                    {fmt(futureInvoices.reduce((s, i) => s + Number(i.rent || base), 0))}
+                  </span>
+                </button>
+              )}
+
+              {/* Months covered breakdown */}
+              {activePrepayInvoices.length > 0 && (
+                <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: "#9ca3af", marginBottom: 8 }}>Months covered</div>
+                  {activePrepayInvoices.map(inv => (
+                    <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f3f4f6", fontSize: 14 }}>
+                      <span style={{ color: "#374151" }}>{inv.month}</span>
+                      <span style={{ fontWeight: 600, color: "#1b3d2a" }}>{fmt(inv.rent || base)}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 10, marginTop: 2 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>Total</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: "#1b3d2a" }}>{fmt(prepayTotal)}</span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
