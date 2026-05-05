@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
 export default function TenantMessages({ tenant }) {
-  const [messages, setMessages] = useState(null); // null = loading
+  const [messages, setMessages] = useState([]); // start empty, fill on load
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -36,9 +36,7 @@ export default function TenantMessages({ tenant }) {
     setSending(false);
   }
 
-  const allSorted = messages
-    ? [...messages].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-    : [];
+  const allSorted = [...messages].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
   return (
     <div style={{ padding: 16, fontFamily: "'DM Sans', sans-serif" }}>
@@ -48,11 +46,8 @@ export default function TenantMessages({ tenant }) {
       </div>
 
       {/* Message thread */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20, minHeight: 80 }}>
-        {messages === null ? (
-          // Subtle loading — no flash, just blank space while fetching
-          <div style={{ height: 80 }} />
-        ) : allSorted.length === 0 ? (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20, minHeight: 160 }}>
+        {allSorted.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px 20px", color: "#9ca3af" }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>💬</div>
             <div style={{ fontWeight: 500 }}>No messages yet</div>
