@@ -23,7 +23,6 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
   const now = new Date();
   const day = now.getDate();
   const rent = Number(tenant?.rent) || 0;
-  const hasInvoices = invoices.length > 0;
 
   const invoicesWithLive = invoices.map(inv => {
     const liveFee = calcLateFee(inv.due_date);
@@ -35,7 +34,6 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
     const isCurrentMonth = due &&
       due.getMonth() === now.getMonth() &&
       due.getFullYear() === now.getFullYear();
-    // Overdue = prior month or earlier (never the current month)
     const isOverdue = due && !isCurrentMonth && (
       due.getFullYear() < now.getFullYear() ||
       (due.getFullYear() === now.getFullYear() && due.getMonth() < now.getMonth())
@@ -43,18 +41,20 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
     return { ...inv, liveFee, liveTotal, isOverdue, isCurrentMonth };
   });
 
-  const totalBalance = invoicesWithLive.reduce((sum, inv) => sum + inv.liveTotal, 0);
-  const totalLateFees = invoicesWithLive.reduce((sum, inv) => sum + inv.liveFee, 0);
-
-  const autoFee = (() => { if (day < 5) return 0; return 35 + Math.max(0, (day - 4) - 1) * 10; })();
-  const fallbackTotal = tenant?.paid ? 0 : (rent + (tenant?.section8 ? 0 : autoFee));
-  const displayTotal = hasInvoices ? totalBalance : fallbackTotal;
-  const displayLateFees = hasInvoices ? totalLateFees : (tenant?.paid ? 0 : autoFee);
-
-  // Only overdue + current month — no future, no hidden count
+  // Only overdue + current month — this is ALL we show and ALL we total
   const visibleInvoices = invoicesWithLive
     .filter(inv => inv.isOverdue || inv.isCurrentMonth)
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+
+  const displayTotal = visibleInvoices.reduce((sum, inv) => sum + inv.liveTotal, 0);
+  const displayLateFees = visibleInvoices.reduce((sum, inv) => sum + inv.liveFee, 0);
+
+  // Fallback if no invoices at all
+  const autoFee = day < 5 ? 0 : 35 + Math.max(0, (day - 4) - 1) * 10;
+  const fallbackTotal = tenant?.paid ? 0 : (rent + (tenant?.section8 ? 0 : autoFee));
+  const finalTotal = invoices.length > 0 ? displayTotal : fallbackTotal;
+
+  const overdueCount = visibleInvoices.filter(i => i.isOverdue).length;
 
   return (
     <div style={{ background: "linear-gradient(160deg, #1b3d2a 0%, #2d5c42 100%)", padding: "22px 20px 26px" }}>
@@ -78,13 +78,13 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>
-              {displayTotal === 0 ? "All paid up" : "Total balance due"}
+              {finalTotal === 0 ? "All paid up" : "Balance due"}
             </div>
-            <div style={{ fontSize: 34, fontWeight: 700, color: "#fff", letterSpacing: "-1.5px" }}>{fmt(displayTotal)}</div>
+            <div style={{ fontSize: 34, fontWeight: 700, color: "#fff", letterSpacing: "-1.5px" }}>{fmt(finalTotal)}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 3 }}>
-              {invoices.length > 1
-                ? `${invoices.length} open invoices`
-                : `Due the 1st · ${tenant?.unit || tenant?.address?.split(",")[0]}`}
+              {overdueCount > 0
+                ? `${overdueCount} overdue · ${tenant?.address?.split(",")[0]}`
+                : `Due the 1st · ${tenant?.address?.split(",")[0]}`}
             </div>
           </div>
           {displayLateFees > 0 && (
@@ -108,7 +108,7 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
         )}
 
         <button onClick={() => onTabClick("pay")} style={{ width: "100%", marginTop: 14, padding: "12px", background: "#4caf7d", border: "none", borderRadius: 11, color: "#fff", fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-          {displayTotal === 0 ? "Prepay upcoming rent" : "Pay now"}
+          {finalTotal === 0 ? "Prepay upcoming rent" : "Pay now"}
         </button>
       </div>
     </div>
