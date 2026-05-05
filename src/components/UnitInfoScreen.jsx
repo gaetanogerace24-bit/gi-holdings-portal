@@ -10,7 +10,7 @@ export default function UnitInfoScreen({ tenant }) {
         {[
           { key: "lease", label: "My Unit" },
           { key: "documents", label: "Documents" },
-          { key: "all", label: "All Files" },
+          
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{
             flex: 1, padding: "11px 8px", fontSize: 12, fontWeight: 600,
@@ -25,7 +25,7 @@ export default function UnitInfoScreen({ tenant }) {
 
       {tab === "lease" && <LeaseTab tenant={tenant} />}
       {tab === "documents" && <DocumentsTab tenant={tenant} />}
-      {tab === "all" && <AllFilesTab tenant={tenant} />}
+      
     </div>
   );
 }
