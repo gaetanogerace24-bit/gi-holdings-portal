@@ -61,12 +61,12 @@ export default function AdminDocuments({ tenants, setTenants }) {
       const path = `${form.tenantId}/${Date.now()}_${safeName}`;
 
       const { error: uploadErr } = await supabase.storage
-        .from("documents")
+        .from("Documents")
         .upload(path, file, { contentType: "application/pdf", upsert: false });
 
       if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from("Documents").getPublicUrl(path);
       const url = urlData.publicUrl;
 
       const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
