@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../supabase";
 
 const EMPTY_FORM = { address: "", city: "Youngstown", state: "OH", zip: "", type: "Single Family Home", notes: "", section8: false, section8Amount: "", tenantPortion: "", tenant_id: "" };
 
 export default function AdminProperties({ tenants = [], onCountChange }) {
-  const [properties, setProperties] = useState([]);
+  // null = still loading, [] = loaded with no results
+  const [properties, setProperties] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -17,43 +18,54 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
 
   const load = async () => {
     const { data } = await supabase.from("properties").select("*").order("created_at", { ascending: true });
-    if (data) {
-      setProperties(data);
-      const nonArchived = data.filter(p => p.status !== "archived");
-      const linkedIds = new Set(data.map(p => p.tenant_id).filter(Boolean));
-      const archivedIds = new Set(data.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
-      const unlinkedCount = tenants.filter(t => !linkedIds.has(t.id) && !archivedIds.has(t.id)).length;
-      const total = nonArchived.length + unlinkedCount;
-      if (onCountChange) onCountChange(total);
-    }
+    const loaded = data || [];
+    setProperties(loaded);
+    const nonArchived = loaded.filter(p => p.status !== "archived");
+    const linkedIds = new Set(loaded.map(p => p.tenant_id).filter(Boolean));
+    const archivedIds = new Set(loaded.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
+    const unlinkedCount = tenants.filter(t => !linkedIds.has(t.id) && !archivedIds.has(t.id)).length;
+    const total = nonArchived.length + unlinkedCount;
+    if (onCountChange) onCountChange(total);
   };
 
-  // Merge: properties from DB + tenants not yet in properties table
-  // Tenants already linked show their property from DB
-  // Tenants not linked show as auto-occupied entries derived from tenants table
-  const linkedTenantIds = new Set(properties.map(p => p.tenant_id).filter(Boolean));
-  const archivedTenantIds = new Set(properties.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
-  const unlinkedTenants = tenants.filter(t => !linkedTenantIds.has(t.id) && !archivedTenantIds.has(t.id));
+  // Only compute allProperties once DB has loaded — prevents the flash
+  const allProperties = useMemo(() => {
+    if (properties === null) return null; // still loading
 
-  const autoOccupied = unlinkedTenants.map(t => ({
-    _auto: true,
-    id: `auto-${t.id}`,
-    address: t.address,
-    type: "Single Family Home",
-    status: "occupied",
-    tenant_id: t.id,
-    section8: t.section8 || false,
-    section8_amount: t.section8_amount || t.section8Amount || 0,
-    tenant_portion: t.tenant_portion || t.tenantPortion || 0,
-  }));
+    const linkedTenantIds = new Set(properties.map(p => p.tenant_id).filter(Boolean));
+    const archivedTenantIds = new Set(properties.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
+    const unlinkedTenants = tenants.filter(t => !linkedTenantIds.has(t.id) && !archivedTenantIds.has(t.id));
 
-  const allProperties = [
-    ...autoOccupied,
-    ...properties.filter(p => p.status !== "archived").map(p => ({
-      ...p,
-      status: p.tenant_id ? "occupied" : "vacant",
-    })),
-  ];
+    const autoOccupied = unlinkedTenants.map(t => ({
+      _auto: true,
+      id: `auto-${t.id}`,
+      address: t.address,
+      type: "Single Family Home",
+      status: "occupied",
+      tenant_id: t.id,
+      section8: t.section8 || false,
+      section8_amount: t.section8_amount || t.section8Amount || 0,
+      tenant_portion: t.tenant_portion || t.tenantPortion || 0,
+    }));
+
+    return [
+      ...autoOccupied,
+      ...properties.filter(p => p.status !== "archived").map(p => ({
+        ...p,
+        status: p.tenant_id ? "occupied" : "vacant",
+      })),
+    ];
+  }, [properties, tenants]);
+
+  // Show loading until DB responds — prevents flash of wrong content
+  if (allProperties === null) {
+    return (
+      <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, marginBottom: 8 }}>Properties</h1>
+        <div style={{ color: "#9ca3af", fontSize: 14 }}>Loading...</div>
+      </div>
+    );
+  }
 
   const totalUnits = allProperties.length;
   const occupiedCount = allProperties.filter(p => p.status === "occupied").length;
@@ -88,7 +100,7 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
   const handleAssignTenant = async (propId, tenantId) => {
     const updates = { tenant_id: tenantId || null, status: tenantId ? "occupied" : "vacant" };
     await supabase.from("properties").update(updates).eq("id", propId);
-    setProperties(prev => prev.map(p => p.id === propId ? { ...p, ...updates } : p));
+    setProperties(prev => (prev || []).map(p => p.id === propId ? { ...p, ...updates } : p));
     setAssigningId(null);
   };
 
@@ -108,10 +120,9 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
       return;
     }
     await supabase.from("properties").delete().eq("id", prop.id);
-    const updated = properties.filter(p => p.id !== prop.id);
+    const updated = (properties || []).filter(p => p.id !== prop.id);
     setProperties(updated);
     if (selectedProperty?.id === prop.id) setSelectedProperty(null);
-    // Recalculate count
     const nonArchived = updated.filter(p => p.status !== "archived");
     const linkedIds = new Set(updated.map(p => p.tenant_id).filter(Boolean));
     const unlinked = tenants.filter(t => !linkedIds.has(t.id)).length;
@@ -160,8 +171,6 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
                 <option>Condo</option>
               </select>
             </div>
-
-            {/* Assign tenant dropdown */}
             <div style={{ gridColumn: "1 / -1" }}>
               <Label>Assign tenant (optional)</Label>
               <select value={form.tenant_id} onChange={e => setForm({ ...form, tenant_id: e.target.value })} style={inputSt}>
@@ -171,14 +180,11 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
                 ))}
               </select>
             </div>
-
             <div style={{ gridColumn: "1 / -1" }}>
               <Label>Notes</Label>
               <input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Recently renovated, needs tenant" style={inputSt} />
             </div>
           </div>
-
-          {/* Section 8 toggle */}
           <div style={{ padding: "14px 16px", background: "#f0f9f4", borderRadius: 10, border: "1px solid #bbf7d0", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
@@ -200,7 +206,6 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
               </div>
             )}
           </div>
-
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={handleAdd} disabled={saving || !form.address.trim()} style={{ ...greenBtn, opacity: form.address.trim() ? 1 : 0.5 }}>
               {saving ? "Saving..." : "Add property"}
@@ -257,7 +262,6 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
                           {t.section8 && <InfoRow label="Section 8" value={`Housing: $${t.section8_amount || t.section8Amount || 0} · Tenant: $${t.tenant_portion || t.tenantPortion || 0}`} />}
                         </div>
                         {t.notes && <div style={{ marginTop: 12, padding: "10px 12px", background: "#f9fafb", borderRadius: 8, fontSize: 12, color: "#6b7280" }}>📝 {t.notes}</div>}
-
                         {!prop._auto && (
                           <div style={{ marginTop: 14, borderTop: "1px solid #f3f4f6", paddingTop: 14 }}>
                             {assigningId === prop.id ? (
@@ -294,8 +298,6 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
                             <div style={{ fontSize: 13, color: "#374151" }}>Housing: <strong>${prop.section8_amount || 0}/mo</strong> · Tenant: <strong>${prop.tenant_portion || 0}/mo</strong></div>
                           </div>
                         )}
-
-                        {/* Assign tenant */}
                         {!prop._auto && (
                           <div style={{ marginBottom: 14 }}>
                             {assigningId === prop.id ? (
@@ -314,7 +316,6 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
                             )}
                           </div>
                         )}
-
                         <button onClick={() => handleRemove(prop)} style={{ padding: "8px 16px", background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
                           🗑 Remove property
                         </button>
@@ -345,7 +346,6 @@ function Toggle({ on, onToggle }) {
     </div>
   );
 }
-
 function StatCard({ label, value, icon, color }) {
   return (
     <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 16 }}>
@@ -355,7 +355,6 @@ function StatCard({ label, value, icon, color }) {
     </div>
   );
 }
-
 function InfoRow({ label, value }) {
   return (
     <div style={{ padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
@@ -364,11 +363,9 @@ function InfoRow({ label, value }) {
     </div>
   );
 }
-
 function Label({ children }) {
   return <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>{children}</div>;
 }
-
 function fmtDate(dateStr) {
   if (!dateStr) return "—";
   try {
@@ -380,6 +377,5 @@ function fmtDate(dateStr) {
     return dateStr;
   } catch { return dateStr; }
 }
-
 const greenBtn = { background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" };
 const inputSt = { width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box" };
