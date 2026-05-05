@@ -45,6 +45,7 @@ export default function App() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loggedInTenantId, setLoggedInTenantId] = useState(null);
+  const [defaultPayMode, setDefaultPayMode] = useState("current");
 
   const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
   const currentTenantInvoices = invoices.filter(inv =>
@@ -194,7 +195,15 @@ export default function App() {
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f0f2f0", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
       <div className="tenant-portal" style={{ position: "relative" }}>
-        <Dashboard tenant={currentTenant} invoices={currentTenantInvoices} onTabClick={setActiveTab} onLogout={handleLogout} />
+        <Dashboard tenant={currentTenant} invoices={currentTenantInvoices} onTabClick={(tab) => {
+          if (tab === "pay-prepay") {
+            setActiveTab("pay");
+            setDefaultPayMode("prepay");
+          } else {
+            setActiveTab(tab);
+            setDefaultPayMode("current");
+          }
+        }} onLogout={handleLogout} />
         <nav style={{ display: "flex", background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
           {["tickets", "pay", "info", "messages"].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
@@ -211,7 +220,7 @@ export default function App() {
         </nav>
         <div style={{ flex: 1, overflowY: "auto" }}>
           {activeTab === "tickets" && <TicketsScreen tickets={tickets.filter(t => t.tenantId === currentTenant?.id || t.tenant_id === currentTenant?.id)} onNewTicket={() => setShowModal(true)} />}
-          {activeTab === "pay" && <PayRentScreen tenant={currentTenant} invoices={currentTenantInvoices} onPaymentSuccess={handlePaymentSuccess} />}
+          {activeTab === "pay" && <PayRentScreen tenant={currentTenant} invoices={currentTenantInvoices} onPaymentSuccess={handlePaymentSuccess} defaultPayMode={defaultPayMode} />}
           {activeTab === "info" && <UnitInfoScreen tenant={currentTenant} />}
           {activeTab === "messages" && <TenantMessages tenant={currentTenant} />}
         </div>
