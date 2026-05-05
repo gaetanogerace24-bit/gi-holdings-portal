@@ -191,8 +191,9 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
         <div style={{ marginBottom: 14 }}>
           <SL>Select invoice to pay</SL>
           {invoices.map(inv => {
-            const fee = Number(inv.late_fee) || 0;
-            const days = fee > 35 ? Math.round((fee - 35) / 10) : 0;
+            const liveFee = calcLateFee(inv.due_date);
+            const liveTotal = Number(inv.rent || 0) + liveFee;
+            const daysLate = liveFee > 35 ? Math.round((liveFee - 35) / 10) : 0;
             return (
               <button key={inv.id} onClick={() => setSelectedInvoiceId(inv.id)} style={{
                 width: "100%", marginBottom: 8, padding: "14px 16px", borderRadius: 10, cursor: "pointer", textAlign: "left",
@@ -202,9 +203,9 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
               }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{inv.month} — OVERDUE</div>
-                  {fee > 0 && <div style={{ fontSize: 12, color: "#dc2626" }}>$35 base + ${days * 10} ({days} days × $10) = ${fee} late fees</div>}
+                  {liveFee > 0 && <div style={{ fontSize: 12, color: "#dc2626" }}>$35 base + ${daysLate * 10} ({daysLate} days × $10) = ${liveFee} late fees</div>}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#991b1b" }}>${Number(inv.total).toLocaleString()}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#991b1b" }}>${liveTotal.toLocaleString()}</div>
               </button>
             );
           })}
