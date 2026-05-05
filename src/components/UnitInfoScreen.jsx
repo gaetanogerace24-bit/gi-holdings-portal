@@ -31,16 +31,20 @@ export default function UnitInfoScreen({ tenant }) {
 }
 
 function LeaseTab({ tenant }) {
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettings] = useState({
+    email: "tenants@giholdings.com",
+    phone: "(330) 969-6464",
+    companyName: "G&I Holdings LLC",
+  });
 
   useEffect(() => {
     supabase.from("settings").select("value").eq("key", "portal_settings").maybeSingle()
-      .then(({ data }) => { if (data?.value) setSettings(data.value); });
+      .then(({ data }) => { if (data?.value) setSettings(s => ({ ...s, ...data.value })); });
   }, []);
 
-  const contactEmail = settings?.email || tenant.contactEmail || "tenants@giholdings.com";
-  const contactPhone = settings?.phone || tenant.emergency || "(330) 969-6464";
-  const companyName = settings?.companyName || tenant.landlord || "G&I Holdings LLC";
+  const contactEmail = settings.email;
+  const contactPhone = settings.phone;
+  const companyName = settings.companyName;
 
   return (
     <div style={{ padding: 16 }}>
