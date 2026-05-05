@@ -18,13 +18,18 @@ function calcLateFee(dueDateStr) {
   return 35 + daysAfterFeeStart * 10;
 }
 
+// Last day of current month
+function isLastDayOfMonth() {
+  const today = new Date();
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  return today.getDate() === lastDay;
+}
+
 export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout }) {
   const now = new Date();
   const day = now.getDate();
   const rent = Number(tenant?.rent) || 0;
 
-  // invoices passed in are already filtered to unpaid only by App.jsx
-  // so current month disappears naturally after payment — no extra logic needed
   const invoicesWithLive = invoices.map(inv => {
     const liveFee = calcLateFee(inv.due_date);
     const liveTotal = Number(inv.rent || 0) + liveFee;
@@ -35,7 +40,6 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
     const isCurrentMonth = due &&
       due.getMonth() === now.getMonth() &&
       due.getFullYear() === now.getFullYear();
-    // Overdue = strictly prior month or earlier, never current month
     const isOverdue = due && !isCurrentMonth && (
       due.getFullYear() < now.getFullYear() ||
       (due.getFullYear() === now.getFullYear() && due.getMonth() < now.getMonth())
@@ -43,22 +47,39 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
     return { ...inv, liveFee, liveTotal, isOverdue, isCurrentMonth };
   });
 
-  // Only overdue + current month shown in summary card
+  // Only overdue + current month shown
   const visibleInvoices = invoicesWithLive
     .filter(inv => inv.isOverdue || inv.isCurrentMonth)
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
-  // Total and late fees only from visible invoices
   const displayTotal = visibleInvoices.reduce((sum, inv) => sum + inv.liveTotal, 0);
   const displayLateFees = visibleInvoices.reduce((sum, inv) => sum + inv.liveFee, 0);
 
-  // Fallback if no invoices
   const autoFee = day < 5 ? 0 : 35 + Math.max(0, (day - 4) - 1) * 10;
   const fallbackTotal = tenant?.paid ? 0 : (rent + (tenant?.section8 ? 0 : autoFee));
   const finalTotal = invoices.length > 0 ? displayTotal : fallbackTotal;
 
   const overdueCount = visibleInvoices.filter(i => i.isOverdue).length;
-  const allPaidUp = finalTotal === 0 && invoices.length === 0;
+
+  // All caught up = no unpaid invoices at all
+  const allCaughtUp = finalTotal === 0 && invoices.length === 0;
+
+  // On the last day of month, switch back to "Pay now" to prep for new invoice
+  const lastDayOfMonth = isLastDayOfMonth();
+
+  // Button behavior:
+  // - All caught up + NOT last day → "Prepay upcoming rent" → go to prepay tab
+  // - All caught up + last day of month → "Pay now" (new invoice coming tomorrow)
+  // - Has balance → "Pay now"
+  const showPrepay = allCaughtUp && !lastDayOfMonth;
+  const btnLabel = showPrepay ? "📅 Prepay upcoming rent" : "Pay now";
+  const btnAction = () => {
+    if (showPrepay) {
+      onTabClick("pay-prepay"); // signal to go straight to prepay tab
+    } else {
+      onTabClick("pay");
+    }
+  };
 
   return (
     <div style={{ background: "linear-gradient(160deg, #1b3d2a 0%, #2d5c42 100%)", padding: "22px 20px 26px" }}>
@@ -82,10 +103,10 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>
-              {allPaidUp ? "All paid up" : "Balance due"}
+              {allCaughtUp ? "All paid up" : "Balance due"}
             </div>
             <div style={{ fontSize: 34, fontWeight: 700, color: "#fff", letterSpacing: "-1.5px" }}>
-              {allPaidUp ? "$0" : fmt(finalTotal)}
+              {allCaughtUp ? "$0" : fmt(finalTotal)}
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 3 }}>
               {overdueCount > 0
@@ -100,7 +121,6 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
           )}
         </div>
 
-        {/* Only show overdue + current month — disappears when paid, reappears next 1st */}
         {visibleInvoices.length > 0 && (
           <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10 }}>
             {visibleInvoices.map(inv => (
@@ -114,15 +134,27 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
           </div>
         )}
 
-        {/* All paid up message */}
-        {allPaidUp && (
+        {/* All caught up message — hide on last day since new invoice is coming */}
+        {allCaughtUp && !lastDayOfMonth && (
           <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, fontSize: 12, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
-            ✅ You're all caught up! Next invoice appears on the 1st.
+            ✅ You're all caught up! Lock in next month early — no late fees.
           </div>
         )}
 
-        <button onClick={() => onTabClick("pay")} style={{ width: "100%", marginTop: 14, padding: "12px", background: "#4caf7d", border: "none", borderRadius: 11, color: "#fff", fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-          {allPaidUp ? "Prepay upcoming rent" : "Pay now"}
+        {allCaughtUp && lastDayOfMonth && (
+          <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10, fontSize: 12, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
+            ✅ All paid up! New invoice arrives tomorrow.
+          </div>
+        )}
+
+        <button onClick={btnAction} style={{
+          width: "100%", marginTop: 14, padding: "12px",
+          background: showPrepay ? "rgba(76,175,125,0.85)" : "#4caf7d",
+          border: showPrepay ? "1.5px solid rgba(76,175,125,0.5)" : "none",
+          borderRadius: 11, color: "#fff", fontFamily: "'DM Sans', sans-serif",
+          fontSize: 15, fontWeight: 600, cursor: "pointer",
+        }}>
+          {btnLabel}
         </button>
       </div>
     </div>
