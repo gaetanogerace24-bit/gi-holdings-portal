@@ -718,9 +718,27 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const upcomingList  = allActive.filter(i => !i.paid && getStatus(i) === "upcoming");
   const overdueList   = allActive.filter(i => !i.paid && getStatus(i) === "overdue");
   const completedList = allActive.filter(i => i.paid);
-  const upcomingTotal  = upcomingList.reduce((s, i) => s + Number(i.rent || 0), 0);
+
+  // Next month filter for upcoming card
+  const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const upcomingNextMonth = upcomingList.filter(i => {
+    const parts = (i.due_date || "").split("T")[0].split("-");
+    if (parts.length !== 3) return false;
+    const due = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+    return due.getMonth() === nextMonthDate.getMonth() && due.getFullYear() === nextMonthDate.getFullYear();
+  });
+
+  // This month filter for completed card
+  const completedThisMonth = completedList.filter(i => {
+    const parts = (i.due_date || "").split("T")[0].split("-");
+    if (parts.length !== 3) return false;
+    const due = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+    return due.getMonth() === now.getMonth() && due.getFullYear() === now.getFullYear();
+  });
+
+  const upcomingTotal  = upcomingNextMonth.reduce((s, i) => s + Number(i.rent || 0), 0);
   const overdueTotal   = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
-  const completedTotal = completedList.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
+  const completedTotal = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
 
   const tenantInvoices = (id) => allActive.filter(i => i.tenant_id === id);
   const getPropertyStatus = (t) => tenantInvoices(t.id).some(i => !i.paid && getStatus(i) === "overdue") ? "overdue" : "current";
@@ -791,12 +809,12 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-        <SummaryCard badgeColor="#6b7280" badgeLabel="📅 Upcoming" badgeBorder={false} sub="This month" amount={fmt(upcomingTotal)} count={`${upcomingList.length} invoice${upcomingList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
+        <SummaryCard badgeColor="#6b7280" badgeLabel="📅 Upcoming" badgeBorder={false} sub="Next month" amount={fmt(upcomingTotal)} count={`${upcomingNextMonth.length} invoice${upcomingNextMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
         <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount="$0.00" count="0 invoices" onClick={() => setSheet("processing")} />
         <div onClick={() => overdueList.length > 0 && setSheet("allOverdue")} style={{ cursor: overdueList.length > 0 ? "pointer" : "default" }}>
           <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
         </div>
-        <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="All time" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedList.length} invoice${completedList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allCompleted")} />
+        <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="This month" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedThisMonth.length} invoice${completedThisMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allCompleted")} />
       </div>
 
       <button onClick={() => setShowSendInvoice(true)} style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
