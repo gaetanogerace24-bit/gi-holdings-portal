@@ -20,9 +20,15 @@ const NAV = [
 
 export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, onInvoicesChanged, supabase }) {
   const [active, setActive] = useState("payments");
+  const [visited, setVisited] = useState(new Set(["payments"]));
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
   const [totalPropertyCount, setTotalPropertyCount] = useState(0);
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
+
+  const handleTabClick = (key) => {
+    setActive(key);
+    setVisited(prev => new Set([...prev, key]));
+  };
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -64,7 +70,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         </div>
         <nav style={{ flex: 1 }}>
           {NAV.map(n => (
-            <button key={n.key} onClick={() => setActive(n.key)} style={{
+            <button key={n.key} onClick={() => handleTabClick(n.key)} style={{
               width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 20px", border: "none", cursor: "pointer",
               background: active === n.key ? "rgba(76,175,125,0.12)" : "transparent",
               borderLeft: active === n.key ? "3px solid #4caf7d" : "3px solid transparent",
@@ -101,18 +107,45 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         </div>
 
         <div className="admin-main" style={{ flex: 1, overflowY: "auto" }}>
-          {active === "payments"    && <AdminPayments tenants={tenants} invoices={sharedInvoices} setInvoices={setSharedInvoices} />}
-          {active === "tickets"     && <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />}
-          {active === "tenants"     && <AdminTenants tenants={tenants} setTenants={setTenants} onInvoicesChanged={onInvoicesChanged} />}
-          {active === "properties"  && <AdminProperties tenants={tenants} setTenants={setTenants} onCountChange={setTotalPropertyCount} />}
-          {active === "documents"   && <AdminDocuments tenants={tenants} setTenants={setTenants} />}
-          {active === "messages"    && <AdminMessages tenants={tenants} supabase={supabase} />}
-          {active === "settings"    && <AdminSettings supabase={supabase} />}
+          {/* Keep tabs mounted once visited — prevents flash on re-click */}
+          <div style={{ display: active === "payments" ? "block" : "none" }}>
+            <AdminPayments tenants={tenants} invoices={sharedInvoices} setInvoices={setSharedInvoices} />
+          </div>
+          {visited.has("tickets") && (
+            <div style={{ display: active === "tickets" ? "block" : "none" }}>
+              <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />
+            </div>
+          )}
+          {visited.has("tenants") && (
+            <div style={{ display: active === "tenants" ? "block" : "none" }}>
+              <AdminTenants tenants={tenants} setTenants={setTenants} onInvoicesChanged={onInvoicesChanged} />
+            </div>
+          )}
+          {visited.has("properties") && (
+            <div style={{ display: active === "properties" ? "block" : "none" }}>
+              <AdminProperties tenants={tenants} setTenants={setTenants} onCountChange={setTotalPropertyCount} />
+            </div>
+          )}
+          {visited.has("documents") && (
+            <div style={{ display: active === "documents" ? "block" : "none" }}>
+              <AdminDocuments tenants={tenants} setTenants={setTenants} />
+            </div>
+          )}
+          {visited.has("messages") && (
+            <div style={{ display: active === "messages" ? "block" : "none" }}>
+              <AdminMessages tenants={tenants} supabase={supabase} />
+            </div>
+          )}
+          {visited.has("settings") && (
+            <div style={{ display: active === "settings" ? "block" : "none" }}>
+              <AdminSettings supabase={supabase} />
+            </div>
+          )}
         </div>
 
         <div className="admin-mobile-nav" style={{ display: "none", position: "fixed", bottom: 0, left: 0, right: 0, background: "#0f1a14", borderTop: "1px solid rgba(255,255,255,0.1)", zIndex: 100, padding: "6px 0 16px" }}>
           {NAV.map(n => (
-            <button key={n.key} onClick={() => setActive(n.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 2px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+            <button key={n.key} onClick={() => handleTabClick(n.key)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 2px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
               <span style={{ fontSize: 22 }}>{n.icon}</span>
               <span style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", color: active === n.key ? "#4caf7d" : "rgba(255,255,255,0.35)" }}>{n.label}</span>
               {active === n.key && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#4caf7d" }} />}
