@@ -357,15 +357,53 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
 }
 
 // ─── FILTERED INVOICE LIST SHEET ──────────────────────────────────────────────
-function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect }) {
-  const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
+function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, defaultFilter = "all" }) {
+  const [filter, setFilter] = useState(defaultFilter);
+
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const filtered = invoices.filter(inv => {
+    if (filter === "all") return true;
+    const parts = (inv.due_date || "").split("T")[0].split("-");
+    if (parts.length !== 3) return false;
+    const due = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+    if (filter === "thismonth") return due.getMonth() === thisMonth.getMonth() && due.getFullYear() === thisMonth.getFullYear();
+    if (filter === "nextmonth") return due.getMonth() === nextMonth.getMonth() && due.getFullYear() === nextMonth.getFullYear();
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
+  const totalAmt = filtered.reduce((s, inv) => s + (inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + calcLateFee(inv.due_date)), 0);
+
+  const filterBtns = defaultFilter === "nextmonth"
+    ? [{ key: "nextmonth", label: "Next month" }, { key: "all", label: "All time" }]
+    : [{ key: "thismonth", label: "This month" }, { key: "all", label: "All time" }];
+
   return (
     <Sheet onClose={onClose}>
       <SheetHeader title={title} onClose={onClose} />
-      <div style={{ padding: "8px 20px 4px" }}>
-        <div style={{ fontSize: 13, color: "#6b7280" }}>{sorted.length} invoice{sorted.length !== 1 ? "s" : ""}</div>
+
+      {/* Filter tabs */}
+      <div style={{ display: "flex", margin: "12px 20px 0", background: "#f3f4f6", borderRadius: 10, padding: 3 }}>
+        {filterBtns.map(btn => (
+          <button key={btn.key} onClick={() => setFilter(btn.key)} style={{
+            flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer",
+            background: filter === btn.key ? "#fff" : "transparent",
+            fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
+            color: filter === btn.key ? "#1f2937" : "#6b7280",
+            boxShadow: filter === btn.key ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+          }}>{btn.label}</button>
+        ))}
       </div>
-      <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
+
+      <div style={{ padding: "8px 20px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 13, color: "#6b7280" }}>{sorted.length} invoice{sorted.length !== 1 ? "s" : ""}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#1f2937" }}>{fmt(totalAmt)}</div>
+      </div>
+
+      <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "8px 20px", overflow: "hidden" }}>
         {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No invoices</div>}
         {sorted.map((inv, i) => {
           const tenant = tenants.find(t => t.id === inv.tenant_id);
@@ -841,8 +879,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       )}
 
       {/* ── SHEETS ── */}
-      {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} />}
-      {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={completedList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} />}
+      {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="nextmonth" />}
+      {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={completedList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
       {sheet === "processing" && <ProcessingSheet onClose={() => setSheet(null)} />}
       {sheet === "allOverdue" && (
         <Sheet onClose={() => setSheet(null)}>
