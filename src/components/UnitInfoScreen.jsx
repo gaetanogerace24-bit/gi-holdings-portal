@@ -31,17 +31,9 @@ export default function UnitInfoScreen({ tenant }) {
 }
 
 function LeaseTab({ tenant }) {
-  const [settings, setSettings] = useState(null);
-
-  useEffect(() => {
-    supabase.from("settings").select("value").eq("key", "portal_settings").maybeSingle()
-      .then(({ data }) => { setSettings(data?.value || {}); });
-  }, []);
-
-  // Use settings once loaded, otherwise stay blank — no flash from wrong default
-  const contactEmail = settings?.email ?? null;
-  const contactPhone = settings?.phone ?? null;
-  const companyName = settings?.companyName ?? null;
+  const contactEmail = tenant?.contact_email || tenant?.contactEmail || "giholdingsllc8@gmail.com";
+  const contactPhone = tenant?.emergency || "(330) 969-6464";
+  const companyName = "G&I Holdings LLC";
 
   return (
     <div style={{ padding: 16 }}>
@@ -55,16 +47,12 @@ function LeaseTab({ tenant }) {
         ["Security deposit", `$${(tenant.deposit || 0).toLocaleString()} (held)`],
       ]} />
 
-      {settings !== null && (
-        <>
-          <SL style={{ marginTop: 14 }}>Contact your landlord</SL>
-          <InfoCard rows={[
-            ["Company", companyName || "G&I Holdings LLC"],
-            ["Email", contactEmail || "tenants@giholdings.com"],
-            ["Emergency line", contactPhone || "(330) 969-6464"],
-          ]} />
-        </>
-      )}
+      <SL style={{ marginTop: 14 }}>Contact your landlord</SL>
+      <InfoCard rows={[
+        ["Company", companyName],
+        ["Email", contactEmail],
+        ["Emergency line", contactPhone],
+      ]} />
 
       {tenant.public_note && (
         <>
