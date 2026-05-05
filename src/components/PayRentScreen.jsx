@@ -190,22 +190,29 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess 
       {payMode === "current" && invoices.length > 1 && (
         <div style={{ marginBottom: 14 }}>
           <SL>Select invoice to pay</SL>
-          {invoices.map(inv => {
+          {[...invoices].sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).map(inv => {
             const liveFee = calcLateFee(inv.due_date);
             const liveTotal = Number(inv.rent || 0) + liveFee;
             const daysLate = liveFee > 35 ? Math.round((liveFee - 35) / 10) : 0;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const parts = (inv.due_date||"").split("T")[0].split("-");
+            const due = parts.length===3 ? new Date(Number(parts[0]),Number(parts[1])-1,Number(parts[2])) : null;
+            const isOverdue = due && today > due;
+            const isUpcoming = due && today <= due;
             return (
               <button key={inv.id} onClick={() => setSelectedInvoiceId(inv.id)} style={{
                 width: "100%", marginBottom: 8, padding: "14px 16px", borderRadius: 10, cursor: "pointer", textAlign: "left",
-                border: selectedInvoiceId === inv.id ? "2px solid #dc2626" : "1.5px solid #e5e7eb",
-                background: selectedInvoiceId === inv.id ? "#fef2f2" : "#fff",
+                border: selectedInvoiceId === inv.id ? `2px solid ${isOverdue ? "#dc2626" : "#2563eb"}` : "1.5px solid #e5e7eb",
+                background: selectedInvoiceId === inv.id ? (isOverdue ? "#fef2f2" : "#eff6ff") : "#fff",
                 fontFamily: "'DM Sans', sans-serif", display: "flex", justifyContent: "space-between", alignItems: "center",
               }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{inv.month} — OVERDUE</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>
+                    {inv.month} — {isOverdue ? "OVERDUE" : "UPCOMING"}
+                  </div>
                   {liveFee > 0 && <div style={{ fontSize: 12, color: "#dc2626" }}>$35 base + ${daysLate * 10} ({daysLate} days × $10) = ${liveFee} late fees</div>}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#991b1b" }}>${liveTotal.toLocaleString()}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: isOverdue ? "#991b1b" : "#1b3d2a" }}>${liveTotal.toLocaleString()}</div>
               </button>
             );
           })}
