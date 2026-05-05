@@ -20,7 +20,7 @@ function calcLateFeeFromDueDate(dueDateStr: string): number {
   const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
   if (now < feeStart) return 0;
   const msPerDay = 1000 * 60 * 60 * 24;
-  const daysLate = Math.floor((now - feeStart.getTime()) / msPerDay) + 1;
+  const daysLate = Math.floor((now.getTime() - feeStart.getTime()) / msPerDay) + 1;
   return 35 + Math.max(0, daysLate - 1) * 10;
 }
 
@@ -28,33 +28,56 @@ serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
     const results = [];
 
-    // Step 1: Update late fees on all unpaid invoices
+    // Only fetch unpaid, non-custom, non-deleted invoices
     const { data: unpaidInvoices } = await supabase
       .from("invoices")
       .select("*, tenants(*)")
-      .eq("paid", false);
+      .eq("paid", false)
+      .eq("deleted", false)
+      .neq("is_custom", true);
 
     for (const inv of (unpaidInvoices || [])) {
       const dueDate = inv.due_date || `${inv.year}-${String(inv.month_num).padStart(2,'0')}-01`;
+      const due = new Date(dueDate);
+      due.setHours(0, 0, 0, 0);
+
+      // Skip future invoices — only process overdue ones (past months)
+      const isCurrentMonth = due.getMonth() === now.getMonth() && due.getFullYear() === now.getFullYear();
+      const isFuture = due > now && !isCurrentMonth;
+      if (isFuture) continue;
+
+      const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
+      feeStart.setHours(0, 0, 0, 0);
+
+      // Skip if still in grace period
+      if (now < feeStart) continue;
+
       const lateFee = calcLateFeeFromDueDate(dueDate);
       const rent = Number(inv.rent) || 0;
       const total = rent + lateFee;
 
+      // Update late fee in DB if changed
       if (lateFee !== Number(inv.late_fee)) {
         await supabase.from("invoices").update({
           late_fee: lateFee,
           total,
-          updated_at: now.toISOString(),
+          updated_at: new Date().toISOString(),
         }).eq("id", inv.id);
       }
 
-      // Step 2: Send email if late (day 5+)
-      const due = new Date(dueDate);
-      const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
-      if (now < feeStart) continue; // still in grace period
+      // Double-check tenant exists and has email
       if (!inv.tenants?.email) continue;
+
+      // Re-verify invoice is still unpaid (fresh check)
+      const { data: freshInv } = await supabase
+        .from("invoices")
+        .select("paid")
+        .eq("id", inv.id)
+        .single();
+      if (freshInv?.paid) continue; // was paid between query and now
 
       const tenant = inv.tenants;
       const firstName = tenant.name.split(" ")[0];
@@ -75,8 +98,8 @@ serve(async (req) => {
           <div style="padding:28px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
             <p style="font-size:16px;color:#1a1a1a;">Hi ${firstName},</p>
             <p style="font-size:14px;color:#4b5563;line-height:1.6;">
-              Your <strong>${inv.month}</strong> rent at <strong>${tenant.address}</strong> is unpaid.
-              ${isDay1 ? "A <strong>$35 late fee</strong> has been applied today." : `Your balance has increased with today's daily fee.`}
+              Your <strong>${inv.month}</strong> rent at <a href="${PORTAL_URL}" style="color:#1b3d2a;font-weight:600;">${tenant.address}</a> is unpaid.
+              ${isDay1 ? "A <strong>$35 late fee</strong> has been applied today." : `Your balance has been updated with today's late fee.`}
             </p>
             <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:16px 20px;margin:20px 0;">
               <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:8px;">Current Balance — Day ${daysLate} Late</div>
@@ -86,10 +109,10 @@ serve(async (req) => {
                   <span>Monthly rent</span><span style="font-weight:600;">$${rent.toLocaleString()}</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                  <span>Base late fee (day 1)</span><span style="font-weight:600;color:#dc2626;">+$35</span>
+                  <span>Base late fee (5th day)</span><span style="font-weight:600;color:#dc2626;">+$35</span>
                 </div>
                 ${daysLate > 1 ? `<div style="display:flex;justify-content:space-between;">
-                  <span>Daily fees ($10 × ${daysLate - 1} days)</span><span style="font-weight:600;color:#dc2626;">+$${(daysLate - 1) * 10}</span>
+                  <span>${daysLate - 1} days × $10/day</span><span style="font-weight:600;color:#dc2626;">+$${(daysLate - 1) * 10}</span>
                 </div>` : ""}
               </div>
             </div>
