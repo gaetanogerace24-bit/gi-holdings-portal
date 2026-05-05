@@ -62,7 +62,7 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
   const overdueCount = visibleInvoices.filter(i => i.isOverdue).length;
 
   // All caught up = no unpaid invoices at all
-  const allCaughtUp = finalTotal === 0 && invoices.length === 0;
+  const allCaughtUp = visibleInvoices.length === 0;
 
   // On the last day of month, switch back to "Pay now" to prep for new invoice
   const lastDayOfMonth = isLastDayOfMonth();
