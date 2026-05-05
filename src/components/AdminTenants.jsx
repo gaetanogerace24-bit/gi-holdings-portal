@@ -5,6 +5,13 @@ const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent
 const DOC_CATEGORIES = ["Lease agreement", "Move-in inspection", "Community rules", "Other"];
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
+// Tenant email → password map (stored in App.jsx but we show it here for admin)
+const TENANT_PASSWORDS = {
+  "gthorntonjr51@gmail.com": "GaryTenant2026!",
+  "apate636@icloud.com": "AngelisaTenant2026!",
+  "timmylapearl92@gmail.com": "DanielleTenant2026!",
+};
+
 async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   if (!leaseStart || !leaseEnd || !rent) return 0;
   const startStr = leaseStart.split("T")[0];
@@ -15,56 +22,34 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   const start = new Date(sy, sm - 1, 1);
   const end = new Date(ey, em - 1, 1);
   if (end <= start) return 0;
-
-  // Only delete unpaid invoices due in the future — keep past/overdue ones
   const today = new Date().toISOString().split("T")[0];
-  await supabase.from("invoices")
-    .delete()
-    .eq("tenant_id", tenantId)
-    .eq("paid", false)
-    .gt("due_date", today);
-
+  await supabase.from("invoices").delete().eq("tenant_id", tenantId).eq("paid", false).gt("due_date", today);
   const invoicesToInsert = [];
   const cursor = new Date(start);
-
-  // Full months up to (not including) the end month
   while (cursor < end) {
     const year = cursor.getFullYear();
     const monthNum = cursor.getMonth() + 1;
     const monthName = MONTH_NAMES[cursor.getMonth()];
     invoicesToInsert.push({
-      tenant_id: tenantId,
-      month: `${monthName} ${year}`,
-      year, month_num: monthNum,
-      rent: Number(rent), late_fee: 0, total: Number(rent),
-      paid: false,
+      tenant_id: tenantId, month: `${monthName} ${year}`, year, month_num: monthNum,
+      rent: Number(rent), late_fee: 0, total: Number(rent), paid: false,
       due_date: `${year}-${String(monthNum).padStart(2, "0")}-01`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     });
     cursor.setMonth(cursor.getMonth() + 1);
   }
-
-  // Add prorated last month if lease ends mid-month (ed > 1)
   const endDay = ed || 1;
   const daysInEndMonth = new Date(ey, em, 0).getDate();
   if (endDay > 1) {
     const proratedRent = Math.round((Number(rent) / daysInEndMonth) * endDay * 100) / 100;
     invoicesToInsert.push({
-      tenant_id: tenantId,
-      month: `${MONTH_NAMES[em - 1]} ${ey} (Prorated ${endDay} days)`,
-      year: ey, month_num: em,
-      rent: proratedRent, late_fee: 0, total: proratedRent,
-      paid: false,
+      tenant_id: tenantId, month: `${MONTH_NAMES[em - 1]} ${ey} (Prorated ${endDay} days)`,
+      year: ey, month_num: em, rent: proratedRent, late_fee: 0, total: proratedRent, paid: false,
       due_date: `${ey}-${String(em).padStart(2, "0")}-01`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     });
   }
-
-  if (invoicesToInsert.length > 0) {
-    await supabase.from("invoices").insert(invoicesToInsert);
-  }
+  if (invoicesToInsert.length > 0) await supabase.from("invoices").insert(invoicesToInsert);
   return invoicesToInsert.length;
 }
 
@@ -77,8 +62,13 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [invoiceMsg, setInvoiceMsg] = useState(null);
+  // Portal access state
+  const [showAccess, setShowAccess] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [accessSaved, setAccessSaved] = useState(false);
 
-  const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); setInvoiceMsg(null); };
+  const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); setInvoiceMsg(null); setShowAccess(false); };
   const openEdit = (t) => {
     setEditing(t.id);
     setForm({
@@ -97,8 +87,22 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
     });
     setShowForm(true);
     setInvoiceMsg(null);
+    setShowAccess(false);
+    setNewPassword("");
+    setAccessSaved(false);
   };
-  const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); setInvoiceMsg(null); };
+  const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); setInvoiceMsg(null); setShowAccess(false); };
+
+  const handleSaveAccess = async () => {
+    if (!editing || !form.email) return;
+    const updates = { email: form.email, updated_at: new Date().toISOString() };
+    if (newPassword.trim()) updates.portal_password = newPassword.trim();
+    await supabase.from("tenants").update(updates).eq("id", editing);
+    setTenants(tenants.map(t => t.id === editing ? { ...t, email: form.email, portal_password: newPassword || t.portal_password } : t));
+    setAccessSaved(true);
+    setTimeout(() => setAccessSaved(false), 3000);
+    setNewPassword("");
+  };
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.rent) return;
@@ -116,23 +120,15 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
       emergency: "(330) 969-6464", contact_email: "tenants@giholdings.com",
       updated_at: new Date().toISOString(),
     };
-
     let tenantId = editing;
-
     if (editing) {
       await supabase.from("tenants").update(tenantData).eq("id", editing);
-      // Reload fresh from Supabase to ensure correct data
       const { data: fresh } = await supabase.from("tenants").select("*").eq("id", editing).single();
       if (fresh) {
         setTenants(tenants.map(t => t.id === editing ? {
-          ...fresh,
-          leaseStart: fresh.lease_start,
-          leaseEnd: fresh.lease_end,
-          section8Amount: fresh.section8_amount,
-          tenantPortion: fresh.tenant_portion,
-          monthToMonth: fresh.month_to_month,
-          contactEmail: fresh.contact_email,
-          documents: fresh.documents || [],
+          ...fresh, leaseStart: fresh.lease_start, leaseEnd: fresh.lease_end,
+          section8Amount: fresh.section8_amount, tenantPortion: fresh.tenant_portion,
+          monthToMonth: fresh.month_to_month, contactEmail: fresh.contact_email, documents: fresh.documents || [],
         } : t));
       }
     } else {
@@ -142,8 +138,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
         setTenants([...tenants, { ...data, leaseStart: data.lease_start, leaseEnd: data.lease_end, section8Amount: data.section8_amount, tenantPortion: data.tenant_portion, monthToMonth: data.month_to_month }]);
       }
     }
-
-    // Generate invoices for fixed-term leases
     if (tenantId && !form.monthToMonth && form.leaseStart && form.leaseEnd) {
       const count = await generateLeaseInvoices(tenantId, form.leaseStart, form.leaseEnd, form.rent);
       if (onInvoicesChanged) await onInvoicesChanged();
@@ -189,7 +183,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
     setTenants(tenants.map(t => t.id === tenantId ? { ...t, documents: newDocs } : t));
   };
 
-  // Preview invoice count
   const invoicePreview = (() => {
     if (form.monthToMonth || !form.leaseStart || !form.leaseEnd) return null;
     try {
@@ -204,11 +197,15 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
       const endDay = ed || 1;
       const daysInEndMonth = new Date(ey, em, 0).getDate();
       const isProrated = endDay > 1;
-      if (isProrated) count++; // include prorated month
+      if (isProrated) count++;
       const proratedRent = isProrated ? Math.round((Number(form.rent) / daysInEndMonth) * endDay * 100) / 100 : null;
       return { count, startLabel: `${MONTH_NAMES[sm-1]} ${sy}`, endLabel: `${MONTH_NAMES[em-1]} ${ey}`, isProrated, proratedRent, endDay };
     } catch { return null; }
   })();
+
+  // Get current password for tenant being edited
+  const currentTenant = tenants.find(t => t.id === editing);
+  const currentPassword = currentTenant?.portal_password || TENANT_PASSWORDS[currentTenant?.email] || "—";
 
   return (
     <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
@@ -283,6 +280,80 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged })
               </div>
             )}
           </div>
+
+          {/* Portal access section — only shown when editing */}
+          {editing && (
+            <div style={{ marginBottom: 14 }}>
+              <button onClick={() => setShowAccess(!showAccess)} style={{
+                width: "100%", padding: "13px 16px", background: showAccess ? "#1b3d2a" : "#f9fafb",
+                border: `1.5px solid ${showAccess ? "#1b3d2a" : "#e5e7eb"}`, borderRadius: 10,
+                display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 16 }}>🔑</span>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: showAccess ? "#fff" : "#1a1a1a" }}>Portal access credentials</div>
+                    <div style={{ fontSize: 12, color: showAccess ? "rgba(255,255,255,0.6)" : "#9ca3af", marginTop: 1 }}>
+                      {form.email || "No email set"}
+                    </div>
+                  </div>
+                </div>
+                <span style={{ color: showAccess ? "#fff" : "#9ca3af", fontSize: 14 }}>{showAccess ? "▲" : "▼"}</span>
+              </button>
+
+              {showAccess && (
+                <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "16px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                    {/* Current login email */}
+                    <div>
+                      <Label>Login email</Label>
+                      <input
+                        value={form.email || ""}
+                        onChange={e => setForm({ ...form, email: e.target.value })}
+                        style={inputSt}
+                        placeholder="tenant@email.com"
+                      />
+                    </div>
+                    {/* Current password */}
+                    <div>
+                      <Label>Current password</Label>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={currentPassword}
+                          readOnly
+                          style={{ ...inputSt, background: "#f3f4f6", color: "#6b7280", paddingRight: 36 }}
+                        />
+                        <button onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#9ca3af" }}>
+                          {showPassword ? "🙈" : "👁"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  {/* New password */}
+                  <div style={{ marginBottom: 12 }}>
+                    <Label>Set new password</Label>
+                    <input
+                      type="text"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Leave blank to keep current password"
+                      style={{ ...inputSt, width: "100%", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <button onClick={handleSaveAccess} style={{ ...greenBtn, fontSize: 13, padding: "9px 18px" }}>
+                      {accessSaved ? "✅ Saved!" : "Save credentials"}
+                    </button>
+                    <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                      Tenant logs in at giholdingsllc.com with this email & password
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>
