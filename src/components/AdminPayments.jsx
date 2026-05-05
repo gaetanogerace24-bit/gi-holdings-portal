@@ -708,6 +708,14 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
   const handleDelete = async (inv) => {
     await supabase.from("invoices").update({ deleted: true }).eq("id", inv.id);
+    // Also delete from custom_invoices if it's a custom charge
+    if (inv.is_custom) {
+      await supabase.from("custom_invoices")
+        .delete()
+        .eq("tenant_id", inv.tenant_id)
+        .eq("amount", Number(inv.rent));
+      setSentInvoices(prev => prev.filter(i => !(i.tenant_id === inv.tenant_id && Number(i.amount) === Number(inv.rent))));
+    }
     setInvoices(invoices.map(i => i.id === inv.id ? { ...i, deleted: true } : i));
     setSheet("invoices");
     setSelectedInvoice(null);
