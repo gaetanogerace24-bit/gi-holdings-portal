@@ -725,8 +725,21 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   };
 
   const handleDeleteCustomInvoice = async (id) => {
+    // Get the custom invoice first so we can match it in invoices table
+    const inv = sentInvoices.find(i => i.id === id);
+    // Delete from custom_invoices
     await supabase.from("custom_invoices").delete().eq("id", id);
+    // Also delete the matching row from invoices table
+    if (inv) {
+      await supabase.from("invoices")
+        .delete()
+        .eq("tenant_id", inv.tenant_id)
+        .eq("is_custom", true)
+        .eq("rent", Number(inv.amount));
+    }
     setSentInvoices(prev => prev.filter(i => i.id !== id));
+    // Reload invoices so the list updates instantly
+    reloadInvoices();
   };
 
   const handleArchive = async (tenant) => {
