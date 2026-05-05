@@ -2,11 +2,10 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
 export default function UnitInfoScreen({ tenant }) {
-  const [tab, setTab] = useState("lease"); // lease | documents | all
+  const [tab, setTab] = useState("lease");
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Sub tabs */}
       <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #f3f4f6" }}>
         {[
           { key: "lease", label: "My Unit" },
@@ -77,7 +76,7 @@ function LeaseTab({ tenant }) {
 
 function DocumentsTab({ tenant }) {
   const docs = (tenant.documents || []).filter(d => !d.archived);
-  const categories = ["Lease agreement", "Move-in inspection", "Community rules", "Other"];
+  const categories = ["Lease agreement", "Move-in inspection", "Community rules", "Notice", "Other"];
 
   if (docs.length === 0) {
     return (
@@ -92,7 +91,8 @@ function DocumentsTab({ tenant }) {
   return (
     <div style={{ padding: 16 }}>
       {categories.map(cat => {
-        const catDocs = docs.filter(d => d.category === cat);
+        // Match both "type" (new) and "category" (old) field names
+        const catDocs = docs.filter(d => (d.type || d.category) === cat);
         if (catDocs.length === 0) return null;
         return (
           <div key={cat} style={{ marginBottom: 16 }}>
@@ -100,13 +100,16 @@ function DocumentsTab({ tenant }) {
             <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
               {catDocs.map((doc, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < catDocs.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                  <div style={{ fontSize: 20 }}>{docIcon(doc.category)}</div>
+                  <div style={{ fontSize: 20 }}>{docIcon(doc.type || doc.category)}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 500 }}>{doc.name}</div>
                     <div style={{ fontSize: 11, color: "#9ca3af" }}>Added {doc.date}</div>
                   </div>
                   {doc.url ? (
-                    <a href={doc.url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#4caf7d", fontWeight: 600, textDecoration: "none" }}>View →</a>
+                    <a href={doc.url} target="_blank" rel="noreferrer" style={{
+                      fontSize: 13, color: "#fff", fontWeight: 600, textDecoration: "none",
+                      background: "#1b3d2a", padding: "6px 14px", borderRadius: 8,
+                    }}>View →</a>
                   ) : (
                     <span style={{ fontSize: 11, color: "#d1d5db" }}>No file</span>
                   )}
@@ -138,13 +141,16 @@ function AllFilesTab({ tenant }) {
       <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
         {docs.map((doc, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < docs.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-            <div style={{ fontSize: 20 }}>{docIcon(doc.category)}</div>
+            <div style={{ fontSize: 20 }}>{docIcon(doc.type || doc.category)}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 500 }}>{doc.name}</div>
-              <div style={{ fontSize: 11, color: "#9ca3af" }}>{doc.category} · {doc.date}</div>
+              <div style={{ fontSize: 11, color: "#9ca3af" }}>{doc.type || doc.category} · {doc.date}</div>
             </div>
             {doc.url ? (
-              <a href={doc.url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#4caf7d", fontWeight: 600, textDecoration: "none" }}>View →</a>
+              <a href={doc.url} target="_blank" rel="noreferrer" style={{
+                fontSize: 13, color: "#fff", fontWeight: 600, textDecoration: "none",
+                background: "#1b3d2a", padding: "6px 14px", borderRadius: 8,
+              }}>View →</a>
             ) : (
               <span style={{ fontSize: 11, color: "#d1d5db" }}>No file</span>
             )}
@@ -160,7 +166,8 @@ function docIcon(cat) {
   if (cat === "Lease agreement") return "📄";
   if (cat === "Move-in inspection") return "🔑";
   if (cat === "Community rules") return "📜";
-  return "📋";
+  if (cat === "Notice") return "📋";
+  return "📁";
 }
 
 function InfoCard({ rows }) {
