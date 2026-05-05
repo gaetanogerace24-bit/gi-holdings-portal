@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 
 const DOC_TYPES = ["Lease agreement", "Move-in inspection", "Community rules", "Notice", "Other"];
@@ -7,9 +7,13 @@ const DOC_ICONS = {
   "Community rules": "📜", "Notice": "📋", "Other": "📁",
 };
 
-export default function AdminDocuments({ tenants, setTenants }) {
-  // No tenant selected by default — nothing shows until you click a name
-  const [selectedTenantId, setSelectedTenantId] = useState("");
+export default function AdminDocuments({ tenants, setTenants, initialTenantId = "" }) {
+  // Use initialTenantId if navigated from Tenants tab
+  const [selectedTenantId, setSelectedTenantId] = useState(initialTenantId);
+
+  useEffect(() => {
+    if (initialTenantId) setSelectedTenantId(initialTenantId);
+  }, [initialTenantId]);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: "", type: "Lease agreement", tenantId: "" });
   const [file, setFile] = useState(null);
