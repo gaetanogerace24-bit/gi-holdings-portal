@@ -105,7 +105,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   };
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.rent) return;
+    if (!form.name.trim()) return;
     setSaving(true);
     const tenantData = {
       name: form.name, email: form.email || "", phone: form.phone || "",
@@ -380,7 +380,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             {invoiceMsg ? (
               <button onClick={closeForm} style={greenBtn}>Done</button>
             ) : (
-              <button onClick={handleSave} disabled={saving} style={{ ...greenBtn, opacity: form.name && form.rent ? 1 : 0.5 }}>
+              <button onClick={handleSave} disabled={saving} style={{ ...greenBtn, opacity: form.name ? 1 : 0.5 }}>
                 {saving ? "Saving..." : editing ? "Save changes" : "Add tenant"}
               </button>
             )}
