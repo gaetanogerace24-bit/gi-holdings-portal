@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 
+const FROM_EMAIL = "rent@giholdingsllc.com";
+const PORTAL_URL = "https://giholdingsllc.com";
+const TEST_MODE = true;
+const TEST_EMAIL = "giholdingsllc8@gmail.com";
+
 export default function SendInvoiceModal({ tenants, onClose, onSent }) {
   const [tenantId, setTenantId] = useState("");
   const [title, setTitle] = useState("");
@@ -20,7 +25,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
     const today = new Date();
     const monthName = today.toLocaleString("default", { month: "long", year: "numeric" });
 
-    // 1. Insert into custom_invoices — shows in tenant portal "Other Charges"
+    // 1. Insert into custom_invoices
     const { error: customError } = await supabase.from("custom_invoices").insert({
       tenant_id: tenantId,
       title: title.trim(),
@@ -32,14 +37,13 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
     });
 
     if (customError) {
-      console.error("custom_invoices insert error:", customError);
       setSaving(false);
       setInvoiceError("Failed to send invoice: " + customError.message);
       return;
     }
 
-    // 2. Insert into invoices table — shows under tenant's All Invoices in admin
-    const invoicePayload = {
+    // 2. Insert into invoices table
+    const { error: invoiceErr } = await supabase.from("invoices").insert({
       tenant_id: tenantId,
       month: `${title.trim()} — ${monthName}`,
       year: today.getFullYear(),
@@ -50,27 +54,57 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
       paid: false,
       due_date: today.toISOString().split("T")[0],
       is_custom: true,
+      notes: notes.trim() || null,
       created_at: now,
       updated_at: now,
-    };
-
-    // Only include notes if column exists
-    try {
-      invoicePayload.notes = notes.trim() || null;
-    } catch(e) {}
-
-    const { error: invoiceErr, data: invoiceData } = await supabase
-      .from("invoices")
-      .insert(invoicePayload)
-      .select()
-      .single();
+    }).select().single();
 
     if (invoiceErr) {
-      console.error("invoices insert error:", invoiceErr);
-      // Still mark as sent since custom_invoices worked — but show warning
       setInvoiceError("Warning: saved to tenant portal but admin log failed: " + invoiceErr.message);
-    } else {
-      console.log("Invoice created in invoices table:", invoiceData);
+    }
+
+    // 3. Send email via Supabase edge function to avoid exposing API key
+    const tenant = tenants.find(t => t.id === tenantId);
+    if (tenant) {
+      const firstName = tenant.name.split(" ")[0];
+      const toEmail = TEST_MODE ? TEST_EMAIL : tenant.email;
+      const subject = `📋 New charge: ${title.trim()} — $${numAmount.toLocaleString()}`;
+
+      const html = `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;">
+          <div style="background:linear-gradient(160deg,#1b3d2a,#2d5c42);padding:28px 24px;border-radius:12px 12px 0 0;">
+            <div style="font-size:20px;font-weight:700;color:#fff;">G&I Holdings LLC</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;">Tenant Portal</div>
+          </div>
+          <div style="padding:28px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+            <p style="font-size:16px;color:#1a1a1a;">Hi ${firstName},</p>
+            <p style="font-size:14px;color:#4b5563;line-height:1.6;">
+              A new charge has been added to your account at <strong>${tenant.address}</strong>.
+            </p>
+            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin:20px 0;">
+              <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;margin-bottom:8px;">Charge Details</div>
+              <div style="font-size:22px;font-weight:800;color:#1a1a1a;margin-bottom:12px;">$${numAmount.toLocaleString()}</div>
+              <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Title:</strong> ${title.trim()}</div>
+              <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Due:</strong> ${today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
+              ${notes.trim() ? `<div style="font-size:14px;color:#6b7280;margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;"><strong>Note:</strong> ${notes.trim()}</div>` : ""}
+            </div>
+            <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px 16px;margin-bottom:24px;font-size:13px;color:#92400e;">
+              ℹ️ This charge does <strong>not</strong> accrue late fees. Please pay at your earliest convenience.
+            </div>
+            <a href="${PORTAL_URL}" style="display:block;background:#4caf7d;color:#fff;text-align:center;padding:14px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:16px;">
+              Log in to pay now → giholdingsllc.com
+            </a>
+          </div>
+        </div>
+      `;
+
+      try {
+        await supabase.functions.invoke("send-custom-invoice-email", {
+          body: { to: toEmail, subject: TEST_MODE ? `[TEST - ${tenant.name}] ${subject}` : subject, html },
+        });
+      } catch (emailErr) {
+        console.error("Email send failed:", emailErr);
+      }
     }
 
     setSaving(false);
@@ -87,7 +121,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
           <div style={{ fontSize: 48, marginBottom: 12 }}>{invoiceError ? "⚠️" : "✅"}</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Invoice sent!</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>
-            <strong>{tenant?.name}</strong> will see "{title}" in their portal under Other Charges.
+            <strong>{tenant?.name}</strong> will see "{title}" in their portal and received an email notification.
           </div>
           {invoiceError && (
             <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#dc2626", marginBottom: 16, textAlign: "left" }}>
@@ -148,7 +182,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
 
         {tenantId && title && amount && (
           <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 16, fontSize: 13, color: "#1b3d2a" }}>
-            📤 <strong>{tenant?.name}</strong> will see a charge of <strong>${Number(amount).toLocaleString()}</strong> titled "<strong>{title}</strong>" in their portal immediately.
+            📤 <strong>{tenant?.name}</strong> will be charged <strong>${Number(amount).toLocaleString()}</strong> for "<strong>{title}</strong>" and receive an email notification immediately.
           </div>
         )}
 
