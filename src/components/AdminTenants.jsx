@@ -61,14 +61,14 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const [docForm, setDocForm] = useState({ name: "", category: "Lease agreement", url: "" });
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-  const [invoiceMsg, setInvoiceMsg] = useState(null);
+  const [regenMsg, setRegenMsg] = useState(null);
   // Portal access state
   const [showAccess, setShowAccess] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [accessSaved, setAccessSaved] = useState(false);
 
-  const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); setInvoiceMsg(null); setShowAccess(false); };
+  const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); setRegenMsg(null); setShowAccess(false); };
   const openEdit = (t) => {
     setEditing(t.id);
     setForm({
@@ -86,12 +86,12 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       monthToMonth: t.month_to_month || t.monthToMonth || false,
     });
     setShowForm(true);
-    setInvoiceMsg(null);
+    setRegenMsg(null);
     setShowAccess(false);
     setNewPassword("");
     setAccessSaved(false);
   };
-  const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); setInvoiceMsg(null); setShowAccess(false); };
+  const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); setRegenMsg(null); setShowAccess(false); };
 
   const handleSaveAccess = async () => {
     if (!editing || !form.email) return;
@@ -120,7 +120,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       emergency: "(330) 969-6464", contact_email: "tenants@giholdings.com",
       updated_at: new Date().toISOString(),
     };
-    let tenantId = editing;
     if (editing) {
       await supabase.from("tenants").update(tenantData).eq("id", editing);
       const { data: fresh } = await supabase.from("tenants").select("*").eq("id", editing).single();
@@ -134,20 +133,11 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     } else {
       const { data } = await supabase.from("tenants").insert({ ...tenantData, paid: false, documents: [] }).select().single();
       if (data) {
-        tenantId = data.id;
         setTenants([...tenants, { ...data, leaseStart: data.lease_start, leaseEnd: data.lease_end, section8Amount: data.section8_amount, tenantPortion: data.tenant_portion, monthToMonth: data.month_to_month }]);
       }
     }
-    if (tenantId && !form.monthToMonth && form.leaseStart && form.leaseEnd) {
-      const count = await generateLeaseInvoices(tenantId, form.leaseStart, form.leaseEnd, form.rent);
-      if (onInvoicesChanged) await onInvoicesChanged();
-      setInvoiceMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} generated for the full lease term.`);
-    } else if (form.monthToMonth) {
-      setInvoiceMsg("✅ Month-to-month tenant saved. Invoices generate on the 1st of each month.");
-    } else {
-      closeForm();
-    }
     setSaving(false);
+    closeForm();
   };
 
   const handleRegenerate = async () => {
@@ -155,7 +145,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     setRegenerating(true);
     const count = await generateLeaseInvoices(editing, form.leaseStart, form.leaseEnd, form.rent);
     if (onInvoicesChanged) await onInvoicesChanged();
-    setInvoiceMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} regenerated for the full lease term.`);
+    setRegenMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} regenerated for the full lease term.`);
     setRegenerating(false);
   };
 
@@ -245,8 +235,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             </div>
           </div>
 
-          {/* Invoice preview */}
-          {invoicePreview && (
+          {/* Invoice preview + regenerate button (only shown when editing) */}
+          {invoicePreview && editing && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 8, fontSize: 13, color: "#1b3d2a" }}>
                 📅 <strong>{invoicePreview.count} invoice{invoicePreview.count !== 1 ? "s" : ""}</strong> covering {invoicePreview.startLabel} → {invoicePreview.endLabel}
@@ -256,10 +246,13 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   </div>
                 )}
               </div>
-              {editing && (
-                <button onClick={handleRegenerate} disabled={regenerating} style={{ width: "100%", padding: "10px", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-                  {regenerating ? "⏳ Regenerating..." : "🔄 Regenerate invoices for this lease term"}
-                </button>
+              <button onClick={handleRegenerate} disabled={regenerating} style={{ width: "100%", padding: "10px", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                {regenerating ? "⏳ Regenerating..." : "🔄 Regenerate invoices for this lease term"}
+              </button>
+              {regenMsg && (
+                <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 13, color: "#1b3d2a" }}>
+                  {regenMsg}
+                </div>
               )}
             </div>
           )}
@@ -305,7 +298,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
               {showAccess && (
                 <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "16px" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-                    {/* Current login email */}
                     <div>
                       <Label>Login email</Label>
                       <input
@@ -315,7 +307,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                         placeholder="tenant@email.com"
                       />
                     </div>
-                    {/* Current password */}
                     <div>
                       <Label>Current password</Label>
                       <div style={{ position: "relative" }}>
@@ -331,7 +322,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                       </div>
                     </div>
                   </div>
-                  {/* New password */}
                   <div style={{ marginBottom: 12 }}>
                     <Label>Set new password</Label>
                     <input
@@ -370,20 +360,10 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
               rows={2} style={{ width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #bbf7d0", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", resize: "none", background: "#f0f9f4" }} />
           </div>
 
-          {invoiceMsg && (
-            <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#1b3d2a" }}>
-              {invoiceMsg}
-            </div>
-          )}
-
           <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-            {invoiceMsg ? (
-              <button onClick={closeForm} style={greenBtn}>Done</button>
-            ) : (
-              <button onClick={handleSave} disabled={saving} style={{ ...greenBtn, opacity: form.name ? 1 : 0.5 }}>
-                {saving ? "Saving..." : editing ? "Save changes" : "Add tenant"}
-              </button>
-            )}
+            <button onClick={handleSave} disabled={saving} style={{ ...greenBtn, opacity: form.name ? 1 : 0.5 }}>
+              {saving ? "Saving..." : editing ? "Save changes" : "Add tenant"}
+            </button>
             <button onClick={closeForm} style={{ background: "none", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 20px", fontSize: 14, color: "#6b7280", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
           </div>
         </div>
