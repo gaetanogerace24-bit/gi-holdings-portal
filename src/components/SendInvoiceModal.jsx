@@ -3,7 +3,7 @@ import { supabase } from "../supabase";
 
 const FROM_EMAIL = "rent@giholdingsllc.com";
 const PORTAL_URL = "https://giholdingsllc.com";
-const TEST_MODE = true;
+const TEST_MODE = false;
 const TEST_EMAIL = "giholdingsllc8@gmail.com";
 
 export default function SendInvoiceModal({ tenants, onClose, onSent }) {
