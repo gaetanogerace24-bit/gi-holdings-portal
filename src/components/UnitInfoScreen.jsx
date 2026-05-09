@@ -33,8 +33,8 @@ function LeaseTab({ tenant }) {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("settings").select("*").single();
-      if (data) setSettings(data);
+      const { data } = await supabase.from("settings").select("value").eq("key", "portal_settings").single();
+      if (data?.value) setSettings(data.value);
     };
     load();
   }, []);
