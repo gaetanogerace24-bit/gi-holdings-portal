@@ -1,242 +1,150 @@
 import { useState, useEffect } from "react";
-import LoginScreen from "./components/LoginScreen";
-import TicketsScreen from "./components/TicketsScreen";
-import PayRentScreen from "./components/PayRentScreen";
-import UnitInfoScreen from "./components/UnitInfoScreen";
-import SubmitTicketModal from "./components/SubmitTicketModal";
-import AdminDashboard from "./components/AdminDashboard";
-import Dashboard from "./components/Dashboard";
-import TenantMessages from "./components/TenantMessages";
-import { supabase } from "./supabase";
+import { supabase } from "../supabase";
 
-const ADMIN_EMAIL = "gaetano@giholdings.com";
-const ADMIN_PASS = "GIHoldings2026!";
-
-function saveSession(screen, tenantId) {
-  try { localStorage.setItem("gi_session", JSON.stringify({ screen, tenantId, ts: Date.now() })); } catch (e) {}
-}
-
-function loadSession() {
-  try {
-    const raw = localStorage.getItem("gi_session");
-    if (!raw) return null;
-    const s = JSON.parse(raw);
-    if (Date.now() - s.ts > 7 * 24 * 60 * 60 * 1000) { localStorage.removeItem("gi_session"); return null; }
-    return s;
-  } catch (e) { return null; }
-}
-
-function clearSession() {
-  try { localStorage.removeItem("gi_session"); } catch (e) {}
-}
-
-export default function App() {
-  const [screen, setScreen] = useState("loading");
-  const [activeTab, setActiveTab] = useState("tickets");
-  const [showModal, setShowModal] = useState(false);
-  const [tickets, setTickets] = useState([]);
-  const [tenants, setTenants] = useState([]);
-  const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loggedInTenantId, setLoggedInTenantId] = useState(null);
-  const [defaultPayMode, setDefaultPayMode] = useState("current");
-  const [loginError, setLoginError] = useState(null);
-
-  const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
-  const currentTenantInvoices = invoices.filter(inv =>
-    inv.tenant_id === currentTenant?.id && !inv.paid && !inv.deleted
-  );
-
-  useEffect(() => { loadData(); }, []);
-
-  useEffect(() => {
-    const sub = supabase
-      .channel("invoices-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "invoices" }, () => {
-        reloadInvoices();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(sub); };
-  }, []);
-
-  useEffect(() => {
-    if (loading) return;
-    const session = loadSession();
-    if (session) {
-      if (session.screen === "admin") {
-        setScreen("admin");
-      } else if (session.screen === "portal" && session.tenantId) {
-        const tenant = tenants.find(t => t.id === session.tenantId);
-        if (tenant) { setLoggedInTenantId(session.tenantId); setScreen("portal"); }
-        else { setScreen("login"); }
-      } else { setScreen("login"); }
-    } else { setScreen("login"); }
-  }, [loading]);
-
-  async function loadData() {
-    setLoading(true);
-    try {
-      const [{ data: tenantData }, { data: ticketData }, { data: invoiceData }] = await Promise.all([
-        supabase.from("tenants").select("*").order("created_at"),
-        supabase.from("tickets").select("*").order("created_at", { ascending: false }),
-        supabase.from("invoices").select("*").order("created_at", { ascending: false }),
-      ]);
-      if (tenantData) setTenants(tenantData.map(normalizeTenant));
-      if (ticketData) setTickets(ticketData.map(normalizeTicket));
-      if (invoiceData) setInvoices(invoiceData);
-    } catch (e) { console.error("Failed to load:", e); }
-    setLoading(false);
-  }
-
-  async function reloadInvoices() {
-    const { data } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
-    if (data) setInvoices(data);
-  }
-
-  function normalizeTenant(t) {
-    return {
-      ...t, paidDate: t.paid_date, amountOwed: t.amount_owed, overrideLate: t.override_late,
-      section8Amount: t.section8_amount, tenantPortion: t.tenant_portion,
-      housingOwedBack: t.housing_owed_back, leaseStart: t.lease_start, leaseEnd: t.lease_end,
-      contactEmail: t.contact_email, documents: t.documents || [],
-      monthToMonth: t.month_to_month,
-    };
-  }
-
-  function normalizeTicket(t) {
-    return { ...t, tenantId: t.tenant_id, tenantName: t.tenant_name };
-  }
-
-  // ── Login: admin uses hardcoded creds, tenants use email + portal_password from Supabase
-  const handleLogin = async (email, password) => {
-    const lowerEmail = email.toLowerCase().trim();
-    setLoginError(null);
-
-    // Admin login — hardcoded, only you
-    if (lowerEmail === ADMIN_EMAIL && password === ADMIN_PASS) {
-      saveSession("admin", null);
-      setScreen("admin");
-      return true;
-    }
-
-    // Tenant login — check against Supabase portal_password
-    const matchedTenant = tenants.find(t =>
-      t.email?.toLowerCase().trim() === lowerEmail
-    );
-
-    if (matchedTenant) {
-      // Check portal_password set by admin
-      if (!matchedTenant.portal_password) {
-        setLoginError("Your account doesn't have a password set yet. Contact your landlord.");
-        return false;
-      }
-      if (matchedTenant.portal_password === password) {
-        saveSession("portal", matchedTenant.id);
-        setLoggedInTenantId(matchedTenant.id);
-        setScreen("portal");
-        return true;
-      } else {
-        setLoginError("Incorrect password. Contact your landlord if you need help.");
-        return false;
-      }
-    }
-
-    setLoginError("No account found with that email.");
-    return false;
-  };
-
-  const handleLogout = () => { clearSession(); setScreen("login"); setActiveTab("tickets"); setLoggedInTenantId(null); setLoginError(null); };
-
-  const handlePaymentSuccess = async (tenantId, invoiceId) => {
-    const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    await supabase.from("invoices")
-      .update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() })
-      .eq("id", invoiceId);
-    const updatedInvoices = invoices.map(inv =>
-      inv.id === invoiceId ? { ...inv, paid: true, paid_date: paidDate } : inv
-    );
-    setInvoices(updatedInvoices);
-    const remaining = updatedInvoices.filter(inv =>
-      inv.tenant_id === tenantId && !inv.paid && !inv.deleted
-    );
-    if (remaining.length === 0) {
-      setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, paid: true, paidDate } : t));
-      await supabase.from("tenants")
-        .update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() })
-        .eq("id", tenantId);
-    }
-    setActiveTab("tickets");
-  };
-
-  const addTicket = async (ticket) => {
-    const newTicket = {
-      tenant_id: currentTenant?.id, tenant_name: currentTenant?.name,
-      unit: currentTenant?.unit || currentTenant?.address?.split(",")[0],
-      title: ticket.title, category: ticket.category, urgency: ticket.urgency,
-      description: ticket.description || "", status: "open",
-      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    };
-    const { data } = await supabase.from("tickets").insert(newTicket).select().single();
-    if (data) setTickets([normalizeTicket(data), ...tickets]);
-    setShowModal(false);
-  };
-
-  if (screen === "loading" || loading) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: "#1b3d2a", flexDirection: "column", gap: 16 }}>
-        <div style={{ fontSize: 48 }}>🏡</div>
-        <div style={{ color: "#fff", fontSize: 18, fontWeight: 600 }}>G&I Holdings</div>
-        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Loading your portal...</div>
-      </div>
-    );
-  }
-
-  if (screen === "login") return <LoginScreen onLogin={handleLogin} loginError={loginError} />;
-
-  if (screen === "admin") return (
-    <AdminDashboard
-      onLogout={handleLogout} sharedTenants={tenants} setSharedTenants={setTenants}
-      sharedTickets={tickets} setSharedTickets={setTickets}
-      sharedInvoices={invoices} setSharedInvoices={setInvoices}
-      onInvoicesChanged={reloadInvoices}
-      supabase={supabase}
-    />
-  );
+export default function UnitInfoScreen({ tenant }) {
+  const [tab, setTab] = useState("lease");
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f0f2f0", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
-      <div className="tenant-portal" style={{ position: "relative" }}>
-        <Dashboard tenant={currentTenant} invoices={currentTenantInvoices} onTabClick={(tab) => {
-          if (tab === "pay-prepay") {
-            setActiveTab("pay");
-            setDefaultPayMode("prepay");
-          } else {
-            setActiveTab(tab);
-            setDefaultPayMode("current");
-          }
-        }} onLogout={handleLogout} />
-        <nav style={{ display: "flex", background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
-          {["tickets", "pay", "info", "messages"].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              flex: 1, padding: "13px 4px", fontSize: 12, fontWeight: 500,
-              fontFamily: "'DM Sans', sans-serif",
-              color: activeTab === tab ? "#1b3d2a" : "#9ca3af",
-              background: "none", border: "none",
-              borderBottom: activeTab === tab ? "2.5px solid #4caf7d" : "2.5px solid transparent",
-              cursor: "pointer",
-            }}>
-              {tab === "pay" ? "💳 Pay Rent" : tab === "info" ? "My Unit" : tab === "messages" ? "💬 Messages" : "Tickets"}
-            </button>
-          ))}
-        </nav>
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {activeTab === "tickets" && <TicketsScreen tickets={tickets.filter(t => t.tenantId === currentTenant?.id || t.tenant_id === currentTenant?.id)} onNewTicket={() => setShowModal(true)} />}
-          {activeTab === "pay" && <PayRentScreen tenant={currentTenant} invoices={currentTenantInvoices} onPaymentSuccess={handlePaymentSuccess} defaultPayMode={defaultPayMode} />}
-          {activeTab === "info" && <UnitInfoScreen tenant={currentTenant} />}
-          {activeTab === "messages" && <TenantMessages tenant={currentTenant} />}
-        </div>
-        {showModal && <SubmitTicketModal onClose={() => setShowModal(false)} onSubmit={addTicket} />}
+    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #f3f4f6" }}>
+        {[
+          { key: "lease", label: "My Unit" },
+          { key: "documents", label: "Documents" },
+        ].map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            flex: 1, padding: "11px 8px", fontSize: 12, fontWeight: 600,
+            fontFamily: "'DM Sans', sans-serif",
+            color: tab === t.key ? "#1b3d2a" : "#9ca3af",
+            background: "none", border: "none",
+            borderBottom: tab === t.key ? "2px solid #4caf7d" : "2px solid transparent",
+            cursor: "pointer",
+          }}>{t.label}</button>
+        ))}
       </div>
+
+      {tab === "lease" && <LeaseTab tenant={tenant} />}
+      {tab === "documents" && <DocumentsTab tenant={tenant} />}
     </div>
   );
+}
+
+function LeaseTab({ tenant }) {
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("settings").select("*").single();
+      if (data) setSettings(data);
+    };
+    load();
+  }, []);
+
+  const contactEmail = settings?.email || tenant?.contact_email || tenant?.contactEmail || "tenants@giholdings.com";
+  const contactPhone = settings?.phone || tenant?.emergency || "(330) 969-6464";
+  const companyName = settings?.companyName || "G&I Holdings LLC";
+
+  return (
+    <div style={{ padding: 16 }}>
+      <SL>Lease details</SL>
+      <InfoCard rows={[
+        ["Unit type", tenant.unit || "Single Family"],
+        ["Address", tenant.address],
+        ["Lease start", tenant.leaseStart || "—"],
+        ["Lease end", tenant.leaseEnd || "—"],
+        ["Monthly rent", `$${(tenant.rent || 0).toLocaleString()}`],
+        ["Security deposit", `$${(tenant.deposit || 0).toLocaleString()} (held)`],
+      ]} />
+
+      <SL style={{ marginTop: 14 }}>Contact your landlord</SL>
+      <InfoCard rows={[
+        ["Company", companyName],
+        ["Email", contactEmail],
+        ["Emergency line", contactPhone],
+      ]} />
+
+      {tenant.public_note && (
+        <>
+          <SL style={{ marginTop: 14 }}>Message from your landlord</SL>
+          <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "#166534" }}>
+            💬 {tenant.public_note}
+          </div>
+        </>
+      )}
+      <div style={{ height: 24 }} />
+    </div>
+  );
+}
+
+function DocumentsTab({ tenant }) {
+  const docs = (tenant.documents || []).filter(d => !d.archived);
+  const categories = ["Lease agreement", "Move-in inspection", "Community rules", "Notice", "Other"];
+
+  if (docs.length === 0) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: "#1a1a1a", marginBottom: 6 }}>No documents yet</div>
+        <div style={{ fontSize: 13, color: "#6b7280" }}>Your landlord will upload your lease and other documents here.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 16 }}>
+      {categories.map(cat => {
+        const catDocs = docs.filter(d => (d.type || d.category) === cat);
+        if (catDocs.length === 0) return null;
+        return (
+          <div key={cat} style={{ marginBottom: 16 }}>
+            <SL>{cat}</SL>
+            <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
+              {catDocs.map((doc, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < catDocs.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <div style={{ fontSize: 20 }}>{docIcon(doc.type || doc.category)}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500 }}>{doc.name}</div>
+                    <div style={{ fontSize: 11, color: "#9ca3af" }}>Added {doc.date}</div>
+                  </div>
+                  {doc.url ? (
+                    <a href={doc.url} target="_blank" rel="noreferrer" style={{
+                      fontSize: 13, color: "#fff", fontWeight: 600, textDecoration: "none",
+                      background: "#1b3d2a", padding: "6px 14px", borderRadius: 8,
+                    }}>View →</a>
+                  ) : (
+                    <span style={{ fontSize: 11, color: "#d1d5db" }}>No file</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ height: 24 }} />
+    </div>
+  );
+}
+
+function docIcon(cat) {
+  if (cat === "Lease agreement") return "📄";
+  if (cat === "Move-in inspection") return "🔑";
+  if (cat === "Community rules") return "📜";
+  if (cat === "Notice") return "📋";
+  return "📁";
+}
+
+function InfoCard({ rows }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 8 }}>
+      {rows.map(([label, value], i) => (
+        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "11px 16px", borderBottom: i < rows.length - 1 ? "1px solid #f3f4f6" : "none", gap: 12 }}>
+          <span style={{ fontSize: 13, color: "#9ca3af", flexShrink: 0 }}>{label}</span>
+          <span style={{ fontSize: 13, fontWeight: 500, textAlign: "right" }}>{value || "—"}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SL({ children, style = {} }) {
+  return <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.9px", color: "#9ca3af", marginBottom: 8, ...style }}>{children}</div>;
 }
