@@ -1,181 +1,168 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
-export default function UnitInfoScreen({ tenant }) {
-  const [tab, setTab] = useState("lease");
+const DEFAULTS = {
+  companyName: "G&I Holdings LLC",
+  email: "tenants@giholdings.com",
+  phone: "(330) 969-6464",
+  city: "Youngstown, OH",
+  rentDueDay: "1",
+  initialLateFee: "35",
+  dailyLateFee: "10",
+  reminderDaysBefore: "3",
+  reminderOnDueDate: true,
+  reminderWhenLate: true,
+  reminderDailyWhileLate: false,
+  adminEmail: "gaetano@giholdings.com",
+  adminPassword: "GIHoldings2026!",
+};
 
-  return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #f3f4f6" }}>
-        {[
-          { key: "lease", label: "My Unit" },
-          { key: "documents", label: "Documents" },
-          
-        ].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            flex: 1, padding: "11px 8px", fontSize: 12, fontWeight: 600,
-            fontFamily: "'DM Sans', sans-serif",
-            color: tab === t.key ? "#1b3d2a" : "#9ca3af",
-            background: "none", border: "none",
-            borderBottom: tab === t.key ? "2px solid #4caf7d" : "2px solid transparent",
-            cursor: "pointer",
-          }}>{t.label}</button>
-        ))}
-      </div>
+export default function AdminSettings() {
+  const [settings, setSettings] = useState(null); // null = loading
+  const [status, setStatus] = useState("idle");
 
-      {tab === "lease" && <LeaseTab tenant={tenant} />}
-      {tab === "documents" && <DocumentsTab tenant={tenant} />}
-      
-    </div>
-  );
-}
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await supabase
+          .from("settings")
+          .select("value")
+          .eq("key", "portal_settings")
+          .maybeSingle();
+        setSettings({ ...DEFAULTS, ...(data?.value || {}) });
+      } catch (e) {
+        console.error("Failed to load settings:", e);
+        setSettings(DEFAULTS); // fallback to defaults on error
+      }
+    }
+    load();
+  }, []);
 
-function LeaseTab({ tenant }) {
-  const contactEmail = tenant?.contact_email || tenant?.contactEmail || "giholdingsllc8@gmail.com";
-  const contactPhone = tenant?.emergency || "(330) 969-6464";
-  const companyName = "G&I Holdings LLC";
-
-  return (
-    <div style={{ padding: 16 }}>
-      <SL>Lease details</SL>
-      <InfoCard rows={[
-        ["Unit type", tenant.unit || "Single Family"],
-        ["Address", tenant.address],
-        ["Lease start", tenant.leaseStart || "—"],
-        ["Lease end", tenant.leaseEnd || "—"],
-        ["Monthly rent", `$${(tenant.rent || 0).toLocaleString()}`],
-        ["Security deposit", `$${(tenant.deposit || 0).toLocaleString()} (held)`],
-      ]} />
-
-      <SL style={{ marginTop: 14 }}>Contact your landlord</SL>
-      <InfoCard rows={[
-        ["Company", companyName],
-        ["Email", contactEmail],
-        ["Emergency line", contactPhone],
-      ]} />
-
-      {tenant.public_note && (
-        <>
-          <SL style={{ marginTop: 14 }}>Message from your landlord</SL>
-          <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "#166534" }}>
-            💬 {tenant.public_note}
-          </div>
-        </>
-      )}
-      <div style={{ height: 24 }} />
-    </div>
-  );
-}
-
-function DocumentsTab({ tenant }) {
-  const docs = (tenant.documents || []).filter(d => !d.archived);
-  const categories = ["Lease agreement", "Move-in inspection", "Community rules", "Notice", "Other"];
-
-  if (docs.length === 0) {
+  // Don't render until settings are loaded — prevents flash
+  if (settings === null) {
     return (
-      <div style={{ padding: 40, textAlign: "center" }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
-        <div style={{ fontSize: 16, fontWeight: 600, color: "#1a1a1a", marginBottom: 6 }}>No documents yet</div>
-        <div style={{ fontSize: 13, color: "#6b7280" }}>Your landlord will upload your lease and other documents here.</div>
+      <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, marginBottom: 8 }}>Settings</h1>
+        <div style={{ color: "#9ca3af", fontSize: 14 }}>Loading...</div>
       </div>
     );
   }
 
-  return (
-    <div style={{ padding: 16 }}>
-      {categories.map(cat => {
-        // Match both "type" (new) and "category" (old) field names
-        const catDocs = docs.filter(d => (d.type || d.category) === cat);
-        if (catDocs.length === 0) return null;
-        return (
-          <div key={cat} style={{ marginBottom: 16 }}>
-            <SL>{cat}</SL>
-            <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
-              {catDocs.map((doc, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < catDocs.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                  <div style={{ fontSize: 20 }}>{docIcon(doc.type || doc.category)}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{doc.name}</div>
-                    <div style={{ fontSize: 11, color: "#9ca3af" }}>Added {doc.date}</div>
-                  </div>
-                  {doc.url ? (
-                    <a href={doc.url} target="_blank" rel="noreferrer" style={{
-                      fontSize: 13, color: "#fff", fontWeight: 600, textDecoration: "none",
-                      background: "#1b3d2a", padding: "6px 14px", borderRadius: 8,
-                    }}>View →</a>
-                  ) : (
-                    <span style={{ fontSize: 11, color: "#d1d5db" }}>No file</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+  const update = (key, val) => setSettings(s => ({ ...s, [key]: val }));
+
+  const handleSave = async () => {
+    setStatus("saving");
+    try {
+      const { error } = await supabase
+        .from("settings")
+        .upsert(
+          { key: "portal_settings", value: settings, updated_at: new Date().toISOString() },
+          { onConflict: "key" }
         );
-      })}
-      <div style={{ height: 24 }} />
-    </div>
-  );
-}
+      if (error) throw error;
+      setStatus("saved");
+      setTimeout(() => setStatus("idle"), 3000);
+    } catch (e) {
+      console.error("Save failed:", e);
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 3000);
+    }
+  };
 
-function AllFilesTab({ tenant }) {
-  const docs = tenant.documents || [];
-  if (docs.length === 0) {
-    return (
-      <div style={{ padding: 40, textAlign: "center" }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>🗂️</div>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No files uploaded yet</div>
-        <div style={{ fontSize: 13, color: "#6b7280" }}>All files shared with you will appear here.</div>
-      </div>
-    );
-  }
   return (
-    <div style={{ padding: 16 }}>
-      <SL>All documents ({docs.length})</SL>
-      <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
-        {docs.map((doc, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < docs.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-            <div style={{ fontSize: 20 }}>{docIcon(doc.type || doc.category)}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>{doc.name}</div>
-              <div style={{ fontSize: 11, color: "#9ca3af" }}>{doc.type || doc.category} · {doc.date}</div>
-            </div>
-            {doc.url ? (
-              <a href={doc.url} target="_blank" rel="noreferrer" style={{
-                fontSize: 13, color: "#fff", fontWeight: 600, textDecoration: "none",
-                background: "#1b3d2a", padding: "6px 14px", borderRadius: 8,
-              }}>View →</a>
-            ) : (
-              <span style={{ fontSize: 11, color: "#d1d5db" }}>No file</span>
-            )}
-          </div>
-        ))}
+    <div className="admin-page-content" style={{ padding: 28, maxWidth: 740, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Settings</h1>
+        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Manage your company info, late fees, and notifications</div>
       </div>
-      <div style={{ height: 24 }} />
-    </div>
-  );
-}
 
-function docIcon(cat) {
-  if (cat === "Lease agreement") return "📄";
-  if (cat === "Move-in inspection") return "🔑";
-  if (cat === "Community rules") return "📜";
-  if (cat === "Notice") return "📋";
-  return "📁";
-}
+      <Section title="🏢 Company info">
+        <Grid>
+          <Field label="Company name" value={settings.companyName} onChange={v => update("companyName", v)} />
+          <Field label="Tenant contact email" value={settings.email} onChange={v => update("email", v)} />
+          <Field label="Phone number" value={settings.phone} onChange={v => update("phone", v)} />
+          <Field label="State" value={settings.city} onChange={v => update("city", v)} />
+        </Grid>
+      </Section>
 
-function InfoCard({ rows }) {
-  return (
-    <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 8 }}>
-      {rows.map(([label, value], i) => (
-        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "11px 16px", borderBottom: i < rows.length - 1 ? "1px solid #f3f4f6" : "none", gap: 12 }}>
-          <span style={{ fontSize: 13, color: "#9ca3af", flexShrink: 0 }}>{label}</span>
-          <span style={{ fontSize: 13, fontWeight: 500, textAlign: "right" }}>{value || "—"}</span>
+      <Section title="💰 Rent & late fee rules">
+        <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#166534" }}>
+          <strong>Current rules:</strong> Rent due the {settings.rentDueDay}st of each month · $
+          {settings.initialLateFee} late fee on the {Number(settings.rentDueDay) + 4}th · then $
+          {settings.dailyLateFee}/day every day after until paid
         </div>
-      ))}
+        <Grid>
+          <Field label="Rent due — day of month" value={settings.rentDueDay} onChange={v => update("rentDueDay", v)} type="number" hint="e.g. 1 = 1st of month" />
+          <Field label="Late fee start day" value={String(Number(settings.rentDueDay) + 4)} onChange={() => {}} type="number" hint="Auto-calculated (due day + 4)" />
+          <Field label="Initial late fee ($)" value={settings.initialLateFee} onChange={v => update("initialLateFee", v)} type="number" hint="Charged on the 5th of the month" />
+          <Field label="Daily late fee ($)" value={settings.dailyLateFee} onChange={v => update("dailyLateFee", v)} type="number" hint="Per day after the 5th until paid" />
+        </Grid>
+      </Section>
+
+      <Section title="🔔 Automatic reminders">
+        <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" hint={`e.g. 3 days before the ${settings.rentDueDay}st`} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+          {[
+            ["reminderOnDueDate", "Send reminder on rent due date"],
+            ["reminderWhenLate", "Send reminder when payment is overdue"],
+            ["reminderDailyWhileLate", "Send daily reminder while late (until paid)"],
+          ].map(([key, label]) => (
+            <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#f9fafb", borderRadius: 10 }}>
+              <span style={{ fontSize: 14 }}>{label}</span>
+              <div onClick={() => update(key, !settings[key])} style={{
+                width: 44, height: 24, borderRadius: 12, cursor: "pointer",
+                background: settings[key] ? "#1b3d2a" : "#d1d5db", position: "relative", transition: "background 0.2s",
+              }}>
+                <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: settings[key] ? 23 : 3, transition: "left 0.2s" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="🔐 Owner login credentials">
+        <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#92400e" }}>
+          ⚠️ These are your owner login credentials.
+        </div>
+        <Grid>
+          <Field label="Owner email" value={settings.adminEmail} onChange={v => update("adminEmail", v)} type="email" />
+          <Field label="Owner password" value={settings.adminPassword} onChange={v => update("adminPassword", v)} />
+        </Grid>
+      </Section>
+
+      <button onClick={handleSave} disabled={status === "saving"} style={{
+        background: status === "saved" ? "#4caf7d" : status === "error" ? "#dc2626" : status === "saving" ? "#9ca3af" : "#1b3d2a",
+        color: "#fff", border: "none", borderRadius: 12, padding: "14px 36px",
+        fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 700,
+        cursor: status === "saving" ? "not-allowed" : "pointer", transition: "background 0.2s",
+      }}>
+        {status === "saving" ? "Saving..." : status === "saved" ? "✅ Saved!" : status === "error" ? "❌ Error — try again" : "Save settings"}
+      </button>
     </div>
   );
 }
 
-function SL({ children, style = {} }) {
-  return <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.9px", color: "#9ca3af", marginBottom: 8, ...style }}>{children}</div>;
+function Section({ title, children }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, padding: "20px 24px", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 16 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+function Grid({ children }) {
+  return <div className="two-col-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>{children}</div>;
+}
+function Label({ children }) {
+  return <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>{children}</div>;
+}
+function Field({ label, value, onChange, type = "text", hint }) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)}
+        style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box" }} />
+      {hint && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{hint}</div>}
+    </div>
+  );
 }
