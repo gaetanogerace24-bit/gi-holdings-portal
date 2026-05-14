@@ -6,9 +6,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // ============================================================
 const TEST_MODE = true;
 const TEST_EMAIL = "giholdingsllc8@gmail.com";
+const TEST_PHONE = "+13304804819"; // your real phone number for testing
 // ============================================================
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
+const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY")!;
+const TELNYX_PHONE_NUMBER = Deno.env.get("TELNYX_PHONE_NUMBER") || "+13309181957";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FROM_EMAIL = "rent@giholdingsllc.com";
@@ -24,6 +27,22 @@ function calcLateFeeFromDueDate(dueDateStr: string): number {
   return 35 + Math.max(0, daysLate - 1) * 10;
 }
 
+async function sendSMS(to: string, message: string) {
+  const res = await fetch("https://api.telnyx.com/v2/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${TELNYX_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: TELNYX_PHONE_NUMBER,
+      to,
+      text: message,
+    }),
+  });
+  return await res.json();
+}
+
 serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -31,7 +50,6 @@ serve(async (req) => {
     now.setHours(0, 0, 0, 0);
     const results = [];
 
-    // Only fetch unpaid, non-custom, non-deleted invoices
     const { data: unpaidInvoices } = await supabase
       .from("invoices")
       .select("*, tenants(*)")
@@ -44,7 +62,6 @@ serve(async (req) => {
       const due = new Date(dueDate);
       due.setHours(0, 0, 0, 0);
 
-      // Skip future invoices — only process overdue ones (past months)
       const isCurrentMonth = due.getMonth() === now.getMonth() && due.getFullYear() === now.getFullYear();
       const isFuture = due > now && !isCurrentMonth;
       if (isFuture) continue;
@@ -52,14 +69,12 @@ serve(async (req) => {
       const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
       feeStart.setHours(0, 0, 0, 0);
 
-      // Skip if still in grace period
       if (now < feeStart) continue;
 
       const lateFee = calcLateFeeFromDueDate(dueDate);
       const rent = Number(inv.rent) || 0;
       const total = rent + lateFee;
 
-      // Update late fee in DB if changed
       if (lateFee !== Number(inv.late_fee)) {
         await supabase.from("invoices").update({
           late_fee: lateFee,
@@ -68,22 +83,21 @@ serve(async (req) => {
         }).eq("id", inv.id);
       }
 
-      // Double-check tenant exists and has email
       if (!inv.tenants?.email) continue;
 
-      // Re-verify invoice is still unpaid (fresh check)
       const { data: freshInv } = await supabase
         .from("invoices")
         .select("paid")
         .eq("id", inv.id)
         .single();
-      if (freshInv?.paid) continue; // was paid between query and now
+      if (freshInv?.paid) continue;
 
       const tenant = inv.tenants;
       const firstName = tenant.name.split(" ")[0];
       const daysLate = Math.floor((now.getTime() - feeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       const isDay1 = daysLate === 1;
       const toEmail = TEST_MODE ? TEST_EMAIL : tenant.email;
+      const toPhone = TEST_MODE ? TEST_PHONE : tenant.phone;
 
       const subject = isDay1
         ? `⚠️ Late fee applied — ${inv.month} rent`
@@ -126,7 +140,8 @@ serve(async (req) => {
         </div>
       `;
 
-      const res = await fetch("https://api.resend.com/emails", {
+      // Send email via Resend
+      const emailRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${RESEND_API_KEY}` },
         body: JSON.stringify({
@@ -136,9 +151,26 @@ serve(async (req) => {
           html,
         }),
       });
+      const emailData = await emailRes.json();
 
-      const resData = await res.json();
-      results.push({ tenant: tenant.name, invoice: inv.month, lateFee, total, emailStatus: res.status, emailData: resData });
+      // Send SMS via Telnyx
+      let smsData = null;
+      if (toPhone) {
+        const smsMessage = isDay1
+          ? `G&I Holdings: Hi ${firstName}, a $35 late fee has been applied to your ${inv.month} rent. Total due: $${total.toLocaleString()}. Pay now: ${PORTAL_URL}`
+          : `G&I Holdings: Hi ${firstName}, your ${inv.month} rent balance is now $${total.toLocaleString()} (Day ${daysLate} late). $10/day until paid. Pay now: ${PORTAL_URL}`;
+        smsData = await sendSMS(toPhone, smsMessage);
+      }
+
+      results.push({
+        tenant: tenant.name,
+        invoice: inv.month,
+        lateFee,
+        total,
+        emailStatus: emailRes.status,
+        emailData,
+        smsData,
+      });
     }
 
     return new Response(JSON.stringify({ success: true, processed: results.length, results }), { status: 200 });
