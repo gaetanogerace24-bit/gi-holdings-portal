@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // ============================================================
 const TEST_MODE = true;
 const TEST_EMAIL = "giholdingsllc8@gmail.com";
-const TEST_PHONE = "+13304804819"; // your real phone number for testing
+const TEST_PHONE = "+14437526644"; // your real phone number for testing
 // ============================================================
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
