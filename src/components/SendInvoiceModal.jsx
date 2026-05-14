@@ -5,6 +5,29 @@ const FROM_EMAIL = "rent@giholdingsllc.com";
 const PORTAL_URL = "https://giholdingsllc.com";
 const TEST_MODE = true;
 const TEST_EMAIL = "giholdingsllc8@gmail.com";
+const TEST_PHONE = "+13304804819"; // your real cell for testing — change this
+
+const TELNYX_API_KEY = import.meta.env.VITE_TELNYX_API_KEY;
+const TELNYX_PHONE_NUMBER = import.meta.env.VITE_TELNYX_PHONE_NUMBER || "+13309181957";
+
+async function sendSMS(to, message) {
+  try {
+    await fetch("https://api.telnyx.com/v2/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${TELNYX_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: TELNYX_PHONE_NUMBER,
+        to,
+        text: message,
+      }),
+    });
+  } catch (err) {
+    console.error("SMS send failed:", err);
+  }
+}
 
 export default function SendInvoiceModal({ tenants, onClose, onSent }) {
   const [tenantId, setTenantId] = useState("");
@@ -63,11 +86,12 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
       setInvoiceError("Warning: saved to tenant portal but admin log failed: " + invoiceErr.message);
     }
 
-    // 3. Send email via Supabase edge function to avoid exposing API key
+    // 3. Send email + SMS
     const tenant = tenants.find(t => t.id === tenantId);
     if (tenant) {
       const firstName = tenant.name.split(" ")[0];
       const toEmail = TEST_MODE ? TEST_EMAIL : tenant.email;
+      const toPhone = TEST_MODE ? TEST_PHONE : tenant.phone;
       const subject = `📋 New charge: ${title.trim()} — $${numAmount.toLocaleString()}`;
 
       const html = `
@@ -98,12 +122,19 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
         </div>
       `;
 
+      // Send email
       try {
         await supabase.functions.invoke("send-custom-invoice-email", {
           body: { to: toEmail, subject: TEST_MODE ? `[TEST - ${tenant.name}] ${subject}` : subject, html },
         });
       } catch (emailErr) {
         console.error("Email send failed:", emailErr);
+      }
+
+      // Send SMS
+      if (toPhone) {
+        const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added to your account for "${title.trim()}".${notes.trim() ? ` Note: ${notes.trim()}.` : ""} Log in to pay: ${PORTAL_URL}`;
+        await sendSMS(toPhone, smsMessage);
       }
     }
 
@@ -121,7 +152,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
           <div style={{ fontSize: 48, marginBottom: 12 }}>{invoiceError ? "⚠️" : "✅"}</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Invoice sent!</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>
-            <strong>{tenant?.name}</strong> will see "{title}" in their portal and received an email notification.
+            <strong>{tenant?.name}</strong> will see "{title}" in their portal and received an email and text notification.
           </div>
           {invoiceError && (
             <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#dc2626", marginBottom: 16, textAlign: "left" }}>
@@ -182,7 +213,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
 
         {tenantId && title && amount && (
           <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 16, fontSize: 13, color: "#1b3d2a" }}>
-            📤 <strong>{tenant?.name}</strong> will be charged <strong>${Number(amount).toLocaleString()}</strong> for "<strong>{title}</strong>" and receive an email notification immediately.
+            📤 <strong>{tenant?.name}</strong> will be charged <strong>${Number(amount).toLocaleString()}</strong> for "<strong>{title}</strong>" and receive an email and text notification immediately.
           </div>
         )}
 
