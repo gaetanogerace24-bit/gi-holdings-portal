@@ -10,8 +10,7 @@ export default function HomePage() {
   }, []);
 
   const goToPortal = () => {
-    sessionStorage.setItem('redirect', '/portal');
-    window.location.href = "/portal";
+    window.location.hash = "portal";
   };
 
   return (
