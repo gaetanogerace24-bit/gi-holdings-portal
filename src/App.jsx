@@ -62,33 +62,13 @@ export default function App() {
 
   useEffect(() => {
     if (loading) return;
-
-    const hash = window.location.hash;
-    const isPortalHash = hash === "#portal";
     const session = loadSession();
-
-    if (isPortalHash) {
-      // User clicked "Tenant portal login" — show login or their existing session
-      if (session?.screen === "admin") { setScreen("admin"); }
-      else if (session?.screen === "portal" && session.tenantId) {
-        const tenant = tenants.find(t => t.id === session.tenantId);
-        if (tenant) { setLoggedInTenantId(session.tenantId); setScreen("portal"); }
-        else { setScreen("login"); }
-      } else { setScreen("login"); }
-    } else {
-      // No hash — show homepage if no active session, otherwise show their session
-      if (!session) {
-        setScreen("home");
-      } else if (session.screen === "admin") {
-        setScreen("admin");
-      } else if (session.screen === "portal" && session.tenantId) {
-        const tenant = tenants.find(t => t.id === session.tenantId);
-        if (tenant) { setLoggedInTenantId(session.tenantId); setScreen("portal"); }
-        else { setScreen("home"); }
-      } else {
-        setScreen("home");
-      }
+    if (session?.screen === "admin") { setScreen("admin"); return; }
+    if (session?.screen === "portal" && session.tenantId) {
+      const tenant = tenants.find(t => t.id === session.tenantId);
+      if (tenant) { setLoggedInTenantId(session.tenantId); setScreen("portal"); return; }
     }
+    setScreen("home");
   }, [loading]);
 
   async function loadData() {
@@ -128,15 +108,12 @@ export default function App() {
   const handleLogin = async (email, password) => {
     const lowerEmail = email.toLowerCase().trim();
     setLoginError(null);
-
     if (lowerEmail === ADMIN_EMAIL && password === ADMIN_PASS) {
       saveSession("admin", null);
       setScreen("admin");
       return true;
     }
-
     const matchedTenant = tenants.find(t => t.email?.toLowerCase().trim() === lowerEmail);
-
     if (matchedTenant) {
       if (!matchedTenant.portal_password) {
         setLoginError("Your account doesn't have a password set yet. Contact your landlord.");
@@ -152,7 +129,6 @@ export default function App() {
         return false;
       }
     }
-
     setLoginError("No account found with that email.");
     return false;
   };
@@ -163,7 +139,6 @@ export default function App() {
     setActiveTab("tickets");
     setLoggedInTenantId(null);
     setLoginError(null);
-    window.location.hash = "";
   };
 
   const handlePaymentSuccess = async (tenantId, invoiceId) => {
@@ -210,7 +185,7 @@ export default function App() {
     );
   }
 
-  if (screen === "home") return <HomePage />;
+  if (screen === "home") return <HomePage onLoginClick={() => setScreen("login")} />;
   if (screen === "login") return <LoginScreen onLogin={handleLogin} loginError={loginError} />;
 
   if (screen === "admin") return (
@@ -227,13 +202,8 @@ export default function App() {
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f0f2f0", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
       <div className="tenant-portal" style={{ position: "relative" }}>
         <Dashboard tenant={currentTenant} invoices={currentTenantInvoices} onTabClick={(tab) => {
-          if (tab === "pay-prepay") {
-            setActiveTab("pay");
-            setDefaultPayMode("prepay");
-          } else {
-            setActiveTab(tab);
-            setDefaultPayMode("current");
-          }
+          if (tab === "pay-prepay") { setActiveTab("pay"); setDefaultPayMode("prepay"); }
+          else { setActiveTab(tab); setDefaultPayMode("current"); }
         }} onLogout={handleLogout} />
         <nav style={{ display: "flex", background: "#fff", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
           {["tickets", "pay", "info", "messages"].map(tab => (
