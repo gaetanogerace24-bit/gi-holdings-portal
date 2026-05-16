@@ -208,7 +208,7 @@ export default function HomePage({ onLoginClick }) {
             For help, reply <strong style={{ color: "#374151" }}>HELP</strong> or contact us at giholdingsllc8@gmail.com.
           </p>
           <a
-            href="/GI_Holdings_SMS_Consent_Form.pdf"
+            href="https://giholdingsllc.com/GI_Holdings_SMS_Consent_Form.pdf"
             target="_blank"
             rel="noopener noreferrer"
             style={{
