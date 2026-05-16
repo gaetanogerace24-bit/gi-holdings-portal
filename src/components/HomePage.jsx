@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export default function HomePage() {
+export default function HomePage({ onLoginClick }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -8,10 +8,6 @@ export default function HomePage() {
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  const goToPortal = () => {
-    window.location.hash = "portal";
-  };
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f5f7f5", minHeight: "100vh" }}>
@@ -40,14 +36,11 @@ export default function HomePage() {
           <a href="mailto:giholdingsllc8@gmail.com" style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, textDecoration: "none" }}>
             Contact
           </a>
-          <button onClick={goToPortal} style={{
+          <button onClick={onLoginClick} style={{
             background: "#4caf7d", color: "#fff", border: "none",
             padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-            cursor: "pointer", transition: "background 0.2s",
-          }}
-            onMouseOver={e => e.target.style.background = "#3d9e6c"}
-            onMouseOut={e => e.target.style.background = "#4caf7d"}
-          >
+            cursor: "pointer",
+          }}>
             Tenant portal
           </button>
         </div>
@@ -62,10 +55,6 @@ export default function HomePage() {
         <div style={{
           position: "absolute", top: -80, right: -80, width: 400, height: 400,
           background: "rgba(76,175,125,0.08)", borderRadius: "50%",
-        }} />
-        <div style={{
-          position: "absolute", bottom: -60, left: -60, width: 300, height: 300,
-          background: "rgba(76,175,125,0.05)", borderRadius: "50%",
         }} />
         <div style={{ maxWidth: 640, margin: "0 auto", position: "relative" }}>
           <div style={{
@@ -92,14 +81,11 @@ export default function HomePage() {
             on responsive service and well-maintained homes for our tenants.
           </p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button onClick={goToPortal} style={{
+            <button onClick={onLoginClick} style={{
               background: "#4caf7d", color: "#fff", border: "none",
               padding: "13px 28px", borderRadius: 10, fontSize: 15, fontWeight: 600,
-              cursor: "pointer", transition: "all 0.2s",
-            }}
-              onMouseOver={e => e.target.style.background = "#3d9e6c"}
-              onMouseOut={e => e.target.style.background = "#4caf7d"}
-            >
+              cursor: "pointer",
+            }}>
               Tenant portal login →
             </button>
             <a href="mailto:giholdingsllc8@gmail.com" style={{
@@ -126,8 +112,7 @@ export default function HomePage() {
           { icon: "✉️", text: "giholdingsllc8@gmail.com" },
         ].map(({ icon, text }) => (
           <div key={text} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#555" }}>
-            <span>{icon}</span>
-            <span>{text}</span>
+            <span>{icon}</span><span>{text}</span>
           </div>
         ))}
       </div>
@@ -148,11 +133,8 @@ export default function HomePage() {
           ].map(({ icon, title, desc }) => (
             <div key={title} style={{
               background: "#fff", border: "1px solid #e8ede8", borderRadius: 14,
-              padding: "24px 20px", transition: "box-shadow 0.2s",
-            }}
-              onMouseOver={e => e.currentTarget.style.boxShadow = "0 4px 20px rgba(27,61,42,0.08)"}
-              onMouseOut={e => e.currentTarget.style.boxShadow = "none"}
-            >
+              padding: "24px 20px",
+            }}>
               <div style={{
                 width: 44, height: 44, background: "#edf7f1", borderRadius: 10,
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -206,11 +188,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SMS Privacy notice */}
+      {/* SMS Privacy */}
       <section style={{ padding: "48px 32px", maxWidth: 800, margin: "0 auto" }}>
-        <div style={{
-          background: "#fff", border: "1px solid #e8ede8", borderRadius: 14, padding: "28px 32px",
-        }}>
+        <div style={{ background: "#fff", border: "1px solid #e8ede8", borderRadius: 14, padding: "28px 32px" }}>
           <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1b3d2a", margin: "0 0 12px" }}>
             SMS Communication Policy
           </h3>
@@ -242,7 +222,7 @@ export default function HomePage() {
           <a href="mailto:giholdingsllc8@gmail.com" style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, textDecoration: "none" }}>
             Contact
           </a>
-          <button onClick={goToPortal} style={{
+          <button onClick={onLoginClick} style={{
             background: "none", border: "none", color: "#4caf7d",
             fontSize: 12, cursor: "pointer", padding: 0,
           }}>
