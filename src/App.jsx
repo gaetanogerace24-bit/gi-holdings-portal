@@ -50,8 +50,10 @@ export default function App() {
 
   // Determine if we're on the homepage or portal path
   const path = window.location.pathname;
-  const isPortalPath = path === "/portal" || path === "/portal/";
-  const isHomePath = path === "/" || path === "";
+  const redirectPath = sessionStorage.getItem('redirect');
+  const isPortalPath = path === "/portal" || path === "/portal/" || redirectPath === "/portal";
+  const isHomePath = !isPortalPath && (path === "/" || path === "");
+  if (redirectPath) sessionStorage.removeItem('redirect');
 
   useEffect(() => { loadData(); }, []);
 
