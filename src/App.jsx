@@ -48,14 +48,6 @@ export default function App() {
     inv.tenant_id === currentTenant?.id && !inv.paid && !inv.deleted
   );
 
-  // Determine if we're on the homepage or portal path
-  const path = window.location.pathname;
-  const hash = window.location.hash;
-  const redirectPath = sessionStorage.getItem('redirect');
-  const isPortalPath = hash === "#portal" || redirectPath === "/portal";
-  const isHomePath = !isPortalPath;
-  if (redirectPath) sessionStorage.removeItem('redirect');
-
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
@@ -71,23 +63,32 @@ export default function App() {
   useEffect(() => {
     if (loading) return;
 
-    // If on homepage path, show homepage
-    if (isHomePath && !isPortalPath) {
-      setScreen("home");
-      return;
-    }
-
-    // Otherwise check session for portal
+    const hash = window.location.hash;
+    const isPortalHash = hash === "#portal";
     const session = loadSession();
-    if (session) {
-      if (session.screen === "admin") {
-        setScreen("admin");
-      } else if (session.screen === "portal" && session.tenantId) {
+
+    if (isPortalHash) {
+      // User clicked "Tenant portal login" — show login or their existing session
+      if (session?.screen === "admin") { setScreen("admin"); }
+      else if (session?.screen === "portal" && session.tenantId) {
         const tenant = tenants.find(t => t.id === session.tenantId);
         if (tenant) { setLoggedInTenantId(session.tenantId); setScreen("portal"); }
         else { setScreen("login"); }
       } else { setScreen("login"); }
-    } else { setScreen("login"); }
+    } else {
+      // No hash — show homepage if no active session, otherwise show their session
+      if (!session) {
+        setScreen("home");
+      } else if (session.screen === "admin") {
+        setScreen("admin");
+      } else if (session.screen === "portal" && session.tenantId) {
+        const tenant = tenants.find(t => t.id === session.tenantId);
+        if (tenant) { setLoggedInTenantId(session.tenantId); setScreen("portal"); }
+        else { setScreen("home"); }
+      } else {
+        setScreen("home");
+      }
+    }
   }, [loading]);
 
   async function loadData() {
@@ -134,9 +135,7 @@ export default function App() {
       return true;
     }
 
-    const matchedTenant = tenants.find(t =>
-      t.email?.toLowerCase().trim() === lowerEmail
-    );
+    const matchedTenant = tenants.find(t => t.email?.toLowerCase().trim() === lowerEmail);
 
     if (matchedTenant) {
       if (!matchedTenant.portal_password) {
@@ -160,11 +159,11 @@ export default function App() {
 
   const handleLogout = () => {
     clearSession();
-    setScreen("login");
+    setScreen("home");
     setActiveTab("tickets");
     setLoggedInTenantId(null);
     setLoginError(null);
-    window.location.href = "/";
+    window.location.hash = "";
   };
 
   const handlePaymentSuccess = async (tenantId, invoiceId) => {
