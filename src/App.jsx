@@ -7,6 +7,7 @@ import SubmitTicketModal from "./components/SubmitTicketModal";
 import AdminDashboard from "./components/AdminDashboard";
 import Dashboard from "./components/Dashboard";
 import TenantMessages from "./components/TenantMessages";
+import HomePage from "./components/HomePage";
 import { supabase } from "./supabase";
 
 const ADMIN_EMAIL = "gaetano@giholdings.com";
@@ -47,6 +48,11 @@ export default function App() {
     inv.tenant_id === currentTenant?.id && !inv.paid && !inv.deleted
   );
 
+  // Determine if we're on the homepage or portal path
+  const path = window.location.pathname;
+  const isPortalPath = path === "/portal" || path === "/portal/";
+  const isHomePath = path === "/" || path === "";
+
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
@@ -61,6 +67,14 @@ export default function App() {
 
   useEffect(() => {
     if (loading) return;
+
+    // If on homepage path, show homepage
+    if (isHomePath && !isPortalPath) {
+      setScreen("home");
+      return;
+    }
+
+    // Otherwise check session for portal
     const session = loadSession();
     if (session) {
       if (session.screen === "admin") {
@@ -107,25 +121,21 @@ export default function App() {
     return { ...t, tenantId: t.tenant_id, tenantName: t.tenant_name };
   }
 
-  // ── Login: admin uses hardcoded creds, tenants use email + portal_password from Supabase
   const handleLogin = async (email, password) => {
     const lowerEmail = email.toLowerCase().trim();
     setLoginError(null);
 
-    // Admin login — hardcoded, only you
     if (lowerEmail === ADMIN_EMAIL && password === ADMIN_PASS) {
       saveSession("admin", null);
       setScreen("admin");
       return true;
     }
 
-    // Tenant login — check against Supabase portal_password
     const matchedTenant = tenants.find(t =>
       t.email?.toLowerCase().trim() === lowerEmail
     );
 
     if (matchedTenant) {
-      // Check portal_password set by admin
       if (!matchedTenant.portal_password) {
         setLoginError("Your account doesn't have a password set yet. Contact your landlord.");
         return false;
@@ -145,7 +155,14 @@ export default function App() {
     return false;
   };
 
-  const handleLogout = () => { clearSession(); setScreen("login"); setActiveTab("tickets"); setLoggedInTenantId(null); setLoginError(null); };
+  const handleLogout = () => {
+    clearSession();
+    setScreen("login");
+    setActiveTab("tickets");
+    setLoggedInTenantId(null);
+    setLoginError(null);
+    window.location.href = "/";
+  };
 
   const handlePaymentSuccess = async (tenantId, invoiceId) => {
     const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -186,11 +203,12 @@ export default function App() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: "#1b3d2a", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 48 }}>🏡</div>
         <div style={{ color: "#fff", fontSize: 18, fontWeight: 600 }}>G&I Holdings</div>
-        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Loading your portal...</div>
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Loading...</div>
       </div>
     );
   }
 
+  if (screen === "home") return <HomePage />;
   if (screen === "login") return <LoginScreen onLogin={handleLogin} loginError={loginError} />;
 
   if (screen === "admin") return (
