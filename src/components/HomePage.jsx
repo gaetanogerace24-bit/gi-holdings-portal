@@ -9,7 +9,10 @@ export default function HomePage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const goToPortal = () => { window.location.href = "/portal"; };
+  const goToPortal = () => {
+    sessionStorage.setItem('redirect', '/portal');
+    window.location.href = "/portal";
+  };
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f5f7f5", minHeight: "100vh" }}>
