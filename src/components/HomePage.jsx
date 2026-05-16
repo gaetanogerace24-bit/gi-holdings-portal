@@ -203,10 +203,22 @@ export default function HomePage({ onLoginClick }) {
             <strong style={{ color: "#374151" }}>Your mobile information will not be sold or shared
             with third parties for promotional or marketing purposes.</strong>
           </p>
-          <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.8, margin: 0 }}>
+          <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.8, margin: "0 0 16px" }}>
             To opt out, reply <strong style={{ color: "#374151" }}>STOP</strong> to any message.
             For help, reply <strong style={{ color: "#374151" }}>HELP</strong> or contact us at giholdingsllc8@gmail.com.
           </p>
+          <a
+            href="/GI_Holdings_SMS_Consent_Form.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              background: "#1b3d2a", color: "#fff", textDecoration: "none",
+              padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+            }}
+          >
+            📄 View SMS Consent Form
+          </a>
         </div>
       </section>
 
