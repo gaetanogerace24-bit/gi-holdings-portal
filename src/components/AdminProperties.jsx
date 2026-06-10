@@ -20,34 +20,14 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
     const loaded = data || [];
     setProperties(loaded);
     const nonArchived = loaded.filter(p => p.status !== "archived");
-    const linkedIds = new Set(loaded.map(p => p.tenant_id).filter(Boolean));
-    const archivedIds = new Set(loaded.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
-    const unlinkedCount = tenants.filter(t => !linkedIds.has(t.id) && !archivedIds.has(t.id)).length;
-    const total = nonArchived.length + unlinkedCount;
+    const total = nonArchived.length;
     if (onCountChange) onCountChange(total);
   };
 
   const allProperties = useMemo(() => {
     if (properties === null) return null;
 
-    const linkedTenantIds = new Set(properties.map(p => p.tenant_id).filter(Boolean));
-    const archivedTenantIds = new Set(properties.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
-    const unlinkedTenants = tenants.filter(t => !linkedTenantIds.has(t.id) && !archivedTenantIds.has(t.id));
-
-    const autoOccupied = unlinkedTenants.map(t => ({
-      _auto: true,
-      id: `auto-${t.id}`,
-      address: t.address,
-      type: "Single Family Home",
-      status: "occupied",
-      tenant_id: t.id,
-      section8: t.section8 || false,
-      section8_amount: t.section8_amount || t.section8Amount || 0,
-      tenant_portion: t.tenant_portion || t.tenantPortion || 0,
-    }));
-
     return [
-      ...autoOccupied,
       ...properties.filter(p => p.status !== "archived").map(p => ({
         ...p,
         status: p.tenant_id ? "occupied" : "vacant",
