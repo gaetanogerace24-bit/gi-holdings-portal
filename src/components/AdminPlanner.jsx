@@ -225,22 +225,43 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
                 cursor: "default",
               }}
             >
-              {/* Column header — only this part is draggable */}
+              {/* Column header — double click to reorder (use dropdown instead) */}
               <div
-                draggable
-                onDragStart={e => handleColDragStart(e, col.id)}
-                onDragEnd={handleColDragEnd}
-                style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb", cursor: "grab", userSelect: "none" }}
-                title="Drag to reorder column"
+                style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb", userSelect: "none" }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ color: "#d1d5db", fontSize: 12, letterSpacing: "1px" }}>⠿</span>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: col.color }} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{col.label}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: col.color, background: col.bg, border: `1px solid ${col.color}`, borderRadius: 20, padding: "2px 9px" }}>{cards.length}</span>
+                    <button
+                      onClick={() => {
+                        const idx = columns.findIndex(c => c.id === col.id);
+                        if (idx === 0) return;
+                        const newCols = [...columns];
+                        [newCols[idx - 1], newCols[idx]] = [newCols[idx], newCols[idx - 1]];
+                        saveColumns(newCols);
+                      }}
+                      title="Move left"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#d1d5db", fontSize: 12, padding: "2px 3px", fontFamily: "'DM Sans', sans-serif" }}
+                      onMouseOver={e => e.currentTarget.style.color = "#6b7280"}
+                      onMouseOut={e => e.currentTarget.style.color = "#d1d5db"}
+                    >◀</button>
+                    <button
+                      onClick={() => {
+                        const idx = columns.findIndex(c => c.id === col.id);
+                        if (idx === columns.length - 1) return;
+                        const newCols = [...columns];
+                        [newCols[idx], newCols[idx + 1]] = [newCols[idx + 1], newCols[idx]];
+                        saveColumns(newCols);
+                      }}
+                      title="Move right"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#d1d5db", fontSize: 12, padding: "2px 3px", fontFamily: "'DM Sans', sans-serif" }}
+                      onMouseOver={e => e.currentTarget.style.color = "#6b7280"}
+                      onMouseOut={e => e.currentTarget.style.color = "#d1d5db"}
+                    >▶</button>
                     <button
                       onClick={e => { e.stopPropagation(); deleteColumn(col.id); }}
                       title="Delete column"
