@@ -264,7 +264,17 @@ export default function AdminMessages({ tenants }) {
                 {/* Thread header */}
                 <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>{selectedTenant.name}</div>
-                  <button onClick={() => setSelectedTenant(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 18 }}>✕</button>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button onClick={async () => {
+                      if (!window.confirm("Delete ALL messages in this conversation? This cannot be undone.")) return;
+                      const ids = thread.map(m => m.id).filter(Boolean);
+                      if (ids.length) await supabase.from("messages").delete().in("id", ids);
+                      setMessages(prev => prev.filter(m => !ids.includes(m.id)));
+                    }} style={{ fontSize: 12, color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
+                      🗑 Clear all
+                    </button>
+                    <button onClick={() => setSelectedTenant(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 18 }}>✕</button>
+                  </div>
                 </div>
 
                 {/* Messages */}
@@ -273,8 +283,20 @@ export default function AdminMessages({ tenants }) {
                     const isAdmin = m.sender === "admin";
                     return (
                       <div key={m.id || i} style={{ display: "flex", flexDirection: "column", alignItems: isAdmin ? "flex-end" : "flex-start" }}>
-                        <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 3 }}>
-                          {isAdmin ? "You (Admin)" : selectedTenant.name} · {m.date || new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                          {!isAdmin && <button onClick={async () => {
+                            if (!window.confirm("Delete this message?")) return;
+                            await supabase.from("messages").delete().eq("id", m.id);
+                            setMessages(prev => prev.filter(msg => msg.id !== m.id));
+                          }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#d1d5db", padding: "0 2px" }} title="Delete message">🗑</button>}
+                          <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                            {isAdmin ? "You (Admin)" : selectedTenant.name} · {m.date || new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </div>
+                          {isAdmin && <button onClick={async () => {
+                            if (!window.confirm("Delete this message?")) return;
+                            await supabase.from("messages").delete().eq("id", m.id);
+                            setMessages(prev => prev.filter(msg => msg.id !== m.id));
+                          }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#d1d5db", padding: "0 2px" }} title="Delete message">🗑</button>}
                         </div>
                         <div style={{ maxWidth: "85%", padding: m.image_url && !m.message ? "6px" : "10px 14px", borderRadius: isAdmin ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: isAdmin ? "#1b3d2a" : "#f3f4f6", color: isAdmin ? "#fff" : "#1f2937", fontSize: 13, lineHeight: 1.5 }}>
                           {m.image_url && (() => {
