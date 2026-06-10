@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 
 const TEMPLATES = [
@@ -17,12 +17,25 @@ export default function AdminMessages({ tenants }) {
   const [messages, setMessages] = useState([]);
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [replyMsg, setReplyMsg] = useState("");
+  const [replyImage, setReplyImage] = useState(null);
+  const [replyImagePreview, setReplyImagePreview] = useState(null);
+  const [replying, setReplying] = useState(false);
+  const fileInputRef = useRef(null);
+  const replyFileInputRef = useRef(null);
+  const threadEndRef = useRef(null);
 
   useEffect(() => {
     loadMessages();
     const interval = setInterval(loadMessages, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, selectedTenant]);
 
   async function loadMessages() {
     const { data } = await supabase
@@ -33,37 +46,95 @@ export default function AdminMessages({ tenants }) {
     setLoading(false);
   }
 
+  const uploadImage = async (file, folder) => {
+    const ext = file.name.split(".").pop();
+    const path = `${folder}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("messages").upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw error;
+    const { data } = supabase.storage.from("messages").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const handleImageSelect = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setImageFile(f);
+    setImagePreview(URL.createObjectURL(f));
+  };
+
+  const handleReplyImageSelect = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setReplyImage(f);
+    setReplyImagePreview(URL.createObjectURL(f));
+  };
+
   const handleSend = async () => {
-    if (!msg.trim() || sending) return;
+    if (!msg.trim() && !imageFile || sending) return;
     setSending(true);
     const recipient = to === "all" ? null : to;
     const recipientName = to === "all" ? "All tenants" : tenants.find(t => String(t.id) === to)?.name || "Unknown";
     const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    let imageUrl = null;
+    if (imageFile) {
+      try { imageUrl = await uploadImage(imageFile, "admin"); } catch (e) { console.error(e); }
+    }
+
     const { data } = await supabase.from("messages").insert({
-      tenant_id: recipient, to_name: recipientName,
-      message: msg.trim(), sender: "admin", date,
+      tenant_id: recipient,
+      to_name: recipientName,
+      message: msg.trim(),
+      image_url: imageUrl,
+      sender: "admin",
+      date,
     }).select().single();
     if (data) setMessages(prev => [data, ...prev]);
     setSent(true);
     setMsg("");
+    setImageFile(null);
+    setImagePreview(null);
     setSending(false);
     setTimeout(() => setSent(false), 2500);
   };
 
-  // Get thread for a specific tenant
+  const handleReply = async () => {
+    if (!replyMsg.trim() && !replyImage || replying || !selectedTenant) return;
+    setReplying(true);
+    const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    let imageUrl = null;
+    if (replyImage) {
+      try { imageUrl = await uploadImage(replyImage, `admin/${selectedTenant.id}`); } catch (e) { console.error(e); }
+    }
+
+    const { data } = await supabase.from("messages").insert({
+      tenant_id: selectedTenant.id,
+      to_name: selectedTenant.name,
+      message: replyMsg.trim(),
+      image_url: imageUrl,
+      sender: "admin",
+      date,
+    }).select().single();
+    if (data) setMessages(prev => [data, ...prev]);
+    setReplyMsg("");
+    setReplyImage(null);
+    setReplyImagePreview(null);
+    setReplying(false);
+  };
+
   const getThread = (tenantId) => {
     return messages.filter(m =>
       m.tenant_id === tenantId ||
-      (m.sender === "admin" && (m.tenant_id === tenantId || m.tenant_id === null))
+      (m.sender === "admin" && m.tenant_id === tenantId)
     ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   };
 
-  // Get latest message per tenant for the conversations list
   const getConversations = () => {
     const seen = new Set();
     const convos = [];
     for (const m of messages) {
-      if (m.sender !== "admin" && m.tenant_id && !seen.has(m.tenant_id)) {
+      if (m.tenant_id && !seen.has(m.tenant_id)) {
         seen.add(m.tenant_id);
         const tenant = tenants.find(t => t.id === m.tenant_id);
         if (tenant) convos.push({ tenant, lastMsg: m });
@@ -112,13 +183,26 @@ export default function AdminMessages({ tenants }) {
               </div>
 
               <Label>Message</Label>
-              <textarea value={msg} onChange={e => setMsg(e.target.value)} placeholder="Type your message..." rows={5}
-                style={{ ...inputStyle, resize: "none", lineHeight: "1.6", marginBottom: 14 }} />
+              <textarea value={msg} onChange={e => setMsg(e.target.value)} placeholder="Type your message..." rows={4}
+                style={{ ...inputStyle, resize: "none", lineHeight: "1.6", marginBottom: 10 }} />
+
+              {/* Image attach */}
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
+              {imagePreview ? (
+                <div style={{ marginBottom: 12, position: "relative", display: "inline-block" }}>
+                  <img src={imagePreview} alt="preview" style={{ maxHeight: 120, borderRadius: 10, border: "1px solid #e5e7eb" }} />
+                  <button onClick={() => { setImageFile(null); setImagePreview(null); }} style={{ position: "absolute", top: -8, right: -8, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                </div>
+              ) : (
+                <button onClick={() => fileInputRef.current?.click()} style={{ ...outlineBtn, marginBottom: 12, fontSize: 13 }}>
+                  📷 Attach photo
+                </button>
+              )}
 
               {sent ? (
                 <div style={{ background: "#dcfce7", border: "1px solid #4ade80", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: "#166534", fontWeight: 600 }}>✅ Message sent!</div>
               ) : (
-                <button onClick={handleSend} disabled={!msg.trim() || sending} style={{ width: "100%", background: msg.trim() ? "#1b3d2a" : "#d1d5db", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 700, cursor: msg.trim() ? "pointer" : "not-allowed" }}>
+                <button onClick={handleSend} disabled={(!msg.trim() && !imageFile) || sending} style={{ width: "100%", background: (msg.trim() || imageFile) ? "#1b3d2a" : "#d1d5db", color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 700, cursor: (msg.trim() || imageFile) ? "pointer" : "not-allowed" }}>
                   {sending ? "Sending..." : "Send message"}
                 </button>
               )}
@@ -130,13 +214,15 @@ export default function AdminMessages({ tenants }) {
                 <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Tenant conversations</div>
                 {conversations.map(({ tenant, lastMsg }) => (
                   <div key={tenant.id} onClick={() => setSelectedTenant(selectedTenant?.id === tenant.id ? null : tenant)}
-                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #f3f4f6", cursor: "pointer" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #f3f4f6", cursor: "pointer", background: selectedTenant?.id === tenant.id ? "#f0f9f4" : "transparent", borderRadius: 8, paddingLeft: 8 }}>
                     <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
                       {tenant.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{tenant.name}</div>
-                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{lastMsg.message.slice(0, 50)}{lastMsg.message.length > 50 ? "..." : ""}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                        {lastMsg.image_url && !lastMsg.message ? "📷 Photo" : lastMsg.message?.slice(0, 50)}{lastMsg.message?.length > 50 ? "..." : ""}
+                      </div>
                     </div>
                     <div style={{ fontSize: 11, color: "#9ca3af" }}>{lastMsg.date || new Date(lastMsg.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                   </div>
@@ -146,14 +232,17 @@ export default function AdminMessages({ tenants }) {
           </div>
 
           {/* Right — thread view */}
-          <div style={{ background: "#fff", borderRadius: 14, padding: "20px", border: "1px solid rgba(0,0,0,0.07)" }}>
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", display: "flex", flexDirection: "column", maxHeight: 700 }}>
             {selectedTenant ? (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                {/* Thread header */}
+                <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>{selectedTenant.name}</div>
                   <button onClick={() => setSelectedTenant(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 18 }}>✕</button>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+                {/* Messages */}
+                <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
                   {thread.map((m, i) => {
                     const isAdmin = m.sender === "admin";
                     return (
@@ -161,16 +250,51 @@ export default function AdminMessages({ tenants }) {
                         <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 3 }}>
                           {isAdmin ? "You (Admin)" : selectedTenant.name} · {m.date || new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </div>
-                        <div style={{ maxWidth: "85%", padding: "10px 14px", borderRadius: isAdmin ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: isAdmin ? "#1b3d2a" : "#f3f4f6", color: isAdmin ? "#fff" : "#1f2937", fontSize: 13, lineHeight: 1.5 }}>
-                          {m.message}
+                        <div style={{ maxWidth: "85%", padding: m.image_url && !m.message ? "6px" : "10px 14px", borderRadius: isAdmin ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: isAdmin ? "#1b3d2a" : "#f3f4f6", color: isAdmin ? "#fff" : "#1f2937", fontSize: 13, lineHeight: 1.5 }}>
+                          {m.image_url && (
+                            <a href={m.image_url} target="_blank" rel="noopener noreferrer">
+                              <img src={m.image_url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />
+                            </a>
+                          )}
+                          {m.message && <span>{m.message}</span>}
                         </div>
                       </div>
                     );
                   })}
+                  <div ref={threadEndRef} />
+                </div>
+
+                {/* Reply box */}
+                <div style={{ padding: "12px 16px", borderTop: "1px solid #f3f4f6", flexShrink: 0 }}>
+                  <input ref={replyFileInputRef} type="file" accept="image/*" onChange={handleReplyImageSelect} style={{ display: "none" }} />
+                  {replyImagePreview && (
+                    <div style={{ marginBottom: 8, position: "relative", display: "inline-block" }}>
+                      <img src={replyImagePreview} alt="preview" style={{ maxHeight: 80, borderRadius: 8, border: "1px solid #e5e7eb" }} />
+                      <button onClick={() => { setReplyImage(null); setReplyImagePreview(null); }} style={{ position: "absolute", top: -6, right: -6, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                    <button onClick={() => replyFileInputRef.current?.click()} style={{ padding: "10px", borderRadius: 9, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 18, cursor: "pointer", flexShrink: 0 }} title="Attach photo">
+                      📷
+                    </button>
+                    <textarea
+                      value={replyMsg}
+                      onChange={e => setReplyMsg(e.target.value)}
+                      placeholder="Reply..."
+                      rows={2}
+                      style={{ flex: 1, border: "1.5px solid #e5e7eb", borderRadius: 9, padding: "9px 12px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, resize: "none", boxSizing: "border-box" }}
+                    />
+                    <button
+                      onClick={handleReply}
+                      disabled={(!replyMsg.trim() && !replyImage) || replying}
+                      style={{ padding: "10px 16px", background: (replyMsg.trim() || replyImage) ? "#1b3d2a" : "#d1d5db", color: "#fff", border: "none", borderRadius: 9, fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 700, cursor: (replyMsg.trim() || replyImage) ? "pointer" : "not-allowed", flexShrink: 0 }}>
+                      {replying ? "..." : "Send"}
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 200, color: "#9ca3af", textAlign: "center" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 300, color: "#9ca3af", textAlign: "center", padding: 20 }}>
                 <div style={{ fontSize: 36, marginBottom: 12 }}>💬</div>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>Select a conversation</div>
                 <div style={{ fontSize: 13, marginTop: 4 }}>Click a tenant on the left to view their messages</div>
@@ -188,3 +312,4 @@ function Label({ children }) {
 }
 
 const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", display: "block" };
+const outlineBtn = { padding: "8px 14px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#374151", display: "inline-flex", alignItems: "center", gap: 6 };
