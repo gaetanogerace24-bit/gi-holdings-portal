@@ -105,13 +105,14 @@ export default function TenantMessages({ tenant }) {
                   color: fromAdmin ? "#1a1a1a" : "#fff",
                   fontSize: 14, lineHeight: 1.5,
                 }}>
-                  {m.image_url && (
-                    m.image_url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i)
-                      ? <video src={m.image_url} controls style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />
-                      : m.image_url.match(/\.(jpg|jpeg|png|gif|webp|heic)(\?|$)/i)
-                        ? <a href={m.image_url} target="_blank" rel="noopener noreferrer"><img src={m.image_url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} /></a>
-                        : <a href={m.image_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: fromAdmin ? "#1b3d2a" : "#a7f3d0", fontSize: 13, fontWeight: 600, marginBottom: m.message ? 6 : 0 }}>📎 View attachment</a>
-                  )}
+                  {m.image_url && (() => {
+                    const url = m.image_url;
+                    const isVideo = url.includes(".mp4") || url.includes(".mov") || url.includes(".webm");
+                    const isImage = url.includes(".jpg") || url.includes(".jpeg") || url.includes(".png") || url.includes(".gif") || url.includes(".webp") || url.includes(".heic");
+                    if (isVideo) return <video src={url} controls style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />;
+                    if (isImage) return <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} /></a>;
+                    return <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: fromAdmin ? "#1b3d2a" : "#a7f3d0", fontSize: 13, fontWeight: 600, textDecoration: "underline", marginBottom: m.message ? 6 : 0 }}>📎 View attachment</a>;
+                  })()}
                   {m.message && <span>{m.message}</span>}
                 </div>
               </div>
@@ -149,7 +150,7 @@ export default function TenantMessages({ tenant }) {
             onClick={() => fileInputRef.current?.click()}
             style={{ padding: "10px 14px", borderRadius: 9, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#374151" }}
             title="Attach file, photo, or video">
-            📎
+            🖇️
           </button>
           <button
             onClick={handleReply}
