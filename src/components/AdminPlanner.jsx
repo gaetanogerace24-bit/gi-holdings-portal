@@ -16,19 +16,26 @@ export default function AdminPlanner({ tenants = [] }) {
   const [loading, setLoading] = useState(true);
   const [addingCol, setAddingCol] = useState(false);
   const [newColName, setNewColName] = useState("");
-  const [selectedIds, setSelectedIds] = useState(null); // null = all selected
+  const [selectedIds, setSelectedIds] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
-    const { data } = await supabase
-      .from("properties")
-      .select("*")
-      .neq("status", "archived")
-      .order("created_at", { ascending: true });
-    setProperties(data || []);
+    const [{ data: propData }, { data: settingsData }] = await Promise.all([
+      supabase.from("properties").select("*").neq("status", "archived").order("created_at", { ascending: true }),
+      supabase.from("settings").select("*").eq("key", "planner_columns").single(),
+    ]);
+    setProperties(propData || []);
+    if (settingsData?.value && Array.isArray(settingsData.value) && settingsData.value.length > 0) {
+      setColumns(settingsData.value);
+    }
     setLoading(false);
+  };
+
+  const saveColumns = async (newCols) => {
+    setColumns(newCols);
+    await supabase.from("settings").update({ value: newCols, updated_at: new Date().toISOString() }).eq("key", "planner_columns");
   };
 
   const getTenant = (prop) => tenants.find(t => t.id === prop.tenant_id) || null;
@@ -61,23 +68,21 @@ export default function AdminPlanner({ tenants = [] }) {
 
   const addColumn = () => {
     if (!newColName.trim()) return;
-    const id = newColName.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+    const id = newColName.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "") + "_" + Date.now();
     const colors = ["#7c3aed", "#0891b2", "#db2777", "#ea580c", "#65a30d"];
     const bgs = ["#f5f3ff", "#ecfeff", "#fdf2f8", "#fff7ed", "#f7fee7"];
     const idx = columns.length % colors.length;
-    setColumns(prev => [...prev, { id, label: newColName.trim(), color: colors[idx], bg: bgs[idx] }]);
+    const newCols = [...columns, { id, label: newColName.trim(), color: colors[idx], bg: bgs[idx] }];
+    saveColumns(newCols);
     setNewColName("");
     setAddingCol(false);
   };
 
   const toggleProperty = (id) => {
     if (selectedIds === null) {
-      // Currently all selected — deselect all except this one
       setSelectedIds(properties.map(p => p.id).filter(pid => pid !== id));
     } else {
-      setSelectedIds(prev =>
-        prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]
-      );
+      setSelectedIds(prev => prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]);
     }
   };
 
@@ -121,10 +126,7 @@ export default function AdminPlanner({ tenants = [] }) {
             }}
           >
             🏠 Filter properties
-            <span style={{
-              background: showFilter ? "rgba(255,255,255,0.2)" : "rgba(27,61,42,0.1)",
-              borderRadius: 20, padding: "1px 7px", fontSize: 11,
-            }}>
+            <span style={{ background: showFilter ? "rgba(255,255,255,0.2)" : "rgba(27,61,42,0.1)", borderRadius: 20, padding: "1px 7px", fontSize: 11 }}>
               {selectedCount}/{properties.length}
             </span>
           </button>
@@ -142,10 +144,7 @@ export default function AdminPlanner({ tenants = [] }) {
         <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "16px 20px", marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>Show properties on board</div>
-            <button
-              onClick={selectAll}
-              style={{ fontSize: 12, color: "#4caf7d", fontWeight: 700, background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}
-            >
+            <button onClick={selectAll} style={{ fontSize: 12, color: "#4caf7d", fontWeight: 700, background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
               Select all
             </button>
           </div>
@@ -154,26 +153,14 @@ export default function AdminPlanner({ tenants = [] }) {
               const t = getTenant(prop);
               const checked = isSelected(prop.id);
               return (
-                <label
-                  key={prop.id}
-                  style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "10px 12px", borderRadius: 10, background: checked ? "#f0f9f4" : "#f9fafb", border: `1.5px solid ${checked ? "#4caf7d" : "#e5e7eb"}`, transition: "all 0.15s" }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleProperty(prop.id)}
-                    style={{ width: 16, height: 16, accentColor: "#1b3d2a", cursor: "pointer" }}
-                  />
+                <label key={prop.id} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "10px 12px", borderRadius: 10, background: checked ? "#f0f9f4" : "#f9fafb", border: `1.5px solid ${checked ? "#4caf7d" : "#e5e7eb"}`, transition: "all 0.15s" }}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleProperty(prop.id)} style={{ width: 16, height: 16, accentColor: "#1b3d2a", cursor: "pointer" }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>🏠 {prop.address}</div>
                     {t && <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{t.name}</div>}
                     {!t && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>No tenant</div>}
                   </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
-                    background: getStage(prop) === "ready_to_rent" ? "#f0f9f4" : getStage(prop) === "vacant" ? "#fef2f2" : "#fffbeb",
-                    color: getStage(prop) === "ready_to_rent" ? "#16a34a" : getStage(prop) === "vacant" ? "#dc2626" : "#d97706",
-                  }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: getStage(prop) === "ready_to_rent" ? "#f0f9f4" : getStage(prop) === "vacant" ? "#fef2f2" : "#fffbeb", color: getStage(prop) === "ready_to_rent" ? "#16a34a" : getStage(prop) === "vacant" ? "#dc2626" : "#d97706" }}>
                     {columns.find(c => c.id === getStage(prop))?.label || getStage(prop)}
                   </span>
                 </label>
@@ -209,14 +196,7 @@ export default function AdminPlanner({ tenants = [] }) {
               key={col.id}
               onDragOver={e => handleDragOver(e, col.id)}
               onDrop={e => handleDrop(e, col.id)}
-              style={{
-                minWidth: 260, maxWidth: 260,
-                background: isOver ? col.bg : "#f9fafb",
-                borderRadius: 14,
-                border: `2px solid ${isOver ? col.color : "#e5e7eb"}`,
-                transition: "border-color 0.15s, background 0.15s",
-                flexShrink: 0,
-              }}
+              style={{ minWidth: 260, maxWidth: 260, background: isOver ? col.bg : "#f9fafb", borderRadius: 14, border: `2px solid ${isOver ? col.color : "#e5e7eb"}`, transition: "border-color 0.15s, background 0.15s", flexShrink: 0 }}
             >
               <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -239,18 +219,9 @@ export default function AdminPlanner({ tenants = [] }) {
                       draggable
                       onDragStart={e => handleDragStart(e, prop)}
                       onDragEnd={handleDragEnd}
-                      style={{
-                        background: "#fff", borderRadius: 10, border: "1.5px solid #e5e7eb",
-                        padding: "12px 14px", cursor: "grab",
-                        opacity: isDragging ? 0.4 : 1,
-                        transition: "opacity 0.15s, box-shadow 0.15s",
-                        boxShadow: isDragging ? "none" : "0 1px 3px rgba(0,0,0,0.06)",
-                        userSelect: "none",
-                      }}
+                      style={{ background: "#fff", borderRadius: 10, border: "1.5px solid #e5e7eb", padding: "12px 14px", cursor: "grab", opacity: isDragging ? 0.4 : 1, transition: "opacity 0.15s, box-shadow 0.15s", boxShadow: isDragging ? "none" : "0 1px 3px rgba(0,0,0,0.06)", userSelect: "none" }}
                     >
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", marginBottom: 4, lineHeight: 1.3 }}>
-                        🏠 {prop.address}
-                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", marginBottom: 4, lineHeight: 1.3 }}>🏠 {prop.address}</div>
                       {t && (
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                           <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
@@ -272,9 +243,7 @@ export default function AdminPlanner({ tenants = [] }) {
                   );
                 })}
                 {cards.length === 0 && (
-                  <div style={{ textAlign: "center", padding: "20px 10px", color: "#d1d5db", fontSize: 12 }}>
-                    Drop cards here
-                  </div>
+                  <div style={{ textAlign: "center", padding: "20px 10px", color: "#d1d5db", fontSize: 12 }}>Drop cards here</div>
                 )}
               </div>
             </div>
