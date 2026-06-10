@@ -59,14 +59,14 @@ export default function AdminMessages({ tenants }) {
     const f = e.target.files[0];
     if (!f) return;
     setImageFile(f);
-    setImagePreview(URL.createObjectURL(f));
+    setImagePreview(f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
   };
 
   const handleReplyImageSelect = (e) => {
     const f = e.target.files[0];
     if (!f) return;
     setReplyImage(f);
-    setReplyImagePreview(URL.createObjectURL(f));
+    setReplyImagePreview(f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
   };
 
   const handleSend = async () => {
@@ -187,15 +187,19 @@ export default function AdminMessages({ tenants }) {
                 style={{ ...inputStyle, resize: "none", lineHeight: "1.6", marginBottom: 10 }} />
 
               {/* Image attach */}
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
-              {imagePreview ? (
-                <div style={{ marginBottom: 12, position: "relative", display: "inline-block" }}>
-                  <img src={imagePreview} alt="preview" style={{ maxHeight: 120, borderRadius: 10, border: "1px solid #e5e7eb" }} />
-                  <button onClick={() => { setImageFile(null); setImagePreview(null); }} style={{ position: "absolute", top: -8, right: -8, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              <input ref={fileInputRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={handleImageSelect} style={{ display: "none" }} />
+              {imageFile ? (
+                <div style={{ marginBottom: 12, position: "relative", display: "inline-flex", alignItems: "center", gap: 8, background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 12px" }}>
+                  {imagePreview
+                    ? <img src={imagePreview} alt="preview" style={{ maxHeight: 80, borderRadius: 8 }} />
+                    : <span style={{ fontSize: 24 }}>{imageFile.type.startsWith("video/") ? "🎥" : "📎"}</span>
+                  }
+                  <span style={{ fontSize: 12, color: "#1b3d2a", fontWeight: 600, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{imageFile.name}</span>
+                  <button onClick={() => { setImageFile(null); setImagePreview(null); }} style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, fontSize: 11, cursor: "pointer" }}>✕</button>
                 </div>
               ) : (
                 <button onClick={() => fileInputRef.current?.click()} style={{ ...outlineBtn, marginBottom: 12, fontSize: 13 }}>
-                  📷 Attach photo
+                  📎 Attach file
                 </button>
               )}
 
@@ -252,9 +256,11 @@ export default function AdminMessages({ tenants }) {
                         </div>
                         <div style={{ maxWidth: "85%", padding: m.image_url && !m.message ? "6px" : "10px 14px", borderRadius: isAdmin ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: isAdmin ? "#1b3d2a" : "#f3f4f6", color: isAdmin ? "#fff" : "#1f2937", fontSize: 13, lineHeight: 1.5 }}>
                           {m.image_url && (
-                            <a href={m.image_url} target="_blank" rel="noopener noreferrer">
-                              <img src={m.image_url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />
-                            </a>
+                            m.image_url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i)
+                              ? <video src={m.image_url} controls style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />
+                              : m.image_url.match(/\.(jpg|jpeg|png|gif|webp|heic)(\?|$)/i)
+                                ? <a href={m.image_url} target="_blank" rel="noopener noreferrer"><img src={m.image_url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} /></a>
+                                : <a href={m.image_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: isAdmin ? "#a7f3d0" : "#1b3d2a", fontSize: 13, fontWeight: 600, marginBottom: m.message ? 6 : 0 }}>📎 View attachment</a>
                           )}
                           {m.message && <span>{m.message}</span>}
                         </div>
@@ -266,11 +272,15 @@ export default function AdminMessages({ tenants }) {
 
                 {/* Reply box */}
                 <div style={{ padding: "12px 16px", borderTop: "1px solid #f3f4f6", flexShrink: 0 }}>
-                  <input ref={replyFileInputRef} type="file" accept="image/*" onChange={handleReplyImageSelect} style={{ display: "none" }} />
-                  {replyImagePreview && (
-                    <div style={{ marginBottom: 8, position: "relative", display: "inline-block" }}>
-                      <img src={replyImagePreview} alt="preview" style={{ maxHeight: 80, borderRadius: 8, border: "1px solid #e5e7eb" }} />
-                      <button onClick={() => { setReplyImage(null); setReplyImagePreview(null); }} style={{ position: "absolute", top: -6, right: -6, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                  <input ref={replyFileInputRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={handleReplyImageSelect} style={{ display: "none" }} />
+                  {replyImage && (
+                    <div style={{ marginBottom: 8, display: "inline-flex", alignItems: "center", gap: 8, background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "6px 10px" }}>
+                      {replyImagePreview
+                        ? <img src={replyImagePreview} alt="preview" style={{ maxHeight: 60, borderRadius: 6 }} />
+                        : <span style={{ fontSize: 20 }}>{replyImage.type.startsWith("video/") ? "🎥" : "📎"}</span>
+                      }
+                      <span style={{ fontSize: 12, color: "#1b3d2a", fontWeight: 600, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{replyImage.name}</span>
+                      <button onClick={() => { setReplyImage(null); setReplyImagePreview(null); }} style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, cursor: "pointer" }}>✕</button>
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
