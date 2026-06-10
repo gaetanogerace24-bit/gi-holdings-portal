@@ -293,8 +293,8 @@ export default function AdminMessages({ tenants }) {
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <button onClick={() => replyFileInputRef.current?.click()} style={{ padding: "10px", borderRadius: 9, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 18, cursor: "pointer", flexShrink: 0 }} title="Attach photo">
-                      📷
+                    <button onClick={() => replyFileInputRef.current?.click()} style={{ padding: "10px", borderRadius: 9, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 18, cursor: "pointer", flexShrink: 0 }} title="Attach file">
+                      📎
                     </button>
                     <textarea
                       value={replyMsg}
