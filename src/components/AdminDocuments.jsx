@@ -125,14 +125,11 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
   return (
     <div style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       {/* Header */}
-      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Documents</h1>
-          <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
-            {properties.length} propert{properties.length !== 1 ? "ies" : "y"} · {totalDocs} document{totalDocs !== 1 ? "s" : ""}
-          </div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Documents</h1>
+        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
+          {properties.length} propert{properties.length !== 1 ? "ies" : "y"} · {totalDocs} document{totalDocs !== 1 ? "s" : ""}
         </div>
-        <button onClick={() => setShowAdd(!showAdd)} style={greenBtn}>+ Add document</button>
       </div>
 
       {/* Search bar */}
@@ -297,8 +294,13 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                         {isTenantExpanded && (
                           <div style={{ borderTop: "1px solid #f3f4f6", padding: "12px 16px", background: "#fafafa" }}>
                             {docCount === 0 ? (
-                              <div style={{ textAlign: "center", padding: "20px", color: "#9ca3af", fontSize: 13 }}>
-                                No documents yet — click "+ Add doc" above.
+                              <div style={{ textAlign: "center", padding: "20px" }}>
+                                <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 10 }}>No documents yet</div>
+                                <button
+                                  onClick={() => { setForm(f => ({ ...f, tenantId: String(tenant.id) })); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                                  style={greenBtn}>
+                                  + Upload document
+                                </button>
                               </div>
                             ) : (
                               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
