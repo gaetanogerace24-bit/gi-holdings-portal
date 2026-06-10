@@ -131,7 +131,7 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
         draggable
         onDragStart={e => handleCardDragStart(e, prop)}
         onDragEnd={handleCardDragEnd}
-        style={{ background: "#fff", borderRadius: 10, border: "1.5px solid #e5e7eb", padding: "12px 14px", cursor: "grab", opacity: isDragging ? 0.4 : 1, boxShadow: isDragging ? "none" : "0 1px 3px rgba(0,0,0,0.06)", userSelect: "none", marginBottom: 8 }}
+        style={{ background: "#fff", borderRadius: 10, border: `1.5px solid ${isDragging ? "#4caf7d" : "#e5e7eb"}`, padding: "12px 14px", cursor: "grab", boxShadow: isDragging ? "0 4px 12px rgba(0,0,0,0.15)" : "0 1px 3px rgba(0,0,0,0.06)", userSelect: "none", marginBottom: 8, transform: isDragging ? "scale(1.02)" : "scale(1)", transition: "box-shadow 0.1s, border-color 0.1s" }}
       >
         <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", lineHeight: 1.3 }}>🏠 {prop.address}</div>
         {t && (
