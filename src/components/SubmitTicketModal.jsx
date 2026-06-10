@@ -40,13 +40,13 @@ export default function SubmitTicketModal({ onClose, onSubmit }) {
 
         {submitted ? (
           <div style={{ textAlign: "center", padding: "30px 0" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🎫</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#1b3d2a" }}>Ticket submitted!</div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🔧</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#1b3d2a" }}>Maintenance request submitted!</div>
             <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>We'll be in touch soon.</div>
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 20, color: "#1a1a1a" }}>New maintenance ticket</div>
+            <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 20, color: "#1a1a1a" }}>New maintenance request</div>
 
             <Label>Issue title</Label>
             <input
@@ -95,7 +95,7 @@ export default function SubmitTicketModal({ onClose, onSubmit }) {
                 background: title.trim() ? "#1b3d2a" : "#d1d5db",
                 fontFamily: "'DM Sans', sans-serif", fontSize: 14,
                 fontWeight: 700, color: "#fff", cursor: title.trim() ? "pointer" : "not-allowed",
-              }}>Submit ticket</button>
+              }}>Submit request</button>
             </div>
           </>
         )}
