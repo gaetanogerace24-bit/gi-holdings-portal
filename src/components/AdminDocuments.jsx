@@ -296,35 +296,24 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                               </div>
                             ) : (
                               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                {DOC_TYPES.map(type => {
-                                  const typeDocs = (tenant.documents || []).filter(d => (d.type || d.category) === type);
-                                  if (typeDocs.length === 0) return null;
-                                  return (
-                                    <div key={type}>
-                                      <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>
-                                        {DOC_ICONS[type]} {type}
-                                      </div>
-                                      {typeDocs.map(doc => (
-                                        <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", borderRadius: 10, padding: "12px 14px", border: "1px solid #f3f4f6", marginBottom: 6 }}>
-                                          <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{doc.name}</div>
-                                            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Added {doc.date}</div>
-                                          </div>
-                                          {doc.url && (
-                                            <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                                              style={{ padding: "6px 12px", borderRadius: 8, border: "1.5px solid #4caf7d", background: "#fff", fontSize: 12, color: "#1b3d2a", fontWeight: 600, textDecoration: "none" }}>
-                                              View →
-                                            </a>
-                                          )}
-                                          <button onClick={() => handleRemove(tenant.id, doc.id)}
-                                            style={{ padding: "6px 10px", borderRadius: 8, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 12, color: "#dc2626", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-                                            Remove
-                                          </button>
-                                        </div>
-                                      ))}
+                                {(tenant.documents || []).map(doc => (
+                                  <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", borderRadius: 10, padding: "12px 14px", border: "1px solid #f3f4f6" }}>
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>📄 {doc.name}</div>
+                                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Added {doc.date}</div>
                                     </div>
-                                  );
-                                })}
+                                    {doc.url && (
+                                      <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                                        style={{ padding: "6px 12px", borderRadius: 8, border: "1.5px solid #4caf7d", background: "#fff", fontSize: 12, color: "#1b3d2a", fontWeight: 600, textDecoration: "none" }}>
+                                        View →
+                                      </a>
+                                    )}
+                                    <button onClick={() => handleRemove(tenant.id, doc.id)}
+                                      style={{ padding: "6px 10px", borderRadius: 8, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 12, color: "#dc2626", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                                      Remove
+                                    </button>
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
