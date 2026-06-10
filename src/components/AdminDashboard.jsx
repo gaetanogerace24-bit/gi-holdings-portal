@@ -11,7 +11,7 @@ import AdminPlanner from "./AdminPlanner";
 
 const NAV = [
   { key: "payments", icon: "💰", label: "Payments" },
-  { key: "tickets", icon: "🎫", label: "Tickets" },
+  { key: "tickets", icon: "🔧", label: "Maintenance" },
   { key: "tenants", icon: "👥", label: "Tenants" },
   { key: "properties", icon: "🏠", label: "Properties" },
   { key: "documents", icon: "📁", label: "Documents" },
