@@ -95,7 +95,7 @@ export default function SubmitTicketModal({ onClose, onSubmit }) {
                 background: title.trim() ? "#1b3d2a" : "#d1d5db",
                 fontFamily: "'DM Sans', sans-serif", fontSize: 14,
                 fontWeight: 700, color: "#fff", cursor: title.trim() ? "pointer" : "not-allowed",
-              }}>Submit request</button>
+              }}>Submit Request</button>
             </div>
           </>
         )}
