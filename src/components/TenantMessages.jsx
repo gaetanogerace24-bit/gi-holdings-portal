@@ -58,6 +58,7 @@ export default function TenantMessages({ tenant }) {
       tenant_id: tenant.id,
       message: reply.trim(),
       image_url: imageUrl,
+      file_name: imageFile ? imageFile.name : null,
       sender: tenant.name,
       to_name: "G&I Holdings",
       date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
@@ -111,7 +112,8 @@ export default function TenantMessages({ tenant }) {
                     const isImage = url.includes(".jpg") || url.includes(".jpeg") || url.includes(".png") || url.includes(".gif") || url.includes(".webp") || url.includes(".heic");
                     if (isVideo) return <video src={url} controls style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />;
                     if (isImage) return <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} /></a>;
-                    return <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: fromAdmin ? "#1b3d2a" : "#a7f3d0", fontSize: 13, fontWeight: 600, textDecoration: "underline", marginBottom: m.message ? 6 : 0 }}>📎 View attachment</a>;
+                    const emoji = url.match(/\.(mp4|mov|webm|ogg)/i) ? "🎥" : url.match(/\.(jpg|jpeg|png|gif|webp|heic)/i) ? "📷" : "📎";
+                    return <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: fromAdmin ? "#1b3d2a" : "#a7f3d0", fontSize: 13, fontWeight: 600, textDecoration: "underline", marginBottom: m.message ? 6 : 0 }}>{emoji} {m.file_name || "View attachment"}</a>;
                   })()}
                   {m.message && <span>{m.message}</span>}
                 </div>
