@@ -34,7 +34,7 @@ export default function TenantMessages({ tenant }) {
     const f = e.target.files[0];
     if (!f) return;
     setImageFile(f);
-    setImagePreview(URL.createObjectURL(f));
+    setImagePreview(f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
   };
 
   async function handleReply() {
@@ -106,9 +106,11 @@ export default function TenantMessages({ tenant }) {
                   fontSize: 14, lineHeight: 1.5,
                 }}>
                   {m.image_url && (
-                    <a href={m.image_url} target="_blank" rel="noopener noreferrer">
-                      <img src={m.image_url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />
-                    </a>
+                    m.image_url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i)
+                      ? <video src={m.image_url} controls style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />
+                      : m.image_url.match(/\.(jpg|jpeg|png|gif|webp|heic)(\?|$)/i)
+                        ? <a href={m.image_url} target="_blank" rel="noopener noreferrer"><img src={m.image_url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} /></a>
+                        : <a href={m.image_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: fromAdmin ? "#1b3d2a" : "#a7f3d0", fontSize: 13, fontWeight: 600, marginBottom: m.message ? 6 : 0 }}>📎 View attachment</a>
                   )}
                   {m.message && <span>{m.message}</span>}
                 </div>
@@ -121,12 +123,16 @@ export default function TenantMessages({ tenant }) {
 
       {/* Reply box */}
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", padding: 14 }}>
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
+        <input ref={fileInputRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onChange={handleImageSelect} style={{ display: "none" }} />
 
-        {imagePreview && (
-          <div style={{ marginBottom: 10, position: "relative", display: "inline-block" }}>
-            <img src={imagePreview} alt="preview" style={{ maxHeight: 100, borderRadius: 10, border: "1px solid #e5e7eb" }} />
-            <button onClick={() => { setImageFile(null); setImagePreview(null); }} style={{ position: "absolute", top: -8, right: -8, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+        {imageFile && (
+          <div style={{ marginBottom: 10, display: "inline-flex", alignItems: "center", gap: 8, background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 12px" }}>
+            {imagePreview
+              ? <img src={imagePreview} alt="preview" style={{ maxHeight: 80, borderRadius: 8 }} />
+              : <span style={{ fontSize: 24 }}>{imageFile.type.startsWith("video/") ? "🎥" : "📎"}</span>
+            }
+            <span style={{ fontSize: 12, color: "#1b3d2a", fontWeight: 600, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{imageFile.name}</span>
+            <button onClick={() => { setImageFile(null); setImagePreview(null); }} style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, fontSize: 11, cursor: "pointer" }}>✕</button>
           </div>
         )}
 
@@ -142,8 +148,8 @@ export default function TenantMessages({ tenant }) {
           <button
             onClick={() => fileInputRef.current?.click()}
             style={{ padding: "10px 14px", borderRadius: 9, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#374151" }}
-            title="Attach a photo">
-            📷
+            title="Attach file, photo, or video">
+            📎
           </button>
           <button
             onClick={handleReply}
