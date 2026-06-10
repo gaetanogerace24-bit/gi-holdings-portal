@@ -96,7 +96,11 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
   };
 
   const handleAssignTenant = async (propId, tenantId) => {
-    const updates = { tenant_id: tenantId || null, status: tenantId ? "occupied" : "vacant" };
+    const updates = {
+      tenant_id: tenantId || null,
+      status: tenantId ? "occupied" : "vacant",
+      planner_stage: tenantId ? "occupied" : "vacant",
+    };
     await supabase.from("properties").update(updates).eq("id", propId);
     setProperties(prev => (prev || []).map(p => p.id === propId ? { ...p, ...updates } : p));
     setAssigningId(null);
