@@ -72,8 +72,6 @@ export default function AdminMessages({ tenants }) {
   const handleSend = async () => {
     if (!msg.trim() && !imageFile || sending) return;
     setSending(true);
-    const recipient = to === "all" ? null : to;
-    const recipientName = to === "all" ? "All tenants" : tenants.find(t => String(t.id) === to)?.name || "Unknown";
     const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
     let imageUrl = null;
@@ -81,16 +79,33 @@ export default function AdminMessages({ tenants }) {
       try { imageUrl = await uploadImage(imageFile, "admin"); } catch (e) { console.error(e); }
     }
 
-    const { data } = await supabase.from("messages").insert({
-      tenant_id: recipient,
-      to_name: recipientName,
-      message: msg.trim(),
-      image_url: imageUrl,
-      file_name: imageFile ? imageFile.name : null,
-      sender: "admin",
-      date,
-    }).select().single();
-    if (data) setMessages(prev => [data, ...prev]);
+    if (to === "all") {
+      // Send individual message to each tenant so it shows in their thread
+      const inserts = tenants.map(t => ({
+        tenant_id: t.id,
+        to_name: t.name,
+        message: msg.trim(),
+        image_url: imageUrl,
+        file_name: imageFile ? imageFile.name : null,
+        sender: "admin",
+        date,
+      }));
+      const { data } = await supabase.from("messages").insert(inserts).select();
+      if (data) setMessages(prev => [...data, ...prev]);
+    } else {
+      const recipientName = tenants.find(t => String(t.id) === to)?.name || "Unknown";
+      const { data } = await supabase.from("messages").insert({
+        tenant_id: to,
+        to_name: recipientName,
+        message: msg.trim(),
+        image_url: imageUrl,
+        file_name: imageFile ? imageFile.name : null,
+        sender: "admin",
+        date,
+      }).select().single();
+      if (data) setMessages(prev => [data, ...prev]);
+    }
+
     setSent(true);
     setMsg("");
     setImageFile(null);
