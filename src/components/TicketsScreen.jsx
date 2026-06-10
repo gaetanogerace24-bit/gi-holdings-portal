@@ -1,11 +1,11 @@
+import { useState } from "react";
+
 const STATUS_CONFIG = {
   open: { label: "Open", color: "#92400e", bg: "#fef3c7", border: "#fbbf24" },
   "in-progress": { label: "In progress", color: "#1e40af", bg: "#dbeafe", border: "#60a5fa" },
   resolved: { label: "Resolved", color: "#166534", bg: "#dcfce7", border: "#4ade80" },
 };
-
 const URGENCY_ICON = { high: "🔴", medium: "🟡", low: "🟢" };
-
 const CATEGORY_ICON = {
   Plumbing: "🚿", HVAC: "❄️", Electrical: "⚡", General: "🔧",
   Appliance: "🍳", "Pest control": "🐛", Other: "📋",
@@ -14,7 +14,6 @@ const CATEGORY_ICON = {
 export default function TicketsScreen({ tickets, onNewTicket }) {
   const active = tickets.filter(t => t.status !== "resolved");
   const resolved = tickets.filter(t => t.status === "resolved");
-
   return (
     <div style={{ padding: "16px" }}>
       <button onClick={onNewTicket} style={{
@@ -25,27 +24,24 @@ export default function TicketsScreen({ tickets, onNewTicket }) {
         alignItems: "center", justifyContent: "center", gap: 8,
         letterSpacing: "-0.2px",
       }}>
-        <span style={{ fontSize: 18 }}>+</span> Submit new ticket
+        <span style={{ fontSize: 18 }}>+</span> Submit New Maintenance Request
       </button>
-
       {active.length > 0 && (
         <>
-          <SectionLabel>Active tickets</SectionLabel>
+          <SectionLabel>Active requests</SectionLabel>
           {active.map(t => <TicketCard key={t.id} ticket={t} />)}
         </>
       )}
-
       {resolved.length > 0 && (
         <>
           <SectionLabel style={{ marginTop: 10 }}>Resolved</SectionLabel>
           {resolved.map(t => <TicketCard key={t.id} ticket={t} />)}
         </>
       )}
-
       {tickets.length === 0 && (
         <div style={{ textAlign: "center", padding: "40px 20px", color: "#9ca3af" }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>🎉</div>
-          <div style={{ fontWeight: 500 }}>No open tickets</div>
+          <div style={{ fontWeight: 500 }}>No open requests</div>
           <div style={{ fontSize: 13, marginTop: 4 }}>Submit one if something needs attention.</div>
         </div>
       )}
