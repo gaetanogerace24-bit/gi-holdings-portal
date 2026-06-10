@@ -53,12 +53,10 @@ export default function AdminTickets({ tenants, sharedTickets, setSharedTickets,
   };
 
   const handleRemove = async (id) => {
-    if (!window.confirm("Delete this ticket?")) return;
-    // Delete from Supabase first
+    if (!window.confirm("Delete this maintenance request?")) return;
     if (supabase) {
       await supabase.from("tickets").delete().eq("id", id);
     }
-    // Then remove from shared state so it disappears everywhere
     if (setSharedTickets) {
       setSharedTickets(prev => prev.filter(t => t.id !== id));
     }
@@ -71,20 +69,20 @@ export default function AdminTickets({ tenants, sharedTickets, setSharedTickets,
     <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Maintenance Tickets</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Maintenance</h1>
           <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
-            {allTickets.length === 0 ? "No tickets yet" : `${activeCount} active · ${allTickets.filter(t => t.status === "resolved").length} resolved`}
+            {allTickets.length === 0 ? "No requests yet" : `${activeCount} active · ${allTickets.filter(t => t.status === "resolved").length} resolved`}
           </div>
         </div>
         {tenants.length > 0 && (
-          <button onClick={() => setShowAdd(!showAdd)} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Add ticket</button>
+          <button onClick={() => setShowAdd(!showAdd)} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>+ Add request</button>
         )}
       </div>
 
       {/* Add form */}
       {showAdd && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "20px", border: "2px solid #4caf7d", marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: "#1b3d2a" }}>New ticket</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: "#1b3d2a" }}>New maintenance request</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
               <Label>Tenant</Label>
@@ -113,7 +111,7 @@ export default function AdminTickets({ tenants, sharedTickets, setSharedTickets,
             </div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={handleAdd} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 9, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Add ticket</button>
+            <button onClick={handleAdd} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 9, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Add request</button>
             <button onClick={() => setShowAdd(false)} style={{ background: "none", border: "1.5px solid #e5e7eb", borderRadius: 9, padding: "10px 16px", fontSize: 14, color: "#6b7280", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
           </div>
         </div>
@@ -122,10 +120,10 @@ export default function AdminTickets({ tenants, sharedTickets, setSharedTickets,
       {/* Empty state */}
       {allTickets.length === 0 && !showAdd && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🎫</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>No tickets yet</div>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🔧</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>No maintenance requests yet</div>
           <div style={{ fontSize: 14, color: "#6b7280" }}>
-            {tenants.length === 0 ? "Add tenants first, then you can track their maintenance requests here." : "Tickets submitted by tenants will appear here."}
+            {tenants.length === 0 ? "Add tenants first, then you can track their maintenance requests here." : "Maintenance requests submitted by tenants will appear here."}
           </div>
         </div>
       )}
