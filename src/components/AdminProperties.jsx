@@ -4,7 +4,6 @@ import { supabase } from "../supabase";
 const EMPTY_FORM = { address: "", city: "Youngstown", state: "OH", zip: "", type: "Single Family Home", notes: "", section8: false, section8Amount: "", tenantPortion: "", tenant_id: "" };
 
 export default function AdminProperties({ tenants = [], onCountChange }) {
-  // null = still loading, [] = loaded with no results
   const [properties, setProperties] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -28,9 +27,8 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
     if (onCountChange) onCountChange(total);
   };
 
-  // Only compute allProperties once DB has loaded — prevents the flash
   const allProperties = useMemo(() => {
-    if (properties === null) return null; // still loading
+    if (properties === null) return null;
 
     const linkedTenantIds = new Set(properties.map(p => p.tenant_id).filter(Boolean));
     const archivedTenantIds = new Set(properties.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
@@ -57,7 +55,6 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
     ];
   }, [properties, tenants]);
 
-  // Show loading until DB responds — prevents flash of wrong content
   if (allProperties === null) {
     return (
       <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
@@ -82,6 +79,7 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
       type: form.type,
       notes: form.notes,
       status: form.tenant_id ? "occupied" : "vacant",
+      planner_stage: form.tenant_id ? null : "vacant",
       section8: form.section8,
       section8_amount: form.section8 ? Number(form.section8Amount) || 0 : 0,
       tenant_portion: form.section8 ? Number(form.tenantPortion) || 0 : 0,
