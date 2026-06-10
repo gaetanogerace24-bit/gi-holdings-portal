@@ -56,50 +56,50 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
   };
 
   // Card drag handlers
-  const handleDragStart = (e, prop) => {
+  const handleCardDragStart = (e, prop) => {
+    e.stopPropagation();
     setDragging(prop);
+    setDraggingCol(null);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("type", "card");
+    e.dataTransfer.setData("dragtype", "card");
   };
-  const handleDragOver = (e, colId) => {
-    e.preventDefault();
-    if (draggingCol) return; // don't interfere with column drag
-    setDragOver(colId);
-  };
-  const handleDrop = (e, colId) => {
-    e.preventDefault();
-    if (dragging?.id && !draggingCol) {
-      moveCard(dragging.id, colId === "unassigned" ? null : colId);
-    }
-    setDragging(null); setDragOver(null);
-  };
-  const handleDragEnd = () => { setDragging(null); setDragOver(null); };
+  const handleCardDragEnd = () => { setDragging(null); setDragOver(null); };
 
   // Column drag handlers
   const handleColDragStart = (e, colId) => {
+    if (dragging) return;
     setDraggingCol(colId);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("type", "column");
-  };
-  const handleColDragOver = (e, colId) => {
-    e.preventDefault();
-    if (!draggingCol || draggingCol === colId) return;
-    setDragOverCol(colId);
-  };
-  const handleColDrop = (e, targetColId) => {
-    e.preventDefault();
-    if (!draggingCol || draggingCol === targetColId) {
-      setDraggingCol(null); setDragOverCol(null); return;
-    }
-    const newCols = [...columns];
-    const fromIdx = newCols.findIndex(c => c.id === draggingCol);
-    const toIdx = newCols.findIndex(c => c.id === targetColId);
-    const [moved] = newCols.splice(fromIdx, 1);
-    newCols.splice(toIdx, 0, moved);
-    saveColumns(newCols);
-    setDraggingCol(null); setDragOverCol(null);
+    e.dataTransfer.setData("dragtype", "column");
   };
   const handleColDragEnd = () => { setDraggingCol(null); setDragOverCol(null); };
+
+  const handleColDragOver = (e, colId) => {
+    e.preventDefault();
+    const type = e.dataTransfer.getData("dragtype") || (draggingCol ? "column" : "card");
+    if (draggingCol && draggingCol !== colId) setDragOverCol(colId);
+    if (!draggingCol && dragging) setDragOver(colId);
+  };
+
+  const handleColDrop = (e, targetColId) => {
+    e.preventDefault();
+    // Card drop
+    if (dragging && !draggingCol) {
+      moveCard(dragging.id, targetColId);
+      setDragging(null); setDragOver(null);
+      return;
+    }
+    // Column reorder drop
+    if (draggingCol && draggingCol !== targetColId) {
+      const newCols = [...columns];
+      const fromIdx = newCols.findIndex(c => c.id === draggingCol);
+      const toIdx = newCols.findIndex(c => c.id === targetColId);
+      const [moved] = newCols.splice(fromIdx, 1);
+      newCols.splice(toIdx, 0, moved);
+      saveColumns(newCols);
+    }
+    setDraggingCol(null); setDragOverCol(null);
+  };
 
   const addColumn = () => {
     if (!newColName.trim()) return;
@@ -129,8 +129,8 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
     return (
       <div
         draggable
-        onDragStart={e => handleDragStart(e, prop)}
-        onDragEnd={handleDragEnd}
+        onDragStart={e => handleCardDragStart(e, prop)}
+        onDragEnd={handleCardDragEnd}
         style={{ background: "#fff", borderRadius: 10, border: "1.5px solid #e5e7eb", padding: "12px 14px", cursor: "grab", opacity: isDragging ? 0.4 : 1, boxShadow: isDragging ? "none" : "0 1px 3px rgba(0,0,0,0.06)", userSelect: "none", marginBottom: 8 }}
       >
         <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", lineHeight: 1.3 }}>🏠 {prop.address}</div>
@@ -185,8 +185,8 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
         {/* Unassigned column */}
         {unassigned.length > 0 && (
           <div
-            onDragOver={e => handleDragOver(e, "unassigned")}
-            onDrop={e => handleDrop(e, "unassigned")}
+            onDragOver={e => { e.preventDefault(); if (!draggingCol) setDragOver("unassigned"); }}
+            onDrop={e => { e.preventDefault(); if (dragging && !draggingCol) { moveCard(dragging.id, null); setDragging(null); setDragOver(null); } }}
             style={{ minWidth: 260, maxWidth: 260, background: isOverUnassigned ? "#f5f3ff" : "#f9fafb", borderRadius: 14, border: `2px solid ${isOverUnassigned ? "#7c3aed" : "#e5e7eb"}`, transition: "all 0.15s", flexShrink: 0 }}
           >
             <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb" }}>
@@ -213,10 +213,10 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
             <div
               key={col.id}
               draggable
-              onDragStart={e => handleColDragStart(e, col.id)}
+              onDragStart={e => { e.stopPropagation(); handleColDragStart(e, col.id); }}
               onDragEnd={handleColDragEnd}
-              onDragOver={e => { handleDragOver(e, col.id); handleColDragOver(e, col.id); }}
-              onDrop={e => { handleDrop(e, col.id); handleColDrop(e, col.id); }}
+              onDragOver={e => handleColDragOver(e, col.id)}
+              onDrop={e => handleColDrop(e, col.id)}
               style={{
                 minWidth: 260, maxWidth: 260,
                 background: isOver ? col.bg : "#f9fafb",
@@ -251,11 +251,7 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
                   </div>
                 </div>
               </div>
-              <div
-                style={{ padding: "10px 10px", minHeight: 80 }}
-                onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (!draggingCol) setDragOver(col.id); }}
-                onDrop={e => { e.stopPropagation(); if (dragging && !draggingCol) { moveCard(dragging.id, col.id); setDragging(null); setDragOver(null); } }}
-              >
+              <div style={{ padding: "10px 10px", minHeight: 80 }}>
                 {cards.map(prop => <CardItem key={prop.id} prop={prop} />)}
                 {cards.length === 0 && <div style={{ textAlign: "center", padding: "20px 10px", color: "#d1d5db", fontSize: 12 }}>Drop cards here</div>}
               </div>
