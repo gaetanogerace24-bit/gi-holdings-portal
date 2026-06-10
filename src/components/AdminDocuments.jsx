@@ -12,7 +12,7 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
   const [expandedProperties, setExpandedProperties] = useState({});
   const [expandedTenants, setExpandedTenants] = useState({});
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ name: "", type: "Lease agreement", tenantId: "" });
+  const [form, setForm] = useState({ name: "", tenantId: "" });
   const [file, setFile] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -88,7 +88,7 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
       const { data: urlData } = supabase.storage.from("Documents").getPublicUrl(path);
       const url = urlData.publicUrl;
       const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      const newDoc = { id: Date.now(), name: form.name, type: form.type, url, date: today };
+      const newDoc = { id: Date.now(), name: form.name, url, date: today };
       const updatedDocs = [...(tenant.documents || []), newDoc];
       await supabase.from("tenants").update({ documents: updatedDocs, updated_at: new Date().toISOString() }).eq("id", form.tenantId);
       setTenants(tenants.map(t => String(t.id) === String(form.tenantId) ? { ...t, documents: updatedDocs } : t));
@@ -99,7 +99,7 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
       setSaved(true);
       setTimeout(() => {
         setSaved(false); setShowAdd(false);
-        setForm({ name: "", type: "Lease agreement", tenantId: "" }); setFile(null);
+        setForm({ name: "", tenantId: "" }); setFile(null);
       }, 1500);
     } catch (err) {
       setUploadError("Upload failed: " + (err.message || "Unknown error"));
@@ -116,7 +116,7 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
   };
 
   const resetForm = () => {
-    setShowAdd(false); setForm({ name: "", type: "Lease agreement", tenantId: "" });
+    setShowAdd(false); setForm({ name: "", tenantId: "" });
     setFile(null); setUploadError(null); setSaved(false);
   };
 
@@ -154,23 +154,15 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
       {showAdd && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "22px", border: "2px solid #4caf7d", marginBottom: 24 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#1b3d2a", marginBottom: 18 }}>📎 Add new document</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-            <div>
-              <Label>Tenant</Label>
-              <select value={form.tenantId} onChange={e => setForm({ ...form, tenantId: e.target.value })} style={{ ...selectSt, width: "100%" }}>
-                <option value="">Select tenant...</option>
-                {tenants.map(t => {
-                  const prop = properties.find(p => String(p.tenant_id) === String(t.id));
-                  return <option key={t.id} value={t.id}>{t.name}{prop ? ` — ${prop.address}` : ""}</option>;
-                })}
-              </select>
-            </div>
-            <div>
-              <Label>Document type</Label>
-              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={{ ...selectSt, width: "100%" }}>
-                {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
+          <div style={{ marginBottom: 14 }}>
+            <Label>Tenant</Label>
+            <select value={form.tenantId} onChange={e => setForm({ ...form, tenantId: e.target.value })} style={{ ...selectSt, width: "100%" }}>
+              <option value="">Select tenant...</option>
+              {tenants.map(t => {
+                const prop = properties.find(p => String(p.tenant_id) === String(t.id));
+                return <option key={t.id} value={t.id}>{t.name}{prop ? ` — ${prop.address}` : ""}</option>;
+              })}
+            </select>
           </div>
           <div style={{ marginBottom: 14 }}>
             <Label>Document name</Label>
