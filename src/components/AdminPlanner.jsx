@@ -129,7 +129,6 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
     return (
       <div
         draggable
-        onMouseDown={e => e.preventDefault()}
         onDragStart={e => handleCardDragStart(e, prop)}
         onDragEnd={handleCardDragEnd}
         style={{ background: "#fff", borderRadius: 10, border: "1.5px solid #e5e7eb", padding: "12px 14px", cursor: "grab", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", userSelect: "none", marginBottom: 8 }}
