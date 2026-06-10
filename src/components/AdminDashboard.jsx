@@ -24,6 +24,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
   const [active, setActive] = useState("payments");
   const [visited, setVisited] = useState(new Set(["payments", "properties", "settings"]));
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
+  const [properties, setProperties] = useState([]);
   const [totalPropertyCount, setTotalPropertyCount] = useState(0);
   const [documentsTenantId, setDocumentsTenantId] = useState("");
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
@@ -34,16 +35,14 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
   };
 
   useEffect(() => {
-    const fetchCount = async () => {
-      const { data } = await supabase.from("properties").select("tenant_id, status");
+    const fetchProperties = async () => {
+      const { data } = await supabase.from("properties").select("*");
       if (!data) return;
       const nonArchived = data.filter(p => p.status !== "archived");
-      const linkedIds = new Set(nonArchived.map(p => p.tenant_id).filter(Boolean));
-      const archivedIds = new Set(data.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
-      const unlinked = 0;
+      setProperties(nonArchived);
       setTotalPropertyCount(nonArchived.length);
     };
-    fetchCount();
+    fetchProperties();
   }, []);
 
   return (
@@ -125,12 +124,12 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           )}
           {visited.has("properties") && (
             <div style={{ display: active === "properties" ? "block" : "none" }}>
-              <AdminProperties tenants={tenants} setTenants={setTenants} onCountChange={setTotalPropertyCount} />
+              <AdminProperties tenants={tenants} setTenants={setTenants} onCountChange={setTotalPropertyCount} onPropertiesChange={setProperties} />
             </div>
           )}
           {visited.has("documents") && (
             <div style={{ display: active === "documents" ? "block" : "none" }}>
-              <AdminDocuments tenants={tenants} setTenants={setTenants} initialTenantId={documentsTenantId} />
+              <AdminDocuments tenants={tenants} setTenants={setTenants} properties={properties} initialTenantId={documentsTenantId} />
             </div>
           )}
           {visited.has("messages") && (
@@ -140,7 +139,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           )}
           {visited.has("planner") && (
             <div style={{ display: active === "planner" ? "block" : "none" }}>
-              <AdminPlanner tenants={tenants} />
+              <AdminPlanner tenants={tenants} properties={properties} />
             </div>
           )}
           {visited.has("settings") && (
