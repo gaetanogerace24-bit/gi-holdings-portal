@@ -125,8 +125,7 @@ export default function AdminMessages({ tenants }) {
 
   const getThread = (tenantId) => {
     return messages.filter(m =>
-      m.tenant_id === tenantId ||
-      (m.sender === "admin" && m.tenant_id === tenantId)
+      String(m.tenant_id) === String(tenantId)
     ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   };
 
