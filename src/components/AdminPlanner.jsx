@@ -16,8 +16,6 @@ export default function AdminPlanner({ tenants = [] }) {
   const [loading, setLoading] = useState(true);
   const [addingCol, setAddingCol] = useState(false);
   const [newColName, setNewColName] = useState("");
-  const [hiddenIds, setHiddenIds] = useState([]); // IDs to HIDE (default: show all)
-  const [showFilter, setShowFilter] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -39,18 +37,16 @@ export default function AdminPlanner({ tenants = [] }) {
   };
 
   const deleteColumn = async (colId) => {
-    // Move all properties in this column to vacant
-    const affectedProps = properties.filter(p => getStage(p) === colId);
+    const affectedProps = properties.filter(p => p.planner_stage === colId);
     if (affectedProps.length > 0) {
       const ids = affectedProps.map(p => p.id);
-      setProperties(prev => prev.map(p => ids.includes(p.id) ? { ...p, planner_stage: "vacant" } : p));
-      await supabase.from("properties").update({ planner_stage: "vacant" }).in("id", ids);
+      setProperties(prev => prev.map(p => ids.includes(p.id) ? { ...p, planner_stage: null } : p));
+      await supabase.from("properties").update({ planner_stage: null }).in("id", ids);
     }
     saveColumns(columns.filter(c => c.id !== colId));
   };
 
   const getTenant = (prop) => tenants.find(t => t.id === prop.tenant_id) || null;
-  const getStage = (prop) => prop.planner_stage || "vacant";
 
   const moveCard = async (propId, newStage) => {
     setProperties(prev => prev.map(p => p.id === propId ? { ...p, planner_stage: newStage } : p));
@@ -58,10 +54,10 @@ export default function AdminPlanner({ tenants = [] }) {
   };
 
   const handleDragStart = (e, prop) => { setDragging(prop); e.dataTransfer.effectAllowed = "move"; };
-  const handleDragOver = (e, colId) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(colId); };
+  const handleDragOver = (e, colId) => { e.preventDefault(); setDragOver(colId); };
   const handleDrop = (e, colId) => {
     e.preventDefault();
-    if (dragging && dragging.id) moveCard(dragging.id, colId);
+    if (dragging?.id) moveCard(dragging.id, colId === "unassigned" ? null : colId);
     setDragging(null); setDragOver(null);
   };
   const handleDragEnd = () => { setDragging(null); setDragOver(null); };
@@ -76,12 +72,8 @@ export default function AdminPlanner({ tenants = [] }) {
     setNewColName(""); setAddingCol(false);
   };
 
-  const toggleHide = (id) => {
-    setHiddenIds(prev => prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]);
-  };
-
-  const visibleProperties = properties.filter(p => !hiddenIds.includes(p.id));
-  const hiddenCount = hiddenIds.length;
+  const unassigned = properties.filter(p => !p.planner_stage);
+  const isOverUnassigned = dragOver === "unassigned";
 
   if (loading) {
     return (
@@ -92,70 +84,52 @@ export default function AdminPlanner({ tenants = [] }) {
     );
   }
 
+  const CardItem = ({ prop }) => {
+    const t = getTenant(prop);
+    const isDragging = dragging?.id === prop.id;
+    return (
+      <div
+        draggable
+        onDragStart={e => handleDragStart(e, prop)}
+        onDragEnd={handleDragEnd}
+        style={{ background: "#fff", borderRadius: 10, border: "1.5px solid #e5e7eb", padding: "12px 14px", cursor: "grab", opacity: isDragging ? 0.4 : 1, boxShadow: isDragging ? "none" : "0 1px 3px rgba(0,0,0,0.06)", userSelect: "none", marginBottom: 8 }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", lineHeight: 1.3 }}>🏠 {prop.address}</div>
+        {t && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
+              {t.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+            </div>
+            <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 500 }}>{t.name}</span>
+          </div>
+        )}
+        {!t && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>No tenant</div>}
+        <select
+          value={prop.planner_stage || ""}
+          onChange={e => moveCard(prop.id, e.target.value || null)}
+          onClick={e => e.stopPropagation()}
+          style={{ marginTop: 10, width: "100%", padding: "5px 8px", borderRadius: 7, border: "1px solid #e5e7eb", fontSize: 11, color: "#6b7280", fontFamily: "'DM Sans', sans-serif", cursor: "pointer", background: "#f9fafb" }}
+        >
+          <option value="">— Unassigned —</option>
+          {columns.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+      </div>
+    );
+  };
+
   return (
     <div style={{ padding: 28, fontFamily: "'DM Sans', sans-serif", minHeight: "100vh" }}>
 
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>🗂 Property Planner</h1>
-          <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Drag properties between stages to track their status</div>
+          <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Drag properties into a stage or use the dropdown on each card</div>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={() => setShowFilter(f => !f)}
-            style={{ background: showFilter ? "#1b3d2a" : "#fff", color: showFilter ? "#fff" : "#1b3d2a", border: "1.5px solid #1b3d2a", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6 }}
-          >
-            🏠 Properties
-            {hiddenCount > 0 && <span style={{ background: "#dc2626", color: "#fff", borderRadius: 20, padding: "1px 7px", fontSize: 11 }}>{hiddenCount} hidden</span>}
-          </button>
-          <button onClick={() => setAddingCol(true)} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-            + Add column
-          </button>
-        </div>
+        <button onClick={() => setAddingCol(true)} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+          + Add column
+        </button>
       </div>
-
-      {/* Filter panel */}
-      {showFilter && (
-        <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "16px 20px", marginBottom: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>Click a property to show/hide it on the board</div>
-            {hiddenCount > 0 && (
-              <button onClick={() => setHiddenIds([])} style={{ fontSize: 12, color: "#4caf7d", fontWeight: 700, background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-                Show all
-              </button>
-            )}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {properties.map(prop => {
-              const t = getTenant(prop);
-              const hidden = hiddenIds.includes(prop.id);
-              const stage = columns.find(c => c.id === getStage(prop));
-              return (
-                <div
-                  key={prop.id}
-                  onClick={() => toggleHide(prop.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "10px 12px", borderRadius: 10, background: hidden ? "#f9fafb" : "#f0f9f4", border: `1.5px solid ${hidden ? "#e5e7eb" : "#4caf7d"}`, transition: "all 0.15s", opacity: hidden ? 0.5 : 1 }}
-                >
-                  <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${hidden ? "#d1d5db" : "#1b3d2a"}`, background: hidden ? "#fff" : "#1b3d2a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    {!hidden && <span style={{ color: "#fff", fontSize: 12 }}>✓</span>}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>🏠 {prop.address}</div>
-                    {t && <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{t.name}</div>}
-                    {!t && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>No tenant</div>}
-                  </div>
-                  {stage && (
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: stage.bg, color: stage.color }}>
-                      {stage.label}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Add column input */}
       {addingCol && (
@@ -166,14 +140,36 @@ export default function AdminPlanner({ tenants = [] }) {
         </div>
       )}
 
-      {/* Kanban board */}
+      {/* Board */}
       <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" }}>
+
+        {/* Unassigned column */}
+        {unassigned.length > 0 && (
+          <div
+            onDragOver={e => handleDragOver(e, "unassigned")}
+            onDrop={e => handleDrop(e, "unassigned")}
+            style={{ minWidth: 260, maxWidth: 260, background: isOverUnassigned ? "#f5f3ff" : "#f9fafb", borderRadius: 14, border: `2px solid ${isOverUnassigned ? "#7c3aed" : "#e5e7eb"}`, transition: "all 0.15s", flexShrink: 0 }}
+          >
+            <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#9ca3af" }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#6b7280" }}>Unassigned</span>
+                <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#9ca3af", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 20, padding: "2px 9px" }}>{unassigned.length}</span>
+              </div>
+            </div>
+            <div style={{ padding: "10px 10px", minHeight: 80 }}>
+              {unassigned.map(prop => <CardItem key={prop.id} prop={prop} />)}
+            </div>
+          </div>
+        )}
+
+        {/* Regular columns */}
         {columns.map(col => {
-          const cards = visibleProperties.filter(p => getStage(p) === col.id);
+          const cards = properties.filter(p => p.planner_stage === col.id);
           const isOver = dragOver === col.id;
           return (
             <div key={col.id} onDragOver={e => handleDragOver(e, col.id)} onDrop={e => handleDrop(e, col.id)}
-              style={{ minWidth: 260, maxWidth: 260, background: isOver ? col.bg : "#f9fafb", borderRadius: 14, border: `2px solid ${isOver ? col.color : "#e5e7eb"}`, transition: "border-color 0.15s, background 0.15s", flexShrink: 0 }}
+              style={{ minWidth: 260, maxWidth: 260, background: isOver ? col.bg : "#f9fafb", borderRadius: 14, border: `2px solid ${isOver ? col.color : "#e5e7eb"}`, transition: "all 0.15s", flexShrink: 0 }}
             >
               <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -191,32 +187,8 @@ export default function AdminPlanner({ tenants = [] }) {
                   </div>
                 </div>
               </div>
-              <div style={{ padding: "10px 10px", display: "flex", flexDirection: "column", gap: 8, minHeight: 80 }}>
-                {cards.map(prop => {
-                  const t = getTenant(prop);
-                  const isDragging = dragging?.id === prop.id;
-                  return (
-                    <div key={prop.id} draggable onDragStart={e => handleDragStart(e, prop)} onDragEnd={handleDragEnd}
-                      style={{ background: "#fff", borderRadius: 10, border: "1.5px solid #e5e7eb", padding: "12px 14px", cursor: "grab", opacity: isDragging ? 0.4 : 1, transition: "opacity 0.15s, box-shadow 0.15s", boxShadow: isDragging ? "none" : "0 1px 3px rgba(0,0,0,0.06)", userSelect: "none" }}
-                    >
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", marginBottom: 4, lineHeight: 1.3 }}>🏠 {prop.address}</div>
-                      {t && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                          <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
-                            {t.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                          </div>
-                          <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 500 }}>{t.name}</span>
-                        </div>
-                      )}
-                      {!t && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>No tenant</div>}
-                      <select value={getStage(prop)} onChange={e => moveCard(prop.id, e.target.value)} onClick={e => e.stopPropagation()}
-                        style={{ marginTop: 10, width: "100%", padding: "5px 8px", borderRadius: 7, border: "1px solid #e5e7eb", fontSize: 11, color: "#6b7280", fontFamily: "'DM Sans', sans-serif", cursor: "pointer", background: "#f9fafb" }}
-                      >
-                        {columns.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                      </select>
-                    </div>
-                  );
-                })}
+              <div style={{ padding: "10px 10px", minHeight: 80 }}>
+                {cards.map(prop => <CardItem key={prop.id} prop={prop} />)}
                 {cards.length === 0 && <div style={{ textAlign: "center", padding: "20px 10px", color: "#d1d5db", fontSize: 12 }}>Drop cards here</div>}
               </div>
             </div>
