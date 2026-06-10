@@ -40,8 +40,8 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
       const nonArchived = data.filter(p => p.status !== "archived");
       const linkedIds = new Set(nonArchived.map(p => p.tenant_id).filter(Boolean));
       const archivedIds = new Set(data.filter(p => p.status === "archived").map(p => p.tenant_id).filter(Boolean));
-      const unlinked = (sharedTenants || []).filter(t => !linkedIds.has(t.id) && !archivedIds.has(t.id)).length;
-      setTotalPropertyCount(nonArchived.length + unlinked);
+      const unlinked = 0;
+      setTotalPropertyCount(nonArchived.length);
     };
     fetchCount();
   }, []);
