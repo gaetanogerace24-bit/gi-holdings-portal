@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 
 const DEFAULT_COLUMNS = [
@@ -8,11 +8,13 @@ const DEFAULT_COLUMNS = [
   { id: "ready_to_rent", label: "Completed — Ready to Rent", color: "#16a34a", bg: "#f0f9f4" },
 ];
 
-export default function AdminPlanner({ tenants = [] }) {
+export default function AdminPlanner({ tenants = [], properties: propsProp }) {
   const [properties, setProperties] = useState([]);
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
-  const [dragging, setDragging] = useState(null);
-  const [dragOver, setDragOver] = useState(null);
+  const [dragging, setDragging] = useState(null);         // card being dragged
+  const [dragOver, setDragOver] = useState(null);         // column card is over
+  const [draggingCol, setDraggingCol] = useState(null);   // column being dragged
+  const [dragOverCol, setDragOverCol] = useState(null);   // column being hovered during col drag
   const [loading, setLoading] = useState(true);
   const [addingCol, setAddingCol] = useState(false);
   const [newColName, setNewColName] = useState("");
@@ -53,14 +55,51 @@ export default function AdminPlanner({ tenants = [] }) {
     await supabase.from("properties").update({ planner_stage: newStage }).eq("id", propId);
   };
 
-  const handleDragStart = (e, prop) => { setDragging(prop); e.dataTransfer.effectAllowed = "move"; };
-  const handleDragOver = (e, colId) => { e.preventDefault(); setDragOver(colId); };
+  // Card drag handlers
+  const handleDragStart = (e, prop) => {
+    setDragging(prop);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("type", "card");
+  };
+  const handleDragOver = (e, colId) => {
+    e.preventDefault();
+    if (draggingCol) return; // don't interfere with column drag
+    setDragOver(colId);
+  };
   const handleDrop = (e, colId) => {
     e.preventDefault();
-    if (dragging?.id) moveCard(dragging.id, colId === "unassigned" ? null : colId);
+    if (dragging?.id && !draggingCol) {
+      moveCard(dragging.id, colId === "unassigned" ? null : colId);
+    }
     setDragging(null); setDragOver(null);
   };
   const handleDragEnd = () => { setDragging(null); setDragOver(null); };
+
+  // Column drag handlers
+  const handleColDragStart = (e, colId) => {
+    setDraggingCol(colId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("type", "column");
+  };
+  const handleColDragOver = (e, colId) => {
+    e.preventDefault();
+    if (!draggingCol || draggingCol === colId) return;
+    setDragOverCol(colId);
+  };
+  const handleColDrop = (e, targetColId) => {
+    e.preventDefault();
+    if (!draggingCol || draggingCol === targetColId) {
+      setDraggingCol(null); setDragOverCol(null); return;
+    }
+    const newCols = [...columns];
+    const fromIdx = newCols.findIndex(c => c.id === draggingCol);
+    const toIdx = newCols.findIndex(c => c.id === targetColId);
+    const [moved] = newCols.splice(fromIdx, 1);
+    newCols.splice(toIdx, 0, moved);
+    saveColumns(newCols);
+    setDraggingCol(null); setDragOverCol(null);
+  };
+  const handleColDragEnd = () => { setDraggingCol(null); setDragOverCol(null); };
 
   const addColumn = () => {
     if (!newColName.trim()) return;
@@ -163,23 +202,48 @@ export default function AdminPlanner({ tenants = [] }) {
           </div>
         )}
 
-        {/* Regular columns */}
+        {/* Regular columns — draggable */}
         {columns.map(col => {
           const cards = properties.filter(p => p.planner_stage === col.id);
           const isOver = dragOver === col.id;
+          const isColDragging = draggingCol === col.id;
+          const isColOver = dragOverCol === col.id;
+
           return (
-            <div key={col.id} onDragOver={e => handleDragOver(e, col.id)} onDrop={e => handleDrop(e, col.id)}
-              style={{ minWidth: 260, maxWidth: 260, background: isOver ? col.bg : "#f9fafb", borderRadius: 14, border: `2px solid ${isOver ? col.color : "#e5e7eb"}`, transition: "all 0.15s", flexShrink: 0 }}
+            <div
+              key={col.id}
+              draggable
+              onDragStart={e => handleColDragStart(e, col.id)}
+              onDragEnd={handleColDragEnd}
+              onDragOver={e => { handleDragOver(e, col.id); handleColDragOver(e, col.id); }}
+              onDrop={e => { handleDrop(e, col.id); handleColDrop(e, col.id); }}
+              style={{
+                minWidth: 260, maxWidth: 260,
+                background: isOver ? col.bg : "#f9fafb",
+                borderRadius: 14,
+                border: isColOver ? `2px dashed ${col.color}` : `2px solid ${isOver ? col.color : "#e5e7eb"}`,
+                transition: "all 0.15s",
+                flexShrink: 0,
+                opacity: isColDragging ? 0.5 : 1,
+                cursor: "default",
+              }}
             >
-              <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb" }}>
+              {/* Column header — grab handle */}
+              <div
+                style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb", cursor: "grab", userSelect: "none" }}
+                title="Drag to reorder column"
+              >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: "#d1d5db", fontSize: 12, letterSpacing: "1px" }}>⠿</span>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: col.color }} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{col.label}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: col.color, background: col.bg, border: `1px solid ${col.color}`, borderRadius: 20, padding: "2px 9px" }}>{cards.length}</span>
-                    <button onClick={() => deleteColumn(col.id)} title="Delete column"
+                    <button
+                      onClick={e => { e.stopPropagation(); deleteColumn(col.id); }}
+                      title="Delete column"
                       style={{ background: "none", border: "none", cursor: "pointer", color: "#d1d5db", fontSize: 13, padding: "2px 4px", lineHeight: 1, fontFamily: "'DM Sans', sans-serif", borderRadius: 4 }}
                       onMouseOver={e => e.currentTarget.style.color = "#dc2626"}
                       onMouseOut={e => e.currentTarget.style.color = "#d1d5db"}
@@ -187,7 +251,11 @@ export default function AdminPlanner({ tenants = [] }) {
                   </div>
                 </div>
               </div>
-              <div style={{ padding: "10px 10px", minHeight: 80 }}>
+              <div
+                style={{ padding: "10px 10px", minHeight: 80 }}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (!draggingCol) setDragOver(col.id); }}
+                onDrop={e => { e.stopPropagation(); if (dragging && !draggingCol) { moveCard(dragging.id, col.id); setDragging(null); setDragOver(null); } }}
+              >
                 {cards.map(prop => <CardItem key={prop.id} prop={prop} />)}
                 {cards.length === 0 && <div style={{ textAlign: "center", padding: "20px 10px", color: "#d1d5db", fontSize: 12 }}>Drop cards here</div>}
               </div>
