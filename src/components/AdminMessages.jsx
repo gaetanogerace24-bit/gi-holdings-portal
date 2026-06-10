@@ -255,13 +255,14 @@ export default function AdminMessages({ tenants }) {
                           {isAdmin ? "You (Admin)" : selectedTenant.name} · {m.date || new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </div>
                         <div style={{ maxWidth: "85%", padding: m.image_url && !m.message ? "6px" : "10px 14px", borderRadius: isAdmin ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: isAdmin ? "#1b3d2a" : "#f3f4f6", color: isAdmin ? "#fff" : "#1f2937", fontSize: 13, lineHeight: 1.5 }}>
-                          {m.image_url && (
-                            m.image_url.match(/\.(mp4|mov|webm|ogg)(\?|$)/i)
-                              ? <video src={m.image_url} controls style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />
-                              : m.image_url.match(/\.(jpg|jpeg|png|gif|webp|heic)(\?|$)/i)
-                                ? <a href={m.image_url} target="_blank" rel="noopener noreferrer"><img src={m.image_url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} /></a>
-                                : <a href={m.image_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: isAdmin ? "#a7f3d0" : "#1b3d2a", fontSize: 13, fontWeight: 600, marginBottom: m.message ? 6 : 0 }}>📎 View attachment</a>
-                          )}
+                          {m.image_url && (() => {
+                            const url = m.image_url;
+                            const isVideo = url.includes(".mp4") || url.includes(".mov") || url.includes(".webm");
+                            const isImage = url.includes(".jpg") || url.includes(".jpeg") || url.includes(".png") || url.includes(".gif") || url.includes(".webp") || url.includes(".heic");
+                            if (isVideo) return <video src={url} controls style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />;
+                            if (isImage) return <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} /></a>;
+                            return <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: isAdmin ? "#a7f3d0" : "#1b3d2a", fontSize: 13, fontWeight: 600, textDecoration: "underline", marginBottom: m.message ? 6 : 0 }}>📎 View attachment</a>;
+                          })()}
                           {m.message && <span>{m.message}</span>}
                         </div>
                       </div>
