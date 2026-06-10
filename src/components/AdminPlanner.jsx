@@ -212,9 +212,6 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
           return (
             <div
               key={col.id}
-              draggable
-              onDragStart={e => { e.stopPropagation(); handleColDragStart(e, col.id); }}
-              onDragEnd={handleColDragEnd}
               onDragOver={e => handleColDragOver(e, col.id)}
               onDrop={e => handleColDrop(e, col.id)}
               style={{
@@ -228,8 +225,11 @@ export default function AdminPlanner({ tenants = [], properties: propsProp }) {
                 cursor: "default",
               }}
             >
-              {/* Column header — grab handle */}
+              {/* Column header — only this part is draggable */}
               <div
+                draggable
+                onDragStart={e => handleColDragStart(e, col.id)}
+                onDragEnd={handleColDragEnd}
                 style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb", cursor: "grab", userSelect: "none" }}
                 title="Drag to reorder column"
               >
