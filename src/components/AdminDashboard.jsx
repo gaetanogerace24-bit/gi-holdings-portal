@@ -7,6 +7,7 @@ import AdminSettings from "./AdminSettings";
 import AdminPayments from "./AdminPayments";
 import AdminDocuments from "./AdminDocuments";
 import AdminProperties from "./AdminProperties";
+import AdminPlanner from "./AdminPlanner";
 
 const NAV = [
   { key: "payments", icon: "💰", label: "Payments" },
@@ -15,6 +16,7 @@ const NAV = [
   { key: "properties", icon: "🏠", label: "Properties" },
   { key: "documents", icon: "📁", label: "Documents" },
   { key: "messages", icon: "💬", label: "Messages" },
+  { key: "planner", icon: "🗂", label: "Planner" },
   { key: "settings", icon: "⚙️", label: "Settings" },
 ];
 
@@ -108,7 +110,6 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         </div>
 
         <div className="admin-main" style={{ flex: 1, overflowY: "auto" }}>
-          {/* Keep tabs mounted once visited — prevents flash on re-click */}
           <div style={{ display: active === "payments" ? "block" : "none" }}>
             <AdminPayments tenants={tenants} invoices={sharedInvoices} setInvoices={setSharedInvoices} />
           </div>
@@ -135,6 +136,11 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           {visited.has("messages") && (
             <div style={{ display: active === "messages" ? "block" : "none" }}>
               <AdminMessages tenants={tenants} supabase={supabase} />
+            </div>
+          )}
+          {visited.has("planner") && (
+            <div style={{ display: active === "planner" ? "block" : "none" }}>
+              <AdminPlanner tenants={tenants} />
             </div>
           )}
           {visited.has("settings") && (
