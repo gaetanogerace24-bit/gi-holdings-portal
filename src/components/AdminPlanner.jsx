@@ -204,9 +204,18 @@ export default function AdminPlanner({ tenants = [] }) {
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: col.color }} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{col.label}</span>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: col.color, background: col.bg, border: `1px solid ${col.color}`, borderRadius: 20, padding: "2px 9px" }}>
-                    {cards.length}
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: col.color, background: col.bg, border: `1px solid ${col.color}`, borderRadius: 20, padding: "2px 9px" }}>
+                      {cards.length}
+                    </span>
+                    <button
+                      onClick={() => saveColumns(columns.filter(c => c.id !== col.id))}
+                      title="Delete column"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#d1d5db", fontSize: 13, padding: "2px 4px", lineHeight: 1, fontFamily: "'DM Sans', sans-serif", borderRadius: 4 }}
+                      onMouseOver={e => e.currentTarget.style.color = "#dc2626"}
+                      onMouseOut={e => e.currentTarget.style.color = "#d1d5db"}
+                    >✕</button>
+                  </div>
                 </div>
               </div>
               <div style={{ padding: "10px 10px", display: "flex", flexDirection: "column", gap: 8, minHeight: 80 }}>
