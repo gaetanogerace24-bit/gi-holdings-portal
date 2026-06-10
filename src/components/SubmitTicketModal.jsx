@@ -46,7 +46,7 @@ export default function SubmitTicketModal({ onClose, onSubmit }) {
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 20, color: "#1a1a1a" }}>New maintenance request</div>
+            <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 20, color: "#1a1a1a" }}>New Maintenance Request</div>
 
             <Label>Issue title</Label>
             <input
