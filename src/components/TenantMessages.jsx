@@ -152,7 +152,7 @@ export default function TenantMessages({ tenant }) {
             onClick={() => fileInputRef.current?.click()}
             style={{ padding: "10px 14px", borderRadius: 9, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#374151" }}
             title="Attach file, photo, or video">
-            🖇️
+            📎
           </button>
           <button
             onClick={handleReply}
