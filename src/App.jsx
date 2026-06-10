@@ -215,7 +215,7 @@ export default function App() {
               borderBottom: activeTab === tab ? "2.5px solid #4caf7d" : "2.5px solid transparent",
               cursor: "pointer",
             }}>
-              {tab === "pay" ? "💳 Pay Rent" : tab === "info" ? "My Unit" : tab === "messages" ? "💬 Messages" : "Tickets"}
+              {tab === "pay" ? "💳 Pay Rent" : tab === "info" ? "My Unit" : tab === "messages" ? "💬 Messages" : "Maintenance"}
             </button>
           ))}
         </nav>
