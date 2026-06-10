@@ -151,6 +151,12 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
 
   const handleRemove = async (id, name) => {
     if (window.confirm(`Remove ${name}? This cannot be undone.`)) {
+      // Update the property that had this tenant → set to vacant BEFORE deleting tenant
+      await supabase
+        .from("properties")
+        .update({ tenant_id: null, status: "vacant", planner_stage: "vacant" })
+        .eq("tenant_id", id);
+
       await supabase.from("tenants").delete().eq("id", id);
       setTenants(tenants.filter(t => t.id !== id));
     }
