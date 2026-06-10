@@ -7,13 +7,10 @@ const DOC_ICONS = {
   "Community rules": "📜", "Notice": "📋", "Other": "📁",
 };
 
-export default function AdminDocuments({ tenants, setTenants, initialTenantId = "" }) {
-  // Use initialTenantId if navigated from Tenants tab
-  const [selectedTenantId, setSelectedTenantId] = useState(initialTenantId);
-
-  useEffect(() => {
-    if (initialTenantId) setSelectedTenantId(initialTenantId);
-  }, [initialTenantId]);
+export default function AdminDocuments({ tenants, setTenants, properties = [], initialTenantId = "" }) {
+  const [search, setSearch] = useState("");
+  const [expandedProperties, setExpandedProperties] = useState({});
+  const [expandedTenants, setExpandedTenants] = useState({});
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: "", type: "Lease agreement", tenantId: "" });
   const [file, setFile] = useState(null);
@@ -23,49 +20,70 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
   const [uploadError, setUploadError] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Only show docs for selected tenant
-  const allDocs = tenants.flatMap(t =>
-    (t.documents || []).map(d => ({ ...d, tenantName: t.name, tenantId: t.id }))
+  // On mount, if navigated from tenants tab, expand that tenant's property
+  useEffect(() => {
+    if (initialTenantId) {
+      const tenant = tenants.find(t => String(t.id) === String(initialTenantId));
+      if (tenant) {
+        setExpandedTenants(prev => ({ ...prev, [initialTenantId]: true }));
+        // find matching property
+        const prop = properties.find(p => String(p.tenant_id) === String(initialTenantId));
+        if (prop) setExpandedProperties(prev => ({ ...prev, [prop.id]: true }));
+      }
+    }
+  }, [initialTenantId]);
+
+  // Build property → tenant map
+  // Each property card shows its address; inside is a tenant folder with their docs
+  // Tenants with no matching property go under "Unassigned"
+  const assignedTenantIds = new Set(
+    (properties || []).map(p => p.tenant_id).filter(Boolean).map(String)
   );
-  const filteredDocs = selectedTenantId === ""
-    ? []
-    : allDocs.filter(d => String(d.tenantId) === String(selectedTenantId));
+
+  const propertyRows = (properties || []).map(prop => {
+    const tenant = tenants.find(t => String(t.id) === String(prop.tenant_id));
+    return { prop, tenant };
+  });
+
+  const unassignedTenants = tenants.filter(t => !assignedTenantIds.has(String(t.id)));
+
+  // Search filters tenant names and addresses
+  const searchLower = search.toLowerCase();
+  const matchesProp = (prop, tenant) => {
+    if (!search) return true;
+    if (prop.address?.toLowerCase().includes(searchLower)) return true;
+    if (tenant?.name?.toLowerCase().includes(searchLower)) return true;
+    return false;
+  };
+
+  const toggleProperty = (id) => setExpandedProperties(p => ({ ...p, [id]: !p[id] }));
+  const toggleTenant = (id) => setExpandedTenants(p => ({ ...p, [id]: !p[id] }));
 
   const handleFileDrop = (e) => {
-    e.preventDefault();
-    setDragging(false);
+    e.preventDefault(); setDragging(false);
     const dropped = e.dataTransfer.files[0];
-    if (dropped && dropped.type === "application/pdf") {
-      setFile(dropped);
-      setUploadError(null);
+    if (dropped?.type === "application/pdf") {
+      setFile(dropped); setUploadError(null);
       if (!form.name) setForm(f => ({ ...f, name: dropped.name.replace(".pdf", "") }));
-    } else {
-      setUploadError("Only PDF files are supported.");
-    }
+    } else { setUploadError("Only PDF files are supported."); }
   };
 
   const handleFileSelect = (e) => {
     const selected = e.target.files[0];
-    if (selected && selected.type === "application/pdf") {
-      setFile(selected);
-      setUploadError(null);
+    if (selected?.type === "application/pdf") {
+      setFile(selected); setUploadError(null);
       if (!form.name) setForm(f => ({ ...f, name: selected.name.replace(".pdf", "") }));
-    } else {
-      setUploadError("Only PDF files are supported.");
-    }
+    } else { setUploadError("Only PDF files are supported."); }
   };
 
   const handleAdd = async () => {
     if (!form.name || !file || !form.tenantId) return;
-    setUploading(true);
-    setUploadError(null);
+    setUploading(true); setUploadError(null);
     try {
       const tenant = tenants.find(t => String(t.id) === String(form.tenantId));
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const path = `${form.tenantId}/${Date.now()}_${safeName}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("Documents")
-        .upload(path, file, { contentType: "application/pdf", upsert: false });
+      const { error: uploadErr } = await supabase.storage.from("Documents").upload(path, file, { contentType: "application/pdf", upsert: false });
       if (uploadErr) throw uploadErr;
       const { data: urlData } = supabase.storage.from("Documents").getPublicUrl(path);
       const url = urlData.publicUrl;
@@ -74,12 +92,14 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
       const updatedDocs = [...(tenant.documents || []), newDoc];
       await supabase.from("tenants").update({ documents: updatedDocs, updated_at: new Date().toISOString() }).eq("id", form.tenantId);
       setTenants(tenants.map(t => String(t.id) === String(form.tenantId) ? { ...t, documents: updatedDocs } : t));
+      // Auto-expand the property and tenant folder
+      const prop = properties.find(p => String(p.tenant_id) === String(form.tenantId));
+      if (prop) setExpandedProperties(prev => ({ ...prev, [prop.id]: true }));
+      setExpandedTenants(prev => ({ ...prev, [form.tenantId]: true }));
       setSaved(true);
       setTimeout(() => {
-        setSaved(false);
-        setShowAdd(false);
-        setForm({ name: "", type: "Lease agreement", tenantId: "" });
-        setFile(null);
+        setSaved(false); setShowAdd(false);
+        setForm({ name: "", type: "Lease agreement", tenantId: "" }); setFile(null);
       }, 1500);
     } catch (err) {
       setUploadError("Upload failed: " + (err.message || "Unknown error"));
@@ -96,21 +116,41 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
   };
 
   const resetForm = () => {
-    setShowAdd(false);
-    setForm({ name: "", type: "Lease agreement", tenantId: "" });
-    setFile(null);
-    setUploadError(null);
-    setSaved(false);
+    setShowAdd(false); setForm({ name: "", type: "Lease agreement", tenantId: "" });
+    setFile(null); setUploadError(null); setSaved(false);
   };
+
+  const totalDocs = tenants.reduce((sum, t) => sum + (t.documents || []).length, 0);
 
   return (
     <div style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
+      {/* Header */}
       <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Documents</h1>
-          <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Upload leases, inspection reports, and community rules for each tenant</div>
+          <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
+            {properties.length} propert{properties.length !== 1 ? "ies" : "y"} · {totalDocs} document{totalDocs !== 1 ? "s" : ""}
+          </div>
         </div>
         <button onClick={() => setShowAdd(!showAdd)} style={greenBtn}>+ Add document</button>
+      </div>
+
+      {/* Search bar */}
+      <div style={{ position: "relative", marginBottom: 20 }}>
+        <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#9ca3af" }}>🔍</span>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search by tenant name or property address..."
+          style={{
+            width: "100%", boxSizing: "border-box", padding: "11px 14px 11px 40px",
+            borderRadius: 10, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif",
+            fontSize: 14, color: "#1a1a1a", outline: "none", background: "#fff",
+          }}
+        />
+        {search && (
+          <button onClick={() => setSearch("")} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#9ca3af" }}>✕</button>
+        )}
       </div>
 
       {/* Add form */}
@@ -120,14 +160,17 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div>
               <Label>Tenant</Label>
-              <select value={form.tenantId} onChange={e => setForm({ ...form, tenantId: e.target.value })} style={selectSt}>
+              <select value={form.tenantId} onChange={e => setForm({ ...form, tenantId: e.target.value })} style={{ ...selectSt, width: "100%" }}>
                 <option value="">Select tenant...</option>
-                {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                {tenants.map(t => {
+                  const prop = properties.find(p => String(p.tenant_id) === String(t.id));
+                  return <option key={t.id} value={t.id}>{t.name}{prop ? ` — ${prop.address}` : ""}</option>;
+                })}
               </select>
             </div>
             <div>
               <Label>Document type</Label>
-              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={selectSt}>
+              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={{ ...selectSt, width: "100%" }}>
                 {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
@@ -173,9 +216,8 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
             </div>
           ) : (
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={handleAdd} disabled={uploading || !form.name || !file || !form.tenantId} style={{
-                ...greenBtn, opacity: (!form.name || !file || !form.tenantId) ? 0.5 : 1,
-              }}>
+              <button onClick={handleAdd} disabled={uploading || !form.name || !file || !form.tenantId}
+                style={{ ...greenBtn, opacity: (!form.name || !file || !form.tenantId) ? 0.5 : 1 }}>
                 {uploading ? "Uploading..." : "Upload document"}
               </button>
               <button onClick={resetForm} style={{ background: "none", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "12px 20px", fontSize: 14, color: "#6b7280", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
@@ -184,59 +226,189 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
         </div>
       )}
 
-      {/* Tenant filter — no "All" button */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-        {tenants.map(t => (
-          <FilterBtn
-            key={t.id}
-            label={`${t.name.split(" ")[0]} (${(t.documents || []).length})`}
-            active={String(selectedTenantId) === String(t.id)}
-            onClick={() => setSelectedTenantId(selectedTenantId === t.id ? "" : t.id)}
-          />
-        ))}
-      </div>
+      {/* Property Cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {propertyRows
+          .filter(({ prop, tenant }) => matchesProp(prop, tenant))
+          .map(({ prop, tenant }) => {
+            const isExpanded = expandedProperties[prop.id];
+            const docCount = tenant ? (tenant.documents || []).length : 0;
+            const isTenantExpanded = tenant ? expandedTenants[tenant.id] : false;
 
-      {/* Document list — empty until tenant selected */}
-      {selectedTenantId === "" ? (
-        <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>👆</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>Select a tenant</div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Click a tenant name above to view their documents.</div>
-        </div>
-      ) : filteredDocs.length === 0 ? (
-        <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📁</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>No documents yet</div>
-          <div style={{ fontSize: 14, color: "#6b7280" }}>Click "+ Add document" to upload a file for this tenant.</div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {filteredDocs.map(doc => (
-            <div key={doc.id} style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", border: "1px solid rgba(0,0,0,0.07)", display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ fontSize: 28, flexShrink: 0 }}>{DOC_ICONS[doc.type] || "📁"}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{doc.name}</div>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{doc.type} · {doc.tenantName} · Added {doc.date}</div>
+            return (
+              <div key={prop.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
+                {/* Property header row */}
+                <div
+                  onClick={() => toggleProperty(prop.id)}
+                  style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", userSelect: "none" }}
+                >
+                  <div style={{ width: 42, height: 42, borderRadius: 10, background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                    🏠
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{prop.address}</div>
+                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                      {tenant ? tenant.name : "No tenant"} · {docCount} document{docCount !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                    background: prop.status === "vacant" ? "#fef2f2" : "#f0f9f4",
+                    color: prop.status === "vacant" ? "#dc2626" : "#166534",
+                    border: `1px solid ${prop.status === "vacant" ? "#fecaca" : "#bbf7d0"}`,
+                    marginRight: 8,
+                  }}>
+                    {prop.status === "vacant" ? "○ Vacant" : "✓ Occupied"}
+                  </div>
+                  <span style={{ fontSize: 13, color: "#9ca3af" }}>{isExpanded ? "▲" : "▼"}</span>
+                </div>
+
+                {/* Expanded: tenant folder */}
+                {isExpanded && (
+                  <div style={{ borderTop: "1px solid #f3f4f6", background: "#fafafa", padding: "12px 16px" }}>
+                    {!tenant ? (
+                      <div style={{ textAlign: "center", padding: "24px", color: "#9ca3af", fontSize: 13 }}>
+                        No tenant assigned to this property.
+                      </div>
+                    ) : (
+                      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+                        {/* Tenant folder header */}
+                        <div
+                          onClick={() => toggleTenant(tenant.id)}
+                          style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", userSelect: "none" }}
+                        >
+                          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
+                            {tenant.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>📁 {tenant.name}</div>
+                            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>{docCount} document{docCount !== 1 ? "s" : ""}</div>
+                          </div>
+                          <button
+                            onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, tenantId: String(tenant.id) })); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                            style={{ ...outlineBtn, fontSize: 12, color: "#1b3d2a", borderColor: "#4caf7d", marginRight: 8 }}
+                          >
+                            + Add doc
+                          </button>
+                          <span style={{ fontSize: 13, color: "#9ca3af" }}>{isTenantExpanded ? "▲" : "▼"}</span>
+                        </div>
+
+                        {/* Documents list */}
+                        {isTenantExpanded && (
+                          <div style={{ borderTop: "1px solid #f3f4f6", padding: "12px 16px", background: "#fafafa" }}>
+                            {docCount === 0 ? (
+                              <div style={{ textAlign: "center", padding: "20px", color: "#9ca3af", fontSize: 13 }}>
+                                No documents yet — click "+ Add doc" above.
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                {DOC_TYPES.map(type => {
+                                  const typeDocs = (tenant.documents || []).filter(d => (d.type || d.category) === type);
+                                  if (typeDocs.length === 0) return null;
+                                  return (
+                                    <div key={type}>
+                                      <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>
+                                        {DOC_ICONS[type]} {type}
+                                      </div>
+                                      {typeDocs.map(doc => (
+                                        <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", borderRadius: 10, padding: "12px 14px", border: "1px solid #f3f4f6", marginBottom: 6 }}>
+                                          <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{doc.name}</div>
+                                            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Added {doc.date}</div>
+                                          </div>
+                                          {doc.url && (
+                                            <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                                              style={{ padding: "6px 12px", borderRadius: 8, border: "1.5px solid #4caf7d", background: "#fff", fontSize: 12, color: "#1b3d2a", fontWeight: 600, textDecoration: "none" }}>
+                                              View →
+                                            </a>
+                                          )}
+                                          <button onClick={() => handleRemove(tenant.id, doc.id)}
+                                            style={{ padding: "6px 10px", borderRadius: 8, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 12, color: "#dc2626", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                                            Remove
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ padding: "7px 14px", borderRadius: 8, border: "1.5px solid #4caf7d", background: "#fff", fontSize: 12, color: "#1b3d2a", fontWeight: 600, textDecoration: "none", cursor: "pointer" }}>View →</a>
-              <button onClick={() => handleRemove(doc.tenantId, doc.id)} style={{ padding: "7px 12px", borderRadius: 8, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 12, color: "#dc2626", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+            );
+          })}
 
-function FilterBtn({ label, active, onClick }) {
-  return (
-    <button onClick={onClick} style={{
-      padding: "7px 14px", borderRadius: 8, cursor: "pointer",
-      border: active ? "none" : "1.5px solid #e5e7eb",
-      background: active ? "#1b3d2a" : "#fff",
-      color: active ? "#fff" : "#6b7280",
-      fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500,
-    }}>{label}</button>
+        {/* Unassigned tenants section */}
+        {unassignedTenants.filter(t => !search || t.name.toLowerCase().includes(searchLower)).length > 0 && (
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.7px" }}>Unassigned tenants</div>
+            </div>
+            <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {unassignedTenants
+                .filter(t => !search || t.name.toLowerCase().includes(searchLower))
+                .map(tenant => {
+                  const docCount = (tenant.documents || []).length;
+                  const isTenantExpanded = expandedTenants[tenant.id];
+                  return (
+                    <div key={tenant.id} style={{ background: "#fafafa", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+                      <div onClick={() => toggleTenant(tenant.id)} style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+                        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#f0f9f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#1b3d2a", flexShrink: 0 }}>
+                          {tenant.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>📁 {tenant.name}</div>
+                          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>{docCount} document{docCount !== 1 ? "s" : ""} · No property assigned</div>
+                        </div>
+                        <button onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, tenantId: String(tenant.id) })); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                          style={{ ...outlineBtn, fontSize: 12, color: "#1b3d2a", borderColor: "#4caf7d", marginRight: 8 }}>
+                          + Add doc
+                        </button>
+                        <span style={{ fontSize: 13, color: "#9ca3af" }}>{isTenantExpanded ? "▲" : "▼"}</span>
+                      </div>
+                      {isTenantExpanded && (
+                        <div style={{ borderTop: "1px solid #f3f4f6", padding: "12px 16px" }}>
+                          {docCount === 0 ? (
+                            <div style={{ textAlign: "center", padding: "16px", color: "#9ca3af", fontSize: 13 }}>No documents yet.</div>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                              {(tenant.documents || []).map(doc => (
+                                <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", borderRadius: 10, padding: "12px 14px", border: "1px solid #f3f4f6" }}>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600 }}>{doc.name}</div>
+                                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{doc.type} · Added {doc.date}</div>
+                                  </div>
+                                  {doc.url && <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ padding: "6px 12px", borderRadius: 8, border: "1.5px solid #4caf7d", background: "#fff", fontSize: 12, color: "#1b3d2a", fontWeight: 600, textDecoration: "none" }}>View →</a>}
+                                  <button onClick={() => handleRemove(tenant.id, doc.id)} style={{ padding: "6px 10px", borderRadius: 8, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 12, color: "#dc2626", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {propertyRows.filter(({ prop, tenant }) => matchesProp(prop, tenant)).length === 0 &&
+          unassignedTenants.filter(t => !search || t.name.toLowerCase().includes(searchLower)).length === 0 && (
+          <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>No results found</div>
+            <div style={{ fontSize: 14, color: "#6b7280" }}>Try searching by a different name or address.</div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -245,4 +417,5 @@ function Label({ children }) {
 }
 
 const greenBtn = { background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" };
+const outlineBtn = { padding: "7px 12px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#6b7280" };
 const selectSt = { padding: "10px 12px", borderRadius: 9, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a" };
