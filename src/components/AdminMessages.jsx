@@ -86,6 +86,7 @@ export default function AdminMessages({ tenants }) {
       to_name: recipientName,
       message: msg.trim(),
       image_url: imageUrl,
+      file_name: imageFile ? imageFile.name : null,
       sender: "admin",
       date,
     }).select().single();
@@ -113,6 +114,7 @@ export default function AdminMessages({ tenants }) {
       to_name: selectedTenant.name,
       message: replyMsg.trim(),
       image_url: imageUrl,
+      file_name: replyImage ? replyImage.name : null,
       sender: "admin",
       date,
     }).select().single();
@@ -224,7 +226,13 @@ export default function AdminMessages({ tenants }) {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{tenant.name}</div>
                       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                        {lastMsg.image_url && !lastMsg.message ? "📷 Photo" : lastMsg.message?.slice(0, 50)}{lastMsg.message?.length > 50 ? "..." : ""}
+                        {lastMsg.image_url && !lastMsg.message ? (() => {
+                        const name = lastMsg.file_name || "";
+                        const isVideo = name.match(/\.(mp4|mov|webm|ogg)$/i);
+                        const isImage = name.match(/\.(jpg|jpeg|png|gif|webp|heic)$/i);
+                        const emoji = isVideo ? "🎥" : isImage ? "📷" : "📎";
+                        return `${emoji} ${name || "Attachment"}`;
+                      })() : lastMsg.message?.slice(0, 50)}{lastMsg.message?.length > 50 ? "..." : ""}
                       </div>
                     </div>
                     <div style={{ fontSize: 11, color: "#9ca3af" }}>{lastMsg.date || new Date(lastMsg.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
@@ -260,7 +268,8 @@ export default function AdminMessages({ tenants }) {
                             const isImage = url.includes(".jpg") || url.includes(".jpeg") || url.includes(".png") || url.includes(".gif") || url.includes(".webp") || url.includes(".heic");
                             if (isVideo) return <video src={url} controls style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} />;
                             if (isImage) return <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt="attachment" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 8, display: "block", marginBottom: m.message ? 8 : 0 }} /></a>;
-                            return <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: isAdmin ? "#a7f3d0" : "#1b3d2a", fontSize: 13, fontWeight: 600, textDecoration: "underline", marginBottom: m.message ? 6 : 0 }}>📎 View attachment</a>;
+                            const emoji = url.match(/\.(mp4|mov|webm|ogg)/i) ? "🎥" : url.match(/\.(jpg|jpeg|png|gif|webp|heic)/i) ? "📷" : "📎";
+                    return <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: isAdmin ? "#a7f3d0" : "#1b3d2a", fontSize: 13, fontWeight: 600, textDecoration: "underline", marginBottom: m.message ? 6 : 0 }}>{emoji} {m.file_name || "View attachment"}</a>;
                           })()}
                           {m.message && <span>{m.message}</span>}
                         </div>
