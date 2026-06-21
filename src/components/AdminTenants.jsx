@@ -1,16 +1,9 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 
-const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent: "", leaseStart: "", leaseEnd: "", notes: "", public_note: "", deposit: "", section8: false, section8Amount: "", tenantPortion: "", monthToMonth: false };
+const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent: "", leaseStart: "", leaseEnd: "", notes: "", public_note: "", deposit: "", section8: false, section8Amount: "", tenantPortion: "", monthToMonth: false, loginEmail: "" };
 const DOC_CATEGORIES = ["Lease agreement", "Move-in inspection", "Community rules", "Other"];
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
-// Tenant email → password map (stored in App.jsx but we show it here for admin)
-const TENANT_PASSWORDS = {
-  "gthorntonjr51@gmail.com": "GaryTenant2026!",
-  "apate636@icloud.com": "AngelisaTenant2026!",
-  "timmylapearl92@gmail.com": "DanielleTenant2026!",
-};
 
 async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   if (!leaseStart || !leaseEnd || !rent) return 0;
@@ -67,6 +60,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [accessSaved, setAccessSaved] = useState(false);
+  const [savingAccess, setSavingAccess] = useState(false);
 
   const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); setRegenMsg(null); setShowAccess(false); };
   const openEdit = (t) => {
@@ -76,6 +70,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       rent: String(t.rent || ""),
       deposit: String(t.deposit || ""),
       email: t.email || "",
+      loginEmail: t.login_email || t.email || "",
       phone: t.phone || "",
       leaseStart: t.leaseStart || t.lease_start || "",
       leaseEnd: t.leaseEnd || t.lease_end || "",
@@ -93,13 +88,17 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   };
   const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); setRegenMsg(null); setShowAccess(false); };
 
+  // Portal access (login email + password) is now fully independent from the contact email field.
+  // This only updates login_email and portal_password — never touches the main "email" column.
   const handleSaveAccess = async () => {
-    if (!editing || !form.email) return;
-    const updates = { email: form.email, updated_at: new Date().toISOString() };
+    if (!editing || !form.loginEmail) return;
+    setSavingAccess(true);
+    const updates = { login_email: form.loginEmail.trim(), updated_at: new Date().toISOString() };
     if (newPassword.trim()) updates.portal_password = newPassword.trim();
     await supabase.from("tenants").update(updates).eq("id", editing);
-    setTenants(tenants.map(t => t.id === editing ? { ...t, email: form.email, portal_password: newPassword || t.portal_password } : t));
+    setTenants(tenants.map(t => t.id === editing ? { ...t, login_email: form.loginEmail.trim(), portal_password: newPassword || t.portal_password } : t));
     setAccessSaved(true);
+    setSavingAccess(false);
     setTimeout(() => setAccessSaved(false), 3000);
     setNewPassword("");
   };
@@ -119,8 +118,15 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       month_to_month: Boolean(form.monthToMonth),
       emergency: "(330) 969-6464", contact_email: "tenants@giholdings.com",
       updated_at: new Date().toISOString(),
+      // NOTE: login_email is intentionally NOT included here.
+      // It is only ever updated via handleSaveAccess (Portal access credentials section).
     };
     if (editing) {
+      // For brand-new tenants without a login_email yet, default it once to match contact email.
+      const existing = tenants.find(t => t.id === editing);
+      if (existing && !existing.login_email) {
+        tenantData.login_email = form.email || "";
+      }
       await supabase.from("tenants").update(tenantData).eq("id", editing);
       const { data: fresh } = await supabase.from("tenants").select("*").eq("id", editing).single();
       if (fresh) {
@@ -131,7 +137,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
         } : t));
       }
     } else {
-      const { data } = await supabase.from("tenants").insert({ ...tenantData, paid: false, documents: [] }).select().single();
+      // New tenant: login_email defaults to contact email on creation only.
+      const { data } = await supabase.from("tenants").insert({ ...tenantData, login_email: form.email || "", paid: false, documents: [] }).select().single();
       if (data) {
         setTenants([...tenants, { ...data, leaseStart: data.lease_start, leaseEnd: data.lease_end, section8Amount: data.section8_amount, tenantPortion: data.tenant_portion, monthToMonth: data.month_to_month }]);
       }
@@ -151,7 +158,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
 
   const handleRemove = async (id, name) => {
     if (window.confirm(`Remove ${name}? This cannot be undone.`)) {
-      // Update the property that had this tenant → set to vacant BEFORE deleting tenant
       await supabase
         .from("properties")
         .update({ tenant_id: null, status: "vacant", planner_stage: "vacant" })
@@ -199,9 +205,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     } catch { return null; }
   })();
 
-  // Get current password for tenant being edited
   const currentTenant = tenants.find(t => t.id === editing);
-  const currentPassword = currentTenant?.portal_password || TENANT_PASSWORDS[currentTenant?.email] || "—";
+  const currentPassword = currentTenant?.portal_password || "—";
 
   return (
     <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
@@ -224,10 +229,13 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             <FormField label="Monthly rent ($)" value={form.rent} onChange={v => setForm({ ...form, rent: v })} placeholder="e.g. 900" type="number" />
             <FormField label="Property address" value={form.address} onChange={v => setForm({ ...form, address: v })} placeholder="510 W Evergreen Ave, Youngstown OH" />
             <FormField label="Security deposit ($)" value={form.deposit} onChange={v => setForm({ ...form, deposit: v })} placeholder="e.g. 850" type="number" />
-            <FormField label="Email" value={form.email || ""} onChange={v => setForm({ ...form, email: v })} placeholder="tenant@email.com" type="email" />
+            <FormField label="Contact email" value={form.email || ""} onChange={v => setForm({ ...form, email: v })} placeholder="tenant@email.com" type="email" />
             <FormField label="Phone" value={form.phone || ""} onChange={v => setForm({ ...form, phone: v })} placeholder="(330) 555-0000" />
             <FormField label="Lease start" value={form.leaseStart || ""} onChange={v => setForm({ ...form, leaseStart: v })} type="date" />
             <FormField label="Lease end" value={form.leaseEnd || ""} onChange={v => setForm({ ...form, leaseEnd: v })} type="date" disabled={form.monthToMonth} />
+          </div>
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: -8, marginBottom: 14 }}>
+            ℹ️ "Contact email" is just for your records — it does NOT change the tenant's portal login. Update login credentials in the section below.
           </div>
 
           {/* Month-to-month toggle */}
@@ -280,7 +288,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             )}
           </div>
 
-          {/* Portal access section — only shown when editing */}
+          {/* Portal access section — fully independent from contact email above */}
           {editing && (
             <div style={{ marginBottom: 14 }}>
               <button onClick={() => setShowAccess(!showAccess)} style={{
@@ -294,7 +302,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   <div style={{ textAlign: "left" }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: showAccess ? "#fff" : "#1a1a1a" }}>Portal access credentials</div>
                     <div style={{ fontSize: 12, color: showAccess ? "rgba(255,255,255,0.6)" : "#9ca3af", marginTop: 1 }}>
-                      {form.email || "No email set"}
+                      {currentTenant?.login_email || form.loginEmail || "No login set"}
                     </div>
                   </div>
                 </div>
@@ -303,14 +311,17 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
 
               {showAccess && (
                 <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "16px" }}>
+                  <div style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+                    ⚠️ This is the email & password the tenant uses to sign in. Changing it here does NOT affect the contact email above, and vice versa.
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                     <div>
                       <Label>Login email</Label>
                       <input
-                        value={form.email || ""}
-                        onChange={e => setForm({ ...form, email: e.target.value })}
+                        value={form.loginEmail || ""}
+                        onChange={e => setForm({ ...form, loginEmail: e.target.value })}
                         style={inputSt}
-                        placeholder="tenant@email.com"
+                        placeholder="login@email.com"
                       />
                     </div>
                     <div>
@@ -339,8 +350,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                     />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <button onClick={handleSaveAccess} style={{ ...greenBtn, fontSize: 13, padding: "9px 18px" }}>
-                      {accessSaved ? "✅ Saved!" : "Save credentials"}
+                    <button onClick={handleSaveAccess} disabled={savingAccess} style={{ ...greenBtn, fontSize: 13, padding: "9px 18px" }}>
+                      {savingAccess ? "Saving..." : accessSaved ? "✅ Saved!" : "Save login credentials"}
                     </button>
                     <div style={{ fontSize: 12, color: "#9ca3af" }}>
                       Tenant logs in at giholdingsllc.com with this email & password
