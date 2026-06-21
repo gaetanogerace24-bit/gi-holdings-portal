@@ -97,7 +97,7 @@ export default function AdminSettings() {
       </Section>
 
       <Section title="🔔 Automatic rent reminders">
-        <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" hint={`e.g. 3 days before the ${settings.rentDueDay}st`} />
+        <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" />
       </Section>
 
       <Section title="🔐 Owner login credentials">
