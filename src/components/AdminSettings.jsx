@@ -51,13 +51,25 @@ export default function AdminSettings() {
   const handleSave = async () => {
     setStatus("saving");
     try {
+      // Pull the currently-saved reminder value so this button never overwrites it —
+      // that field is only ever changed via its own "Save reminder setting" button.
+      const { data: existing } = await supabase
+        .from("settings")
+        .select("value")
+        .eq("key", "portal_settings")
+        .maybeSingle();
+      const preservedReminder = existing?.value?.reminderDaysBefore ?? settings.reminderDaysBefore;
+      const payload = { ...settings, reminderDaysBefore: preservedReminder };
+
       const { error } = await supabase
         .from("settings")
         .upsert(
-          { key: "portal_settings", value: settings, updated_at: new Date().toISOString() },
+          { key: "portal_settings", value: payload, updated_at: new Date().toISOString() },
           { onConflict: "key" }
         );
       if (error) throw error;
+      // Keep local state in sync with what was actually saved
+      setSettings(s => ({ ...s, reminderDaysBefore: preservedReminder }));
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 3000);
     } catch (e) {
@@ -86,6 +98,9 @@ export default function AdminSettings() {
           { onConflict: "key" }
         );
       if (error) throw error;
+      // Sync local state with everything that's actually in the DB now,
+      // so the "Save settings" button below won't show stale unsaved values for other fields.
+      setSettings(merged);
       setReminderStatus("saved");
       setTimeout(() => setReminderStatus("idle"), 3000);
     } catch (e) {
