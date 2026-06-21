@@ -97,7 +97,7 @@ export default function App() {
       section8Amount: t.section8_amount, tenantPortion: t.tenant_portion,
       housingOwedBack: t.housing_owed_back, leaseStart: t.lease_start, leaseEnd: t.lease_end,
       contactEmail: t.contact_email, documents: t.documents || [],
-      monthToMonth: t.month_to_month,
+      monthToMonth: t.month_to_month, loginEmail: t.login_email,
     };
   }
 
@@ -113,7 +113,7 @@ export default function App() {
       setScreen("admin");
       return true;
     }
-    const matchedTenant = tenants.find(t => t.email?.toLowerCase().trim() === lowerEmail);
+    const matchedTenant = tenants.find(t => (t.login_email || t.email)?.toLowerCase().trim() === lowerEmail);
     if (matchedTenant) {
       if (!matchedTenant.portal_password) {
         setLoginError("Your account doesn't have a password set yet. Contact your landlord.");
