@@ -17,6 +17,7 @@ const DEFAULTS = {
 export default function AdminSettings() {
   const [settings, setSettings] = useState(null); // null = loading
   const [status, setStatus] = useState("idle");
+  const [reminderStatus, setReminderStatus] = useState("idle");
 
   useEffect(() => {
     async function load() {
@@ -66,6 +67,34 @@ export default function AdminSettings() {
     }
   };
 
+  // Saves ONLY the reminder setting — independent from the main "Save settings" button
+  const handleSaveReminder = async () => {
+    setReminderStatus("saving");
+    try {
+      // Fetch latest saved settings first so we don't overwrite other fields with stale local state
+      const { data } = await supabase
+        .from("settings")
+        .select("value")
+        .eq("key", "portal_settings")
+        .maybeSingle();
+      const latest = { ...DEFAULTS, ...(data?.value || {}) };
+      const merged = { ...latest, reminderDaysBefore: settings.reminderDaysBefore };
+      const { error } = await supabase
+        .from("settings")
+        .upsert(
+          { key: "portal_settings", value: merged, updated_at: new Date().toISOString() },
+          { onConflict: "key" }
+        );
+      if (error) throw error;
+      setReminderStatus("saved");
+      setTimeout(() => setReminderStatus("idle"), 3000);
+    } catch (e) {
+      console.error("Save failed:", e);
+      setReminderStatus("error");
+      setTimeout(() => setReminderStatus("idle"), 3000);
+    }
+  };
+
   return (
     <div className="admin-page-content" style={{ padding: 28, maxWidth: 740, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
@@ -98,6 +127,15 @@ export default function AdminSettings() {
 
       <Section title="🔔 Automatic rent reminders">
         <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" />
+        <button onClick={handleSaveReminder} disabled={reminderStatus === "saving"} style={{
+          marginTop: 16,
+          background: reminderStatus === "saved" ? "#4caf7d" : reminderStatus === "error" ? "#dc2626" : reminderStatus === "saving" ? "#9ca3af" : "#1b3d2a",
+          color: "#fff", border: "none", borderRadius: 10, padding: "11px 22px",
+          fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700,
+          cursor: reminderStatus === "saving" ? "not-allowed" : "pointer", transition: "background 0.2s",
+        }}>
+          {reminderStatus === "saving" ? "Saving..." : reminderStatus === "saved" ? "✅ Saved!" : reminderStatus === "error" ? "❌ Error — try again" : "Save reminder setting"}
+        </button>
       </Section>
 
       <Section title="🔐 Owner login credentials">
