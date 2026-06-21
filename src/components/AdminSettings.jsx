@@ -10,9 +10,6 @@ const DEFAULTS = {
   initialLateFee: "35",
   dailyLateFee: "10",
   reminderDaysBefore: "3",
-  reminderOnDueDate: true,
-  reminderWhenLate: true,
-  reminderDailyWhileLate: false,
   adminEmail: "gaetano@giholdings.com",
   adminPassword: "GIHoldings2026!",
 };
@@ -99,25 +96,11 @@ export default function AdminSettings() {
         </Grid>
       </Section>
 
-      <Section title="🔔 Automatic reminders">
-        <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" hint={`e.g. 3 days before the ${settings.rentDueDay}st`} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
-          {[
-            ["reminderOnDueDate", "Send reminder on rent due date"],
-            ["reminderWhenLate", "Send reminder when payment is overdue"],
-            ["reminderDailyWhileLate", "Send daily reminder while late (until paid)"],
-          ].map(([key, label]) => (
-            <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#f9fafb", borderRadius: 10 }}>
-              <span style={{ fontSize: 14 }}>{label}</span>
-              <div onClick={() => update(key, !settings[key])} style={{
-                width: 44, height: 24, borderRadius: 12, cursor: "pointer",
-                background: settings[key] ? "#1b3d2a" : "#d1d5db", position: "relative", transition: "background 0.2s",
-              }}>
-                <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: settings[key] ? 23 : 3, transition: "left 0.2s" }} />
-              </div>
-            </div>
-          ))}
+      <Section title="🔔 Automatic rent reminders">
+        <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#166534" }}>
+          ✅ Reminders are sent automatically — on the due date, when overdue, and daily while late. Use the field below to also notify tenants ahead of time.
         </div>
+        <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" hint={`e.g. 3 days before the ${settings.rentDueDay}st`} />
       </Section>
 
       <Section title="🔐 Owner login credentials">
