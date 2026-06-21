@@ -97,9 +97,6 @@ export default function AdminSettings() {
       </Section>
 
       <Section title="🔔 Automatic rent reminders">
-        <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#166534" }}>
-          ✅ Reminders are sent automatically — on the due date, when overdue, and daily while late. Use the field below to also notify tenants ahead of time.
-        </div>
         <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" hint={`e.g. 3 days before the ${settings.rentDueDay}st`} />
       </Section>
 
