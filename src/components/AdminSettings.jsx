@@ -14,10 +14,32 @@ const DEFAULTS = {
   adminPassword: "GIHoldings2026!",
 };
 
+// Generic helper: merges only the given keys into whatever is currently saved in the DB,
+// so each section's save button never touches fields outside its own section.
+async function saveFields(fields) {
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "portal_settings")
+    .maybeSingle();
+  const latest = { ...DEFAULTS, ...(data?.value || {}) };
+  const merged = { ...latest, ...fields };
+  const { error } = await supabase
+    .from("settings")
+    .upsert(
+      { key: "portal_settings", value: merged, updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    );
+  if (error) throw error;
+  return merged;
+}
+
 export default function AdminSettings() {
   const [settings, setSettings] = useState(null); // null = loading
-  const [status, setStatus] = useState("idle");
+  const [companyStatus, setCompanyStatus] = useState("idle");
+  const [rentStatus, setRentStatus] = useState("idle");
   const [reminderStatus, setReminderStatus] = useState("idle");
+  const [ownerStatus, setOwnerStatus] = useState("idle");
 
   useEffect(() => {
     async function load() {
@@ -48,58 +70,53 @@ export default function AdminSettings() {
 
   const update = (key, val) => setSettings(s => ({ ...s, [key]: val }));
 
-  const handleSave = async () => {
-    setStatus("saving");
-    try {
-      // Pull the currently-saved reminder value so this button never overwrites it —
-      // that field is only ever changed via its own "Save reminder setting" button.
-      const { data: existing } = await supabase
-        .from("settings")
-        .select("value")
-        .eq("key", "portal_settings")
-        .maybeSingle();
-      const preservedReminder = existing?.value?.reminderDaysBefore ?? settings.reminderDaysBefore;
-      const payload = { ...settings, reminderDaysBefore: preservedReminder };
+  // ── Each section below saves ONLY its own fields, and syncs the rest of
+  //    local state with whatever else is currently in the DB afterward, so
+  //    no section can ever overwrite another section's unsaved or saved data.
 
-      const { error } = await supabase
-        .from("settings")
-        .upsert(
-          { key: "portal_settings", value: payload, updated_at: new Date().toISOString() },
-          { onConflict: "key" }
-        );
-      if (error) throw error;
-      // Keep local state in sync with what was actually saved
-      setSettings(s => ({ ...s, reminderDaysBefore: preservedReminder }));
-      setStatus("saved");
-      setTimeout(() => setStatus("idle"), 3000);
+  const handleSaveCompany = async () => {
+    setCompanyStatus("saving");
+    try {
+      const merged = await saveFields({
+        companyName: settings.companyName,
+        email: settings.email,
+        phone: settings.phone,
+        city: settings.city,
+      });
+      setSettings(merged);
+      setCompanyStatus("saved");
+      setTimeout(() => setCompanyStatus("idle"), 3000);
     } catch (e) {
       console.error("Save failed:", e);
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 3000);
+      setCompanyStatus("error");
+      setTimeout(() => setCompanyStatus("idle"), 3000);
     }
   };
 
-  // Saves ONLY the reminder setting — independent from the main "Save settings" button
+  const handleSaveRent = async () => {
+    setRentStatus("saving");
+    try {
+      const merged = await saveFields({
+        rentDueDay: settings.rentDueDay,
+        initialLateFee: settings.initialLateFee,
+        dailyLateFee: settings.dailyLateFee,
+      });
+      setSettings(merged);
+      setRentStatus("saved");
+      setTimeout(() => setRentStatus("idle"), 3000);
+    } catch (e) {
+      console.error("Save failed:", e);
+      setRentStatus("error");
+      setTimeout(() => setRentStatus("idle"), 3000);
+    }
+  };
+
   const handleSaveReminder = async () => {
     setReminderStatus("saving");
     try {
-      // Fetch latest saved settings first so we don't overwrite other fields with stale local state
-      const { data } = await supabase
-        .from("settings")
-        .select("value")
-        .eq("key", "portal_settings")
-        .maybeSingle();
-      const latest = { ...DEFAULTS, ...(data?.value || {}) };
-      const merged = { ...latest, reminderDaysBefore: settings.reminderDaysBefore };
-      const { error } = await supabase
-        .from("settings")
-        .upsert(
-          { key: "portal_settings", value: merged, updated_at: new Date().toISOString() },
-          { onConflict: "key" }
-        );
-      if (error) throw error;
-      // Sync local state with everything that's actually in the DB now,
-      // so the "Save settings" button below won't show stale unsaved values for other fields.
+      const merged = await saveFields({
+        reminderDaysBefore: settings.reminderDaysBefore,
+      });
       setSettings(merged);
       setReminderStatus("saved");
       setTimeout(() => setReminderStatus("idle"), 3000);
@@ -107,6 +124,23 @@ export default function AdminSettings() {
       console.error("Save failed:", e);
       setReminderStatus("error");
       setTimeout(() => setReminderStatus("idle"), 3000);
+    }
+  };
+
+  const handleSaveOwner = async () => {
+    setOwnerStatus("saving");
+    try {
+      const merged = await saveFields({
+        adminEmail: settings.adminEmail,
+        adminPassword: settings.adminPassword,
+      });
+      setSettings(merged);
+      setOwnerStatus("saved");
+      setTimeout(() => setOwnerStatus("idle"), 3000);
+    } catch (e) {
+      console.error("Save failed:", e);
+      setOwnerStatus("error");
+      setTimeout(() => setOwnerStatus("idle"), 3000);
     }
   };
 
@@ -124,6 +158,7 @@ export default function AdminSettings() {
           <Field label="Phone number" value={settings.phone} onChange={v => update("phone", v)} />
           <Field label="State" value={settings.city} onChange={v => update("city", v)} />
         </Grid>
+        <SaveButton status={companyStatus} onClick={handleSaveCompany} label="Save company info" />
       </Section>
 
       <Section title="💰 Rent & late fee rules">
@@ -138,19 +173,12 @@ export default function AdminSettings() {
           <Field label="Initial late fee ($)" value={settings.initialLateFee} onChange={v => update("initialLateFee", v)} type="number" hint="Charged on the 5th of the month" />
           <Field label="Daily late fee ($)" value={settings.dailyLateFee} onChange={v => update("dailyLateFee", v)} type="number" hint="Per day after the 5th until paid" />
         </Grid>
+        <SaveButton status={rentStatus} onClick={handleSaveRent} label="Save rent & late fee rules" />
       </Section>
 
       <Section title="🔔 Automatic rent reminders">
         <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" />
-        <button onClick={handleSaveReminder} disabled={reminderStatus === "saving"} style={{
-          marginTop: 16,
-          background: reminderStatus === "saved" ? "#4caf7d" : reminderStatus === "error" ? "#dc2626" : reminderStatus === "saving" ? "#9ca3af" : "#1b3d2a",
-          color: "#fff", border: "none", borderRadius: 10, padding: "11px 22px",
-          fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700,
-          cursor: reminderStatus === "saving" ? "not-allowed" : "pointer", transition: "background 0.2s",
-        }}>
-          {reminderStatus === "saving" ? "Saving..." : reminderStatus === "saved" ? "✅ Saved!" : reminderStatus === "error" ? "❌ Error — try again" : "Save reminder setting"}
-        </button>
+        <SaveButton status={reminderStatus} onClick={handleSaveReminder} label="Save reminder setting" />
       </Section>
 
       <Section title="🔐 Owner login credentials">
@@ -161,17 +189,23 @@ export default function AdminSettings() {
           <Field label="Owner email" value={settings.adminEmail} onChange={v => update("adminEmail", v)} type="email" />
           <Field label="Owner password" value={settings.adminPassword} onChange={v => update("adminPassword", v)} />
         </Grid>
+        <SaveButton status={ownerStatus} onClick={handleSaveOwner} label="Save owner login" />
       </Section>
-
-      <button onClick={handleSave} disabled={status === "saving"} style={{
-        background: status === "saved" ? "#4caf7d" : status === "error" ? "#dc2626" : status === "saving" ? "#9ca3af" : "#1b3d2a",
-        color: "#fff", border: "none", borderRadius: 12, padding: "14px 36px",
-        fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 700,
-        cursor: status === "saving" ? "not-allowed" : "pointer", transition: "background 0.2s",
-      }}>
-        {status === "saving" ? "Saving..." : status === "saved" ? "✅ Saved!" : status === "error" ? "❌ Error — try again" : "Save settings"}
-      </button>
     </div>
+  );
+}
+
+function SaveButton({ status, onClick, label }) {
+  return (
+    <button onClick={onClick} disabled={status === "saving"} style={{
+      marginTop: 16,
+      background: status === "saved" ? "#4caf7d" : status === "error" ? "#dc2626" : status === "saving" ? "#9ca3af" : "#1b3d2a",
+      color: "#fff", border: "none", borderRadius: 10, padding: "11px 22px",
+      fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700,
+      cursor: status === "saving" ? "not-allowed" : "pointer", transition: "background 0.2s",
+    }}>
+      {status === "saving" ? "Saving..." : status === "saved" ? "✅ Saved!" : status === "error" ? "❌ Error — try again" : label}
+    </button>
   );
 }
 
