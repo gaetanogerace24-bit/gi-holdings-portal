@@ -55,13 +55,15 @@ export default function AdminMessages({ tenants }) {
 
   // Notifies the tenant by email + SMS whenever the admin sends them a portal message.
   // Fire-and-forget — failures here should never block the message from being saved.
+  // Uses supabase.functions.invoke() instead of raw fetch() so the anon key/auth header
+  // is attached automatically (the Edge Function has "Verify JWT" enabled, so a raw
+  // fetch with no Authorization header gets silently rejected with a 401).
   const notifyTenant = async (tenantId, message, imageUrl, fileName) => {
     try {
-      await fetch("https://hcakrtkqjxtyfmakaxkq.supabase.co/functions/v1/send-portal-message", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenant_id: tenantId, message, image_url: imageUrl, file_name: fileName }),
+      const { error } = await supabase.functions.invoke("send-portal-message", {
+        body: { tenant_id: tenantId, message, image_url: imageUrl, file_name: fileName },
       });
+      if (error) console.error("Failed to notify tenant:", error);
     } catch (e) {
       console.error("Failed to notify tenant:", e);
     }
