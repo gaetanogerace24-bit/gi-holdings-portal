@@ -486,7 +486,8 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onAr
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Current tenant</div>
         <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{tenant?.name}</div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{tenant?.contactEmail || tenant?.contact_email}</div>
+          {/* FIX: show the tenant's own email, not the company-wide contact_email */}
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{tenant?.email || tenant?.login_email || "—"}</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant?.phone || "—"}</div>
         </div>
       </div>
