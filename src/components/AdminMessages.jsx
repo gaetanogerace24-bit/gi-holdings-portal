@@ -53,6 +53,20 @@ export default function AdminMessages({ tenants }) {
     return data.publicUrl;
   };
 
+  // Notifies the tenant by email + SMS whenever the admin sends them a portal message.
+  // Fire-and-forget — failures here should never block the message from being saved.
+  const notifyTenant = async (tenantId, message, imageUrl, fileName) => {
+    try {
+      await fetch("https://hcakrtkqjxtyfmakaxkq.supabase.co/functions/v1/send-portal-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant_id: tenantId, message, image_url: imageUrl, file_name: fileName }),
+      });
+    } catch (e) {
+      console.error("Failed to notify tenant:", e);
+    }
+  };
+
   const handleImageSelect = (e) => {
     const f = e.target.files[0];
     if (!f) return;
@@ -90,6 +104,8 @@ export default function AdminMessages({ tenants }) {
       }));
       const { data } = await supabase.from("messages").insert(inserts).select();
       if (data) setMessages(prev => [...data, ...prev]);
+      // Notify every tenant by email + SMS
+      tenants.forEach(t => notifyTenant(t.id, msg.trim(), imageUrl, imageFile?.name));
     } else {
       const recipientName = tenants.find(t => String(t.id) === to)?.name || "Unknown";
       const { data } = await supabase.from("messages").insert({
@@ -102,6 +118,8 @@ export default function AdminMessages({ tenants }) {
         date,
       }).select().single();
       if (data) setMessages(prev => [data, ...prev]);
+      // Notify this tenant by email + SMS
+      notifyTenant(to, msg.trim(), imageUrl, imageFile?.name);
     }
 
     setSent(true);
@@ -132,6 +150,8 @@ export default function AdminMessages({ tenants }) {
       date,
     }).select().single();
     if (data) setMessages(prev => [data, ...prev]);
+    // Notify the tenant by email + SMS
+    notifyTenant(selectedTenant.id, replyMsg.trim(), imageUrl, replyImage?.name);
     setReplyMsg("");
     setReplyImage(null);
     setReplyImagePreview(null);
