@@ -230,7 +230,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             <FormField label="Property address" value={form.address} onChange={v => setForm({ ...form, address: v })} placeholder="510 W Evergreen Ave, Youngstown OH" />
             <FormField label="Security deposit ($)" value={form.deposit} onChange={v => setForm({ ...form, deposit: v })} placeholder="e.g. 850" type="number" />
             <FormField label="Contact email" value={form.email || ""} onChange={v => setForm({ ...form, email: v })} placeholder="tenant@email.com" type="email" />
-            <FormField label="Phone" value={form.phone || ""} onChange={v => setForm({ ...form, phone: v })} placeholder="(330) 555-0000" />
+            <FormField label={<>Phone <span style={{ color: "#9ca3af", fontWeight: 400, textTransform: "none" }}>(Add +1)</span></>} value={form.phone || ""} onChange={v => setForm({ ...form, phone: v })} placeholder="+1 (330) 555-0000" />
             <FormField label="Lease start" value={form.leaseStart || ""} onChange={v => setForm({ ...form, leaseStart: v })} type="date" />
             <FormField label="Lease end" value={form.leaseEnd || ""} onChange={v => setForm({ ...form, leaseEnd: v })} type="date" disabled={form.monthToMonth} />
           </div>
