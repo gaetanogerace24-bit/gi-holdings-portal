@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 
 const TEMPLATES = [
-  { label: "Rent reminder", text: "Hi! Just a reminder that rent is due on the 1st. Please submit your payment through the portal on time to avoid late fees. Thank you!" },
-  { label: "Late fee notice", text: "Hi, your rent is past due. A $35 late fee has been applied and an additional $10/day will accrue until your balance is paid. Please log in to pay now." },
   { label: "Maintenance update", text: "Hi! Your maintenance request has been updated. Please log into the G&I Holdings portal to check the latest status." },
   { label: "Lease renewal", text: "Your lease is coming up for renewal. Please reach out so we can discuss your options. We'd love to have you stay!" },
   { label: "Inspection notice", text: "We will be conducting a routine property inspection. We'll follow up with the scheduled date and time. Please let us know if you have any questions." },
