@@ -359,11 +359,27 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const filtered = invoices.filter(inv => {
     if (filter === "all") return true;
-    const parts = (inv.due_date || "").split("T")[0].split("-");
-    if (parts.length !== 3) return false;
-    const due = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
-    if (filter === "thismonth") return due.getMonth() === thisMonth.getMonth() && due.getFullYear() === thisMonth.getFullYear();
-    if (filter === "nextmonth") return due.getMonth() === nextMonth.getMonth() && due.getFullYear() === nextMonth.getFullYear();
+    if (filter === "nextmonth") {
+      const parts = (inv.due_date || "").split("T")[0].split("-");
+      if (parts.length !== 3) return false;
+      const due = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+      return due.getMonth() === nextMonth.getMonth() && due.getFullYear() === nextMonth.getFullYear();
+    }
+    if (filter === "thismonth") {
+      // FIX: filter completed invoices by PAID DATE (when money came in),
+      // not due date — so Gary paying May rent in July shows under July completed.
+      if (inv.paid && inv.paid_date) {
+        const pd = new Date(inv.paid_date);
+        if (!isNaN(pd)) {
+          return pd.getMonth() === thisMonth.getMonth() && pd.getFullYear() === thisMonth.getFullYear();
+        }
+      }
+      // fallback to due date if no paid_date
+      const parts = (inv.due_date || "").split("T")[0].split("-");
+      if (parts.length !== 3) return false;
+      const due = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+      return due.getMonth() === thisMonth.getMonth() && due.getFullYear() === thisMonth.getFullYear();
+    }
     return true;
   });
   const sorted = [...filtered].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
@@ -486,7 +502,6 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onAr
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Current tenant</div>
         <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{tenant?.name}</div>
-          {/* FIX: show the tenant's own email, not the company-wide contact_email */}
           <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{tenant?.email || tenant?.login_email || "—"}</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant?.phone || "—"}</div>
         </div>
@@ -648,7 +663,6 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     load();
   }, []);
 
-  // ── KEY FIX: reload invoices from Supabase ──────────────────────
   const reloadInvoices = async () => {
     const { data } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
     if (data) setInvoices(data);
@@ -671,7 +685,16 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     return due.getMonth() === nextMonthDate.getMonth() && due.getFullYear() === nextMonthDate.getFullYear();
   });
 
+  // FIX: "Completed this month" now filters by PAID DATE so late payments
+  // (e.g. May rent paid in July) show under the month money actually came in.
   const completedThisMonth = completedList.filter(i => {
+    if (i.paid_date) {
+      const pd = new Date(i.paid_date);
+      if (!isNaN(pd)) {
+        return pd.getMonth() === now.getMonth() && pd.getFullYear() === now.getFullYear();
+      }
+    }
+    // fallback: use due date if no paid_date recorded
     const parts = (i.due_date || "").split("T")[0].split("-");
     if (parts.length !== 3) return false;
     const due = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
@@ -709,12 +732,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
   const handleDelete = async (inv) => {
     await supabase.from("invoices").update({ deleted: true }).eq("id", inv.id);
-    // Also delete from custom_invoices if it's a custom charge
     if (inv.is_custom) {
-      await supabase.from("custom_invoices")
-        .delete()
-        .eq("tenant_id", inv.tenant_id)
-        .eq("amount", Number(inv.rent));
+      await supabase.from("custom_invoices").delete().eq("tenant_id", inv.tenant_id).eq("amount", Number(inv.rent));
       setSentInvoices(prev => prev.filter(i => !(i.tenant_id === inv.tenant_id && Number(i.amount) === Number(inv.rent))));
     }
     setInvoices(invoices.map(i => i.id === inv.id ? { ...i, deleted: true } : i));
@@ -734,20 +753,12 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   };
 
   const handleDeleteCustomInvoice = async (id) => {
-    // Get the custom invoice first so we can match it in invoices table
     const inv = sentInvoices.find(i => i.id === id);
-    // Delete from custom_invoices
     await supabase.from("custom_invoices").delete().eq("id", id);
-    // Also delete the matching row from invoices table
     if (inv) {
-      await supabase.from("invoices")
-        .delete()
-        .eq("tenant_id", inv.tenant_id)
-        .eq("is_custom", true)
-        .eq("rent", Number(inv.amount));
+      await supabase.from("invoices").delete().eq("tenant_id", inv.tenant_id).eq("is_custom", true).eq("rent", Number(inv.amount));
     }
     setSentInvoices(prev => prev.filter(i => i.id !== id));
-    // Reload invoices so the list updates instantly
     reloadInvoices();
   };
 
@@ -768,7 +779,6 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     <div className="admin-page-content" style={{ padding: 24, fontFamily: "'DM Sans', sans-serif", maxWidth: 580 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", margin: 0 }}>Rent Collection</h1>
-        
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
@@ -915,7 +925,6 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         </Sheet>
       )}
 
-      {/* ── KEY FIX: reloadInvoices called after sending so list updates instantly ── */}
       {showSendInvoice && (
         <SendInvoiceModal
           tenants={activeTenants}
