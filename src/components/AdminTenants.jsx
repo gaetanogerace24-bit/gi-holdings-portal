@@ -15,15 +15,15 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   const start = new Date(sy, sm - 1, 1);
   const end = new Date(ey, em - 1, 1);
   if (end <= start) return 0;
-  const today = new Date().toISOString().split("T")[0];
-  await supabase.from("invoices").delete().eq("tenant_id", tenantId).eq("paid", false).gt("due_date", today);
-  const invoicesToInsert = [];
+
+  // Build the full list of invoices this lease term should have
+  const allInvoices = [];
   const cursor = new Date(start);
   while (cursor < end) {
     const year = cursor.getFullYear();
     const monthNum = cursor.getMonth() + 1;
     const monthName = MONTH_NAMES[cursor.getMonth()];
-    invoicesToInsert.push({
+    allInvoices.push({
       tenant_id: tenantId, month: `${monthName} ${year}`, year, month_num: monthNum,
       rent: Number(rent), late_fee: 0, total: Number(rent), paid: false,
       due_date: `${year}-${String(monthNum).padStart(2, "0")}-01`,
@@ -35,15 +35,30 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   const daysInEndMonth = new Date(ey, em, 0).getDate();
   if (endDay > 1) {
     const proratedRent = Math.round((Number(rent) / daysInEndMonth) * endDay * 100) / 100;
-    invoicesToInsert.push({
+    allInvoices.push({
       tenant_id: tenantId, month: `${MONTH_NAMES[em - 1]} ${ey} (Prorated ${endDay} days)`,
       year: ey, month_num: em, rent: proratedRent, late_fee: 0, total: proratedRent, paid: false,
       due_date: `${ey}-${String(em).padStart(2, "0")}-01`,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     });
   }
-  if (invoicesToInsert.length > 0) await supabase.from("invoices").insert(invoicesToInsert);
-  return invoicesToInsert.length;
+
+  // Fetch existing invoices for this tenant so we never duplicate
+  const { data: existing } = await supabase
+    .from("invoices")
+    .select("due_date, paid")
+    .eq("tenant_id", tenantId);
+
+  const existingDates = new Set((existing || []).map(inv => inv.due_date));
+
+  // Only insert invoices whose due_date doesn't already exist (paid or unpaid)
+  const toInsert = allInvoices.filter(inv => !existingDates.has(inv.due_date));
+
+  if (toInsert.length > 0) {
+    await supabase.from("invoices").insert(toInsert);
+  }
+
+  return toInsert.length;
 }
 
 export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, onNavigateToDocuments }) {
@@ -152,7 +167,11 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     setRegenerating(true);
     const count = await generateLeaseInvoices(editing, form.leaseStart, form.leaseEnd, form.rent);
     if (onInvoicesChanged) await onInvoicesChanged();
-    setRegenMsg(`✅ ${count} invoice${count !== 1 ? "s" : ""} regenerated for the full lease term.`);
+    setRegenMsg(
+      count > 0
+        ? `✅ ${count} new invoice${count !== 1 ? "s" : ""} added for the extended lease term.`
+        : `✅ All invoices are already up to date — nothing to add.`
+    );
     setRegenerating(false);
   };
 
