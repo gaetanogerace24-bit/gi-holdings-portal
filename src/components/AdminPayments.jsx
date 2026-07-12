@@ -73,7 +73,7 @@ function SheetHeader({ title, onClose }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 20px 0" }}>
       <div style={{ fontSize: 17, fontWeight: 700 }}>{title}</div>
-      <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>✕</button>
+      <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#000" }}>✕</button>
     </div>
   );
 }
@@ -86,7 +86,7 @@ function TabBar({ tab, setTab, tabs }) {
           flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer",
           background: tab === t.key ? "#fff" : "transparent",
           fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
-          color: tab === t.key ? "#1f2937" : "#6b7280",
+          color: tab === t.key ? "#1f2937" : "#000",
           boxShadow: tab === t.key ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
         }}>{t.label}</button>
       ))}
@@ -100,7 +100,7 @@ function Badge({ status }) {
     overdue:   { color: "#dc2626", icon: "⏱",  label: "Overdue"  },
     completed: { color: "#16a34a", icon: "✓",  label: "Completed" },
     current:   { color: "#16a34a", icon: "✓",  label: "Current"  },
-    archived:  { color: "#6b7280", icon: "📦", label: "Archived"  },
+    archived:  { color: "#000", icon: "📦", label: "Archived"  },
   }[status] || { color: "#2563eb", icon: "📅", label: "Upcoming" };
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, color: cfg.color, border: `1.5px solid ${cfg.color}` }}>
@@ -127,9 +127,9 @@ function SummaryCard({ badgeColor, badgeLabel, badgeBorder, sub, amount, amountC
           {badgeLabel}
         </span>
       </div>
-      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 2 }}>{sub}</div>
+      <div style={{ fontSize: 12, color: "#000", marginBottom: 2 }}>{sub}</div>
       <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px", color: amountColor || "#1f2937" }}>{amount}</div>
-      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{count} ›</div>
+      <div style={{ fontSize: 12, color: "#000", marginTop: 4 }}>{count} ›</div>
     </div>
   );
 }
@@ -180,7 +180,7 @@ function PaymentTimeline({ inv }) {
     <div style={{ padding: "16px 0" }}>
       {events.map((ev, i) => (
         <div key={i} style={{ display: "flex", alignItems: "flex-start" }}>
-          <div style={{ width: 95, flexShrink: 0, fontSize: 11, color: "#6b7280", paddingTop: 1, textAlign: "right", paddingRight: 10 }}>
+          <div style={{ width: 95, flexShrink: 0, fontSize: 11, color: "#000", paddingTop: 1, textAlign: "right", paddingRight: 10 }}>
             {ev.date ? ev.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 16, flexShrink: 0 }}>
@@ -189,7 +189,7 @@ function PaymentTimeline({ inv }) {
           </div>
           <div style={{ flex: 1, paddingLeft: 10, paddingBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <span style={{ fontSize: 13, color: ev.color === "ghost" ? "#9ca3af" : "#1f2937", fontWeight: ev.bold ? 700 : 400 }}>{ev.label}</span>
-            {ev.expand && <span style={{ color: "#9ca3af", fontSize: 14, marginLeft: 8 }}>›</span>}
+            {ev.expand && <span style={{ color: "#000", fontSize: 14, marginLeft: 8 }}>›</span>}
           </div>
         </div>
       ))}
@@ -205,7 +205,7 @@ function InvoiceBreakdown({ inv }) {
   return (
     <div style={{ padding: "16px 0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
-        <span style={{ fontSize: 14, color: "#6b7280" }}>{inv?.is_custom ? "Charge amount" : "Monthly Rent"}</span>
+        <span style={{ fontSize: 14, color: "#000" }}>{inv?.is_custom ? "Charge amount" : "Monthly Rent"}</span>
         <span style={{ fontSize: 14, fontWeight: 600 }}>{fmt(rent)}</span>
       </div>
       {!inv?.is_custom && lateFee > 0 && <>
@@ -241,17 +241,17 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
       <SheetHeader title="Invoice details" onClose={onClose} />
       <div style={{ padding: "12px 20px 0" }}>
         <div style={{ fontSize: 17, fontWeight: 700 }}>{tenant?.address}</div>
-        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant?.name}</div>
+        <div style={{ fontSize: 13, color: "#000", marginTop: 2 }}>{tenant?.name}</div>
       </div>
       <div style={{ margin: "14px 20px", background: "#f9fafb", borderRadius: 12, padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-          <div style={{ fontSize: 13, color: "#6b7280" }}>{inv?.is_custom ? inv?.month?.split(" —")[0] : "Rent & Fees"}</div>
+          <div style={{ fontSize: 13, color: "#000" }}>{inv?.is_custom ? inv?.month?.split(" —")[0] : "Rent & Fees"}</div>
           <Badge status={status} />
         </div>
         <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 2 }}>{fmt(liveTotal)}</div>
-        <div style={{ fontSize: 13, color: "#6b7280" }}>Due {fmtDate(inv?.due_date)}</div>
+        <div style={{ fontSize: 13, color: "#000" }}>Due {fmtDate(inv?.due_date)}</div>
         {inv?.paid && liveFee > 0 && <div style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>Paid Late</div>}
-        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6 }}>Invoice {invoiceNum(inv?.id)}</div>
+        <div style={{ fontSize: 11, color: "#000", marginTop: 6 }}>Invoice {invoiceNum(inv?.id)}</div>
       </div>
 
       {!inv?.paid && !confirmDelete && (
@@ -271,7 +271,7 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
       {confirmUnpaid && (
         <div style={{ margin: "0 20px 10px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#92400e", marginBottom: 6 }}>Mark this invoice as unpaid?</div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>This will undo the payment and reset the invoice back to unpaid.</div>
+          <div style={{ fontSize: 13, color: "#000", marginBottom: 12 }}>This will undo the payment and reset the invoice back to unpaid.</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setConfirmUnpaid(false)} style={{ flex: 1, padding: 12, border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fff", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
             <button onClick={() => { onMarkUnpaid(inv); setConfirmUnpaid(false); }} style={{ flex: 1, padding: 12, border: "none", borderRadius: 10, background: "#d97706", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Yes, mark unpaid</button>
@@ -282,7 +282,7 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
       {confirmDelete && (
         <div style={{ margin: "0 20px 10px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#991b1b", marginBottom: 6 }}>Delete this invoice?</div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>This cannot be undone.</div>
+          <div style={{ fontSize: 13, color: "#000", marginBottom: 12 }}>This cannot be undone.</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: 12, border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fff", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
             <button onClick={() => onDelete(inv)} style={{ flex: 1, padding: 12, border: "none", borderRadius: 10, background: "#dc2626", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Delete</button>
@@ -308,20 +308,20 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
       <SheetHeader title="Invoices" onClose={onClose} />
       <div style={{ padding: "8px 20px 4px" }}>
         <div style={{ fontSize: 16, fontWeight: 700 }}>{tenant?.address}</div>
-        <div style={{ fontSize: 13, color: "#6b7280" }}>{tenant?.name}</div>
+        <div style={{ fontSize: 13, color: "#000" }}>{tenant?.name}</div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid #f3f4f6" }}>
         <div>
-          <div style={{ fontSize: 12, color: "#6b7280" }}>Total amount</div>
+          <div style={{ fontSize: 12, color: "#000" }}>Total amount</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(active.reduce((s, i) => s + (i.paid ? Number(i.total || i.rent) : Number(i.rent) + (i.is_custom ? 0 : calcLateFee(i.due_date))), 0))}</div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 12, color: "#6b7280" }}>Invoices</div>
+          <div style={{ fontSize: 12, color: "#000" }}>Invoices</div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{active.length}</div>
         </div>
       </div>
       <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
-        {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No invoices yet</div>}
+        {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#000" }}>No invoices yet</div>}
         {sorted.map((inv, i) => {
           const status = getStatus(inv);
           const isDeleted = inv.deleted;
@@ -332,12 +332,12 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: isDeleted ? "default" : "pointer", opacity: isDeleted ? 0.45 : 1 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: isDeleted ? "#9ca3af" : "#1f2937" }}>{label}</div>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>Due {fmtDate(inv.due_date)}</div>
+                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>Due {fmtDate(inv.due_date)}</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{fmt(liveTotal)}</div>
                 <div style={{ fontSize: 12, marginTop: 3 }}>
-                  {isDeleted ? <span style={{ color: "#9ca3af" }}>🗑 Deleted</span>
+                  {isDeleted ? <span style={{ color: "#000" }}>🗑 Deleted</span>
                     : status === "completed" ? <span style={{ color: "#16a34a" }}>✓ Completed {inv.paid_date ? fmtDate(inv.paid_date) : ""}</span>
                     : status === "overdue" ? <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>
                     : <span style={{ color: "#2563eb" }}>📅 Upcoming</span>}
@@ -392,15 +392,15 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
       <SheetHeader title={title} onClose={onClose} />
       <div style={{ display: "flex", margin: "12px 20px 0", background: "#f3f4f6", borderRadius: 10, padding: 3 }}>
         {filterBtns.map(btn => (
-          <button key={btn.key} onClick={() => setFilter(btn.key)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: filter === btn.key ? "#fff" : "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: filter === btn.key ? "#1f2937" : "#6b7280", boxShadow: filter === btn.key ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>{btn.label}</button>
+          <button key={btn.key} onClick={() => setFilter(btn.key)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: filter === btn.key ? "#fff" : "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: filter === btn.key ? "#1f2937" : "#000", boxShadow: filter === btn.key ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>{btn.label}</button>
         ))}
       </div>
       <div style={{ padding: "8px 20px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 13, color: "#6b7280" }}>{sorted.length} invoice{sorted.length !== 1 ? "s" : ""}</div>
+        <div style={{ fontSize: 13, color: "#000" }}>{sorted.length} invoice{sorted.length !== 1 ? "s" : ""}</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#1f2937" }}>{fmt(totalAmt)}</div>
       </div>
       <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "8px 20px", overflow: "hidden" }}>
-        {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No invoices</div>}
+        {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#000" }}>No invoices</div>}
         {sorted.map((inv, i) => {
           const tenant = tenants.find(t => t.id === inv.tenant_id);
           const status = getStatus(inv);
@@ -411,8 +411,8 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer" }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>{tenant?.name}</div>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{label} · {tenant?.address}</div>
-                <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>Due {fmtDate(inv.due_date)}</div>
+                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{label} · {tenant?.address}</div>
+                <div style={{ fontSize: 12, color: "#000", marginTop: 1 }}>Due {fmtDate(inv.due_date)}</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: status === "overdue" ? "#dc2626" : status === "completed" ? "#16a34a" : "#1f2937" }}>{fmt(liveTotal)}</div>
@@ -438,7 +438,7 @@ function ProcessingSheet({ onClose }) {
       <div style={{ padding: "40px 20px", textAlign: "center" }}>
         <div style={{ fontSize: 40, marginBottom: 16 }}>↻</div>
         <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Payment Processing</div>
-        <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>This section will show payments currently in processing once your merchant account is connected.</div>
+        <div style={{ fontSize: 14, color: "#000", lineHeight: 1.6 }}>This section will show payments currently in processing once your merchant account is connected.</div>
       </div>
       <div style={{ height: 32 }} />
     </Sheet>
@@ -462,10 +462,10 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onAr
       <SheetHeader title="Rent collection details" onClose={onClose} />
       <div style={{ padding: "12px 20px 0" }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>{tenant?.address}</div>
-        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant?.address}, Youngstown, OH</div>
+        <div style={{ fontSize: 13, color: "#000", marginTop: 2 }}>{tenant?.address}, Youngstown, OH</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
           <Badge status={tenantStatus} />
-          {monthsRemaining !== null && <span style={{ fontSize: 13, color: "#6b7280" }}>{monthsRemaining} months remaining</span>}
+          {monthsRemaining !== null && <span style={{ fontSize: 13, color: "#000" }}>{monthsRemaining} months remaining</span>}
         </div>
       </div>
       <div style={{ padding: "16px 20px 0" }}>
@@ -483,18 +483,18 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onAr
           <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Last Payment</div>
             {lastPayment ? <>
-              <div style={{ fontSize: 12, color: "#6b7280" }}>{fmtDate(lastPayment.paid_date)}</div>
+              <div style={{ fontSize: 12, color: "#000" }}>{fmtDate(lastPayment.paid_date)}</div>
               <div style={{ fontSize: 20, fontWeight: 700, margin: "4px 0" }}>{fmt(lastPayment.total || lastPayment.rent)}</div>
-              <div style={{ fontSize: 12, color: "#6b7280" }}>Rent & fees ›</div>
-            </> : <div style={{ fontSize: 13, color: "#9ca3af" }}>No payments yet</div>}
+              <div style={{ fontSize: 12, color: "#000" }}>Rent & fees ›</div>
+            </> : <div style={{ fontSize: 13, color: "#000" }}>No payments yet</div>}
           </div>
           <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Next Payment</div>
             {nextPayment ? <>
-              <div style={{ fontSize: 12, color: "#6b7280" }}>Due {fmtDate(nextPayment.due_date)}</div>
+              <div style={{ fontSize: 12, color: "#000" }}>Due {fmtDate(nextPayment.due_date)}</div>
               <div style={{ fontSize: 20, fontWeight: 700, margin: "4px 0" }}>{fmt(Number(nextPayment.rent))}</div>
-              <div style={{ fontSize: 12, color: "#6b7280" }}>Rent & fees ›</div>
-            </> : <div style={{ fontSize: 13, color: "#9ca3af" }}>No upcoming</div>}
+              <div style={{ fontSize: 12, color: "#000" }}>Rent & fees ›</div>
+            </> : <div style={{ fontSize: 13, color: "#000" }}>No upcoming</div>}
           </div>
         </div>
       </div>
@@ -502,8 +502,8 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onAr
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Current tenant</div>
         <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{tenant?.name}</div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{tenant?.email || tenant?.login_email || "—"}</div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant?.phone || "—"}</div>
+          <div style={{ fontSize: 13, color: "#000", marginTop: 4 }}>{tenant?.email || tenant?.login_email || "—"}</div>
+          <div style={{ fontSize: 13, color: "#000", marginTop: 2 }}>{tenant?.phone || "—"}</div>
         </div>
       </div>
       <div style={{ padding: "16px 20px 0" }}>
@@ -511,20 +511,20 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onAr
         <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
           {leaseStart && <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}><div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2563eb" }} /><div style={{ fontSize: 14, fontWeight: 700 }}>{fmtDate(leaseStart)}</div></div>}
           {leaseEnd && <><div style={{ width: 2, height: 14, background: "#93c5fd", marginLeft: 4, marginBottom: 4 }} /><div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><div style={{ width: 10, height: 10, borderRadius: "50%", background: "#2563eb" }} /><div style={{ fontSize: 14, fontWeight: 700 }}>{fmtDate(leaseEnd)}</div></div></>}
-          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{fmt(tenant?.rent)}<span style={{ fontSize: 14, fontWeight: 400, color: "#6b7280" }}>/month</span></div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 4 }}>📅 Due on <strong style={{ color: "#1f2937" }}>1st</strong> of every month</div>
-          <div style={{ fontSize: 13, color: "#6b7280" }}>ⓘ Late fee: <strong style={{ color: "#1f2937" }}>$35.00 + $10.00/day</strong></div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{fmt(tenant?.rent)}<span style={{ fontSize: 14, fontWeight: 400, color: "#000" }}>/month</span></div>
+          <div style={{ fontSize: 13, color: "#000", marginBottom: 4 }}>📅 Due on <strong style={{ color: "#1f2937" }}>1st</strong> of every month</div>
+          <div style={{ fontSize: 13, color: "#000" }}>ⓘ Late fee: <strong style={{ color: "#1f2937" }}>$35.00 + $10.00/day</strong></div>
         </div>
       </div>
       <div style={{ padding: "20px 20px 0" }}>
         <div style={{ fontSize: 15, fontWeight: 700 }}>End & archive rent collection</div>
-        <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4, marginBottom: 12 }}>Tenant will be moved to the Archived tab. All their records and invoice history will be saved permanently.</div>
+        <div style={{ fontSize: 13, color: "#000", marginTop: 4, marginBottom: 12 }}>Tenant will be moved to the Archived tab. All their records and invoice history will be saved permanently.</div>
         {!confirmArchive ? (
           <button onClick={() => setConfirmArchive(true)} style={{ width: "100%", padding: 16, background: "#dc2626", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>End & archive</button>
         ) : (
           <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#991b1b", marginBottom: 6 }}>Are you sure?</div>
-            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>This will end {tenant?.name}'s tenancy and move them to the archived tab. Their full history is preserved.</div>
+            <div style={{ fontSize: 13, color: "#000", marginBottom: 12 }}>This will end {tenant?.name}'s tenancy and move them to the archived tab. Their full history is preserved.</div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setConfirmArchive(false)} style={{ flex: 1, padding: 12, border: "1.5px solid #e5e7eb", borderRadius: 10, background: "#fff", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
               <button onClick={() => { onArchive(tenant); setConfirmArchive(false); }} style={{ flex: 1, padding: 12, border: "none", borderRadius: 10, background: "#dc2626", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Yes, archive</button>
@@ -549,27 +549,27 @@ function ArchivedTenantCard({ tenant, invoices, onSelect, onDelete }) {
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flex: 1 }}>
           <div style={{ fontSize: 20, marginTop: 2, opacity: 0.5 }}>🏢</div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#6b7280" }}>{tenant.address}</div>
-            <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 2 }}>{tenant.name}</div>
-            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Archived {archivedAt}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#000" }}>{tenant.address}</div>
+            <div style={{ fontSize: 13, color: "#000", marginTop: 2 }}>{tenant.name}</div>
+            <div style={{ fontSize: 11, color: "#000", marginTop: 2 }}>Archived {archivedAt}</div>
           </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           <Badge status="archived" />
-          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>{invoices.length} invoice{invoices.length !== 1 ? "s" : ""}</div>
+          <div style={{ fontSize: 11, color: "#000", marginTop: 4 }}>{invoices.length} invoice{invoices.length !== 1 ? "s" : ""}</div>
         </div>
       </div>
       {expanded && (
         <div style={{ marginTop: 14, background: "#f9fafb", borderRadius: 12, padding: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-            <div><div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", fontWeight: 600 }}>Email</div><div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>{tenant.email || "—"}</div></div>
-            <div><div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", fontWeight: 600 }}>Phone</div><div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>{tenant.phone || "—"}</div></div>
-            <div><div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", fontWeight: 600 }}>Rent</div><div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>{fmt(tenant.rent)}/mo</div></div>
-            <div><div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", fontWeight: 600 }}>Total collected</div><div style={{ fontSize: 13, color: "#16a34a", fontWeight: 700, marginTop: 2 }}>{fmt(totalPaid)}</div></div>
+            <div><div style={{ fontSize: 11, color: "#000", textTransform: "uppercase", fontWeight: 600 }}>Email</div><div style={{ fontSize: 13, color: "#000", marginTop: 2 }}>{tenant.email || "—"}</div></div>
+            <div><div style={{ fontSize: 11, color: "#000", textTransform: "uppercase", fontWeight: 600 }}>Phone</div><div style={{ fontSize: 13, color: "#000", marginTop: 2 }}>{tenant.phone || "—"}</div></div>
+            <div><div style={{ fontSize: 11, color: "#000", textTransform: "uppercase", fontWeight: 600 }}>Rent</div><div style={{ fontSize: 13, color: "#000", marginTop: 2 }}>{fmt(tenant.rent)}/mo</div></div>
+            <div><div style={{ fontSize: 11, color: "#000", textTransform: "uppercase", fontWeight: 600 }}>Total collected</div><div style={{ fontSize: 13, color: "#16a34a", fontWeight: 700, marginTop: 2 }}>{fmt(totalPaid)}</div></div>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 8 }}>Invoice history ({invoices.length})</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#000", marginBottom: 8 }}>Invoice history ({invoices.length})</div>
           <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
-            {sorted.length === 0 && <div style={{ padding: 16, textAlign: "center", color: "#9ca3af", fontSize: 13 }}>No invoices</div>}
+            {sorted.length === 0 && <div style={{ padding: 16, textAlign: "center", color: "#000", fontSize: 13 }}>No invoices</div>}
             {sorted.map((inv, i) => {
               const status = getStatus(inv);
               const liveTotal = inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + (inv.is_custom ? 0 : calcLateFee(inv.due_date));
@@ -577,8 +577,8 @@ function ArchivedTenantCard({ tenant, invoices, onSelect, onDelete }) {
                 <div key={inv.id} onClick={() => onSelect(inv, tenant)}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer", background: "#fff" }}>
                   <div>
-                    <div style={{ fontSize: 13, color: "#374151" }}>{inv.month}</div>
-                    <div style={{ fontSize: 11, color: "#9ca3af" }}>Due {fmtDate(inv.due_date)}</div>
+                    <div style={{ fontSize: 13, color: "#000" }}>{inv.month}</div>
+                    <div style={{ fontSize: 11, color: "#000" }}>Due {fmtDate(inv.due_date)}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{fmt(liveTotal)}</div>
@@ -594,7 +594,7 @@ function ArchivedTenantCard({ tenant, invoices, onSelect, onDelete }) {
             ) : (
               <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 10, padding: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#991b1b", marginBottom: 4 }}>Delete {tenant.name} from archive?</div>
-                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>This permanently removes all their records. This cannot be undone.</div>
+                <div style={{ fontSize: 12, color: "#000", marginBottom: 12 }}>This permanently removes all their records. This cannot be undone.</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: 10, border: "1.5px solid #e5e7eb", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
                   <button onClick={() => onDelete(tenant)} style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, background: "#dc2626", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Yes, delete</button>
@@ -787,22 +787,22 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
           <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
         </div>
         <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount="$0.00" count="0 invoices" onClick={() => setSheet("processing")} />
-        <SummaryCard badgeColor="#6b7280" badgeLabel="📅 Upcoming" badgeBorder={false} sub="Next month" amount={fmt(upcomingTotal)} count={`${upcomingNextMonth.length} invoice${upcomingNextMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
+        <SummaryCard badgeColor="#000" badgeLabel="📅 Upcoming" badgeBorder={false} sub="Next month" amount={fmt(upcomingTotal)} count={`${upcomingNextMonth.length} invoice${upcomingNextMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
       </div>
 
       <button onClick={() => setShowSendInvoice(true)} style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
         📤 Send Invoice
       </button>
-      <button onClick={() => { loadSentInvoices(); setShowSentInvoices(true); }} style={{ width: "100%", padding: "8px", background: "none", border: "none", color: "#6b7280", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 14, fontFamily: "'DM Sans', sans-serif" }}>
+      <button onClick={() => { loadSentInvoices(); setShowSentInvoices(true); }} style={{ width: "100%", padding: "8px", background: "none", border: "none", color: "#000", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 14, fontFamily: "'DM Sans', sans-serif" }}>
         View sent invoices →
       </button>
 
       <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 20 }}>
         {["active", "archived"].map(t => (
-          <button key={t} onClick={() => setMainTab(t)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: mainTab === t ? "#fff" : "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: mainTab === t ? "#1f2937" : "#6b7280", boxShadow: mainTab === t ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>
+          <button key={t} onClick={() => setMainTab(t)} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", cursor: "pointer", background: mainTab === t ? "#fff" : "transparent", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: mainTab === t ? "#1f2937" : "#000", boxShadow: mainTab === t ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
             {t === "archived" && archivedTenants.length > 0 && (
-              <span style={{ marginLeft: 6, background: "#e5e7eb", color: "#6b7280", fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 6 }}>{archivedTenants.length}</span>
+              <span style={{ marginLeft: 6, background: "#e5e7eb", color: "#000", fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 6 }}>{archivedTenants.length}</span>
             )}
           </button>
         ))}
@@ -810,7 +810,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
       {mainTab === "active" && (
         <div>
-          {activeTenants.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>No active tenants</div>}
+          {activeTenants.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#000" }}>No active tenants</div>}
           {activeTenants.map(tenant => {
             const status = getPropertyStatus(tenant);
             const overdueCount = getOverdueCount(tenant);
@@ -824,7 +824,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                       <button onClick={() => { setSelectedTenant(tenant); setSheet("detail"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", fontFamily: "'DM Sans', sans-serif" }}>
                         <div style={{ fontSize: 15, fontWeight: 700, color: "#1f2937" }}>{tenant.address}</div>
                       </button>
-                      <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>{tenant.name}</div>
+                      <div style={{ fontSize: 13, color: "#000", marginTop: 2 }}>{tenant.name}</div>
                     </div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -847,7 +847,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       {mainTab === "archived" && (
         <div>
           {archivedTenants.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 20px", color: "#9ca3af" }}>
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#000" }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>📦</div>
               <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No archived tenants</div>
               <div style={{ fontSize: 13 }}>When you end a tenancy, the tenant will appear here with their full history.</div>
@@ -878,8 +878,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < overdueList.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer" }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>{tenant?.name}</div>
-                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{tenant?.address}</div>
-                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>Due {fmtDate(inv.due_date)}</div>
+                    <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{tenant?.address}</div>
+                    <div style={{ fontSize: 12, color: "#000", marginTop: 1 }}>Due {fmtDate(inv.due_date)}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(liveTotal)}</div>
@@ -900,17 +900,17 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <Sheet onClose={() => setShowSentInvoices(false)}>
           <SheetHeader title="Sent Invoices" onClose={() => setShowSentInvoices(false)} />
           <div style={{ padding: "8px 20px 4px" }}>
-            <div style={{ fontSize: 13, color: "#6b7280" }}>{sentInvoices.length} invoice{sentInvoices.length !== 1 ? "s" : ""} sent</div>
+            <div style={{ fontSize: 13, color: "#000" }}>{sentInvoices.length} invoice{sentInvoices.length !== 1 ? "s" : ""} sent</div>
           </div>
           <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
-            {sentInvoices.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#9ca3af" }}>No invoices sent yet</div>}
+            {sentInvoices.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#000" }}>No invoices sent yet</div>}
             {sentInvoices.map((inv, i) => {
               const tenant = tenants.find(t => t.id === inv.tenant_id);
               return (
                 <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < sentInvoices.length - 1 ? "1px solid #f3f4f6" : "none" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>{inv.title}</div>
-                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{tenant?.name} · {tenant?.address}</div>
+                    <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{tenant?.name} · {tenant?.address}</div>
                     <div style={{ fontSize: 12, marginTop: 3 }}>{inv.paid ? <span style={{ color: "#16a34a" }}>✓ Paid {inv.paid_date || ""}</span> : <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Unpaid</span>}</div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
