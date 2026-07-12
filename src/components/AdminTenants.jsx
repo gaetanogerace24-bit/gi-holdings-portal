@@ -425,7 +425,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
-                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{t.address}{t.email ? ` · ${t.email}` : ""}</div>
+                  <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 2 }}>{t.address}{t.email ? ` · ${t.email}` : ""}</div>
                   {isM2M && <span style={{ fontSize: 11, color: "#6b7280", background: "#f3f4f6", borderRadius: 6, padding: "2px 7px", marginTop: 4, display: "inline-block" }}>Month-to-month</span>}
                 </div>
                 <div style={{ textAlign: "right", marginRight: 16 }}>
