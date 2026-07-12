@@ -241,7 +241,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
 
       {showForm && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "24px", border: "2px solid #4caf7d", marginBottom: 24 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a", marginBottom: 20 }}>{editing ? "✏️ Edit tenant" : "➕ Add new tenant"}</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a", marginBottom: 20 }}>{editing ? "📋 Tenant Information" : "➕ Add new tenant"}</div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <FormField label="Full name *" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="e.g. Gary Thornton" />
