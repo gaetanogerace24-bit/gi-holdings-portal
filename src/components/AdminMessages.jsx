@@ -186,11 +186,11 @@ export default function AdminMessages({ tenants }) {
     <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0 }}>Messages</h1>
-        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Send messages and view tenant conversations</div>
+        <div style={{ fontSize: 14, color: "#000", marginTop: 4 }}>Send messages and view tenant conversations</div>
       </div>
 
       {tenants.length === 0 ? (
-        <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
+        <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #000" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>No tenants to message</div>
         </div>
@@ -212,7 +212,7 @@ export default function AdminMessages({ tenants }) {
               <Label>Quick templates</Label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
                 {TEMPLATES.map(tp => (
-                  <button key={tp.label} onClick={() => setMsg(tp.text)} style={{ padding: "5px 10px", borderRadius: 7, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#374151" }}>
+                  <button key={tp.label} onClick={() => setMsg(tp.text)} style={{ padding: "5px 10px", borderRadius: 7, border: "1.5px solid #000", background: "#f9fafb", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#000" }}>
                     {tp.label}
                   </button>
                 ))}
@@ -260,7 +260,7 @@ export default function AdminMessages({ tenants }) {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{tenant.name}</div>
-                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                      <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>
                         {lastMsg.image_url && !lastMsg.message ? (() => {
                         const name = lastMsg.file_name || "";
                         const isVideo = name.match(/\.(mp4|mov|webm|ogg)$/i);
@@ -270,7 +270,7 @@ export default function AdminMessages({ tenants }) {
                       })() : lastMsg.message?.slice(0, 50)}{lastMsg.message?.length > 50 ? "..." : ""}
                       </div>
                     </div>
-                    <div style={{ fontSize: 11, color: "#9ca3af" }}>{lastMsg.date || new Date(lastMsg.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                    <div style={{ fontSize: 11, color: "#000" }}>{lastMsg.date || new Date(lastMsg.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
                   </div>
                 ))}
               </div>
@@ -293,7 +293,7 @@ export default function AdminMessages({ tenants }) {
                     }} style={{ fontSize: 12, color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
                       🗑 Clear all
                     </button>
-                    <button onClick={() => setSelectedTenant(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 18 }}>✕</button>
+                    <button onClick={() => setSelectedTenant(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#000", fontSize: 18 }}>✕</button>
                   </div>
                 </div>
 
@@ -308,15 +308,15 @@ export default function AdminMessages({ tenants }) {
                             if (!window.confirm("Delete this message?")) return;
                             await supabase.from("messages").delete().eq("id", m.id);
                             setMessages(prev => prev.filter(msg => msg.id !== m.id));
-                          }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#d1d5db", padding: "0 2px" }} title="Delete message">🗑</button>}
-                          <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                          }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#000", padding: "0 2px" }} title="Delete message">🗑</button>}
+                          <div style={{ fontSize: 11, color: "#000" }}>
                             {isAdmin ? "You (Admin)" : selectedTenant.name} · {m.date || new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </div>
                           {isAdmin && <button onClick={async () => {
                             if (!window.confirm("Delete this message?")) return;
                             await supabase.from("messages").delete().eq("id", m.id);
                             setMessages(prev => prev.filter(msg => msg.id !== m.id));
-                          }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#d1d5db", padding: "0 2px" }} title="Delete message">🗑</button>}
+                          }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#000", padding: "0 2px" }} title="Delete message">🗑</button>}
                         </div>
                         <div style={{ maxWidth: "85%", padding: m.image_url && !m.message ? "6px" : "10px 14px", borderRadius: isAdmin ? "14px 4px 14px 14px" : "4px 14px 14px 14px", background: isAdmin ? "#1b3d2a" : "#f3f4f6", color: isAdmin ? "#fff" : "#1f2937", fontSize: 13, lineHeight: 1.5 }}>
                           {m.image_url && (() => {
@@ -350,7 +350,7 @@ export default function AdminMessages({ tenants }) {
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <button onClick={() => replyFileInputRef.current?.click()} style={{ padding: "10px", borderRadius: 9, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 18, cursor: "pointer", flexShrink: 0 }} title="Attach file">
+                    <button onClick={() => replyFileInputRef.current?.click()} style={{ padding: "10px", borderRadius: 9, border: "1.5px solid #000", background: "#f9fafb", fontSize: 18, cursor: "pointer", flexShrink: 0 }} title="Attach file">
                       📎
                     </button>
                     <textarea
@@ -358,7 +358,7 @@ export default function AdminMessages({ tenants }) {
                       onChange={e => setReplyMsg(e.target.value)}
                       placeholder="Reply..."
                       rows={2}
-                      style={{ flex: 1, border: "1.5px solid #e5e7eb", borderRadius: 9, padding: "9px 12px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, resize: "none", boxSizing: "border-box" }}
+                      style={{ flex: 1, border: "1.5px solid #000", borderRadius: 9, padding: "9px 12px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, resize: "none", boxSizing: "border-box" }}
                     />
                     <button
                       onClick={handleReply}
@@ -370,7 +370,7 @@ export default function AdminMessages({ tenants }) {
                 </div>
               </>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 300, color: "#9ca3af", textAlign: "center", padding: 20 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 300, color: "#000", textAlign: "center", padding: 20 }}>
                 <div style={{ fontSize: 36, marginBottom: 12 }}>💬</div>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>Select a conversation</div>
                 <div style={{ fontSize: 13, marginTop: 4 }}>Click a tenant on the left to view their messages</div>
@@ -384,8 +384,8 @@ export default function AdminMessages({ tenants }) {
 }
 
 function Label({ children }) {
-  return <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>{children}</div>;
+  return <div style={{ fontSize: 11, fontWeight: 700, color: "#000", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>{children}</div>;
 }
 
-const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", display: "block" };
-const outlineBtn = { padding: "8px 14px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#374151", display: "inline-flex", alignItems: "center", gap: 6 };
+const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #000", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", display: "block" };
+const outlineBtn = { padding: "8px 14px", borderRadius: 8, border: "1.5px solid #000", background: "#f9fafb", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#000", display: "inline-flex", alignItems: "center", gap: 6 };
