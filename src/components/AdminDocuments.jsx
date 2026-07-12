@@ -20,22 +20,17 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
   const [uploadError, setUploadError] = useState(null);
   const fileInputRef = useRef(null);
 
-  // On mount, if navigated from tenants tab, expand that tenant's property
   useEffect(() => {
     if (initialTenantId) {
       const tenant = tenants.find(t => String(t.id) === String(initialTenantId));
       if (tenant) {
         setExpandedTenants(prev => ({ ...prev, [initialTenantId]: true }));
-        // find matching property
         const prop = properties.find(p => String(p.tenant_id) === String(initialTenantId));
         if (prop) setExpandedProperties(prev => ({ ...prev, [prop.id]: true }));
       }
     }
   }, [initialTenantId]);
 
-  // Build property → tenant map
-  // Each property card shows its address; inside is a tenant folder with their docs
-  // Tenants with no matching property go under "Unassigned"
   const assignedTenantIds = new Set(
     (properties || []).map(p => p.tenant_id).filter(Boolean).map(String)
   );
@@ -47,7 +42,6 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
 
   const unassignedTenants = tenants.filter(t => !assignedTenantIds.has(String(t.id)));
 
-  // Search filters tenant names and addresses
   const searchLower = search.toLowerCase();
   const matchesProp = (prop, tenant) => {
     if (!search) return true;
@@ -92,7 +86,6 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
       const updatedDocs = [...(tenant.documents || []), newDoc];
       await supabase.from("tenants").update({ documents: updatedDocs, updated_at: new Date().toISOString() }).eq("id", form.tenantId);
       setTenants(tenants.map(t => String(t.id) === String(form.tenantId) ? { ...t, documents: updatedDocs } : t));
-      // Auto-expand the property and tenant folder
       const prop = properties.find(p => String(p.tenant_id) === String(form.tenantId));
       if (prop) setExpandedProperties(prev => ({ ...prev, [prop.id]: true }));
       setExpandedTenants(prev => ({ ...prev, [form.tenantId]: true }));
@@ -124,15 +117,13 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
 
   return (
     <div style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Documents</h1>
-        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
+        <div style={{ fontSize: 14, color: "#1a1a1a", marginTop: 4 }}>
           {properties.length} propert{properties.length !== 1 ? "ies" : "y"} · {totalDocs} document{totalDocs !== 1 ? "s" : ""}
         </div>
       </div>
 
-      {/* Search bar */}
       <div style={{ position: "relative", marginBottom: 20 }}>
         <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#9ca3af" }}>🔍</span>
         <input
@@ -150,7 +141,6 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
         )}
       </div>
 
-      {/* Add form */}
       {showAdd && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "22px", border: "2px solid #4caf7d", marginBottom: 24 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#1b3d2a", marginBottom: 18 }}>📎 Add new document</div>
@@ -187,13 +177,13 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                 <>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#166534" }}>{file.name}</div>
-                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{(file.size / 1024).toFixed(0)} KB · Click to change</div>
+                  <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 4 }}>{(file.size / 1024).toFixed(0)} KB · Click to change</div>
                 </>
               ) : (
                 <>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>Drag & drop your PDF here</div>
-                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>or click to browse files</div>
+                  <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 4 }}>or click to browse files</div>
                 </>
               )}
             </div>
@@ -215,7 +205,6 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
         </div>
       )}
 
-      {/* Property Cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {propertyRows
           .filter(({ prop, tenant }) => matchesProp(prop, tenant))
@@ -226,7 +215,6 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
 
             return (
               <div key={prop.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
-                {/* Property header row */}
                 <div
                   onClick={() => toggleProperty(prop.id)}
                   style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", userSelect: "none" }}
@@ -236,7 +224,7 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{prop.address}</div>
-                    <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 2 }}>
                       {tenant ? tenant.name : "No tenant"} · {docCount} document{docCount !== 1 ? "s" : ""}
                     </div>
                   </div>
@@ -252,7 +240,6 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                   <span style={{ fontSize: 13, color: "#9ca3af" }}>{isExpanded ? "▲" : "▼"}</span>
                 </div>
 
-                {/* Expanded: tenant folder */}
                 {isExpanded && (
                   <div style={{ borderTop: "1px solid #f3f4f6", background: "#fafafa", padding: "12px 16px" }}>
                     {!tenant ? (
@@ -261,7 +248,6 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                       </div>
                     ) : (
                       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-                        {/* Tenant folder header */}
                         <div
                           onClick={() => toggleTenant(tenant.id)}
                           style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", userSelect: "none" }}
@@ -271,7 +257,7 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                           </div>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>📁 {tenant.name}</div>
-                            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>{docCount} document{docCount !== 1 ? "s" : ""}</div>
+                            <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 1 }}>{docCount} document{docCount !== 1 ? "s" : ""}</div>
                           </div>
                           <button
                             onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, tenantId: String(tenant.id) })); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
@@ -282,7 +268,6 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                           <span style={{ fontSize: 13, color: "#9ca3af" }}>{isTenantExpanded ? "▲" : "▼"}</span>
                         </div>
 
-                        {/* Documents list */}
                         {isTenantExpanded && (
                           <div style={{ borderTop: "1px solid #f3f4f6", padding: "12px 16px", background: "#fafafa" }}>
                             {docCount === 0 ? (
@@ -300,7 +285,7 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                                   <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", borderRadius: 10, padding: "12px 14px", border: "1px solid #f3f4f6" }}>
                                     <div style={{ flex: 1 }}>
                                       <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>📄 {doc.name}</div>
-                                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Added {doc.date}</div>
+                                      <div style={{ fontSize: 11, color: "#1a1a1a", marginTop: 2 }}>Added {doc.date}</div>
                                     </div>
                                     {doc.url && (
                                       <a href={doc.url} target="_blank" rel="noopener noreferrer"
@@ -326,7 +311,6 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
             );
           })}
 
-        {/* Unassigned tenants section */}
         {unassignedTenants.filter(t => !search || t.name.toLowerCase().includes(searchLower)).length > 0 && (
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6" }}>
@@ -346,7 +330,7 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 14, fontWeight: 700 }}>📁 {tenant.name}</div>
-                          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 1 }}>{docCount} document{docCount !== 1 ? "s" : ""} · No property assigned</div>
+                          <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 1 }}>{docCount} document{docCount !== 1 ? "s" : ""} · No property assigned</div>
                         </div>
                         <button onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, tenantId: String(tenant.id) })); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                           style={{ ...outlineBtn, fontSize: 12, color: "#1b3d2a", borderColor: "#4caf7d", marginRight: 8 }}>
@@ -364,7 +348,7 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
                                 <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", borderRadius: 10, padding: "12px 14px", border: "1px solid #f3f4f6" }}>
                                   <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: 13, fontWeight: 600 }}>{doc.name}</div>
-                                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{doc.type} · Added {doc.date}</div>
+                                    <div style={{ fontSize: 11, color: "#1a1a1a", marginTop: 2 }}>{doc.type} · Added {doc.date}</div>
                                   </div>
                                   {doc.url && <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ padding: "6px 12px", borderRadius: 8, border: "1.5px solid #4caf7d", background: "#fff", fontSize: 12, color: "#1b3d2a", fontWeight: 600, textDecoration: "none" }}>View →</a>}
                                   <button onClick={() => handleRemove(tenant.id, doc.id)} style={{ padding: "6px 10px", borderRadius: 8, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 12, color: "#dc2626", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
@@ -381,13 +365,12 @@ export default function AdminDocuments({ tenants, setTenants, properties = [], i
           </div>
         )}
 
-        {/* Empty state */}
         {propertyRows.filter(({ prop, tenant }) => matchesProp(prop, tenant)).length === 0 &&
           unassignedTenants.filter(t => !search || t.name.toLowerCase().includes(searchLower)).length === 0 && (
           <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>No results found</div>
-            <div style={{ fontSize: 14, color: "#6b7280" }}>Try searching by a different name or address.</div>
+            <div style={{ fontSize: 14, color: "#1a1a1a" }}>Try searching by a different name or address.</div>
           </div>
         )}
       </div>
