@@ -448,7 +448,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   <button onClick={() => onNavigateToDocuments ? onNavigateToDocuments(t.id) : setExpandedDocs(docsOpen ? null : t.id)} style={{ ...outlineBtn, borderColor: "#e5e7eb", color: "#6b7280" }}>
                     📄 Docs {t.documents?.length > 0 ? `(${t.documents.length})` : ""}
                   </button>
-                  <button onClick={() => openEdit(t)} style={outlineBtn}>Edit</button>
+                  <button onClick={() => openEdit(t)} style={outlineBtn}>Tenant Information</button>
                   <button onClick={() => handleRemove(t.id, t.name)} style={{ ...outlineBtn, borderColor: "#fee2e2", color: "#dc2626" }}>Remove</button>
                 </div>
               </div>
