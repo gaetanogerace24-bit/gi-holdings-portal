@@ -25,9 +25,20 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
   const [visited, setVisited] = useState(new Set(["payments", "properties", "settings"]));
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
   const [properties, setProperties] = useState([]);
-  const [totalPropertyCount, setTotalPropertyCount] = useState(0);
+  // Initialize to null so we can distinguish "not loaded yet" from "0 properties"
+  // We store the count in localStorage so it's available instantly on next load
+  const [totalPropertyCount, setTotalPropertyCountState] = useState(() => {
+    const cached = localStorage.getItem("gi_property_count");
+    return cached !== null ? Number(cached) : null;
+  });
   const [documentsTenantId, setDocumentsTenantId] = useState("");
+
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
+
+  const setTotalPropertyCount = (count) => {
+    setTotalPropertyCountState(count);
+    localStorage.setItem("gi_property_count", String(count));
+  };
 
   const handleTabClick = (key) => {
     setActive(key);
@@ -84,7 +95,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
               {n.key === "tenants" && tenants.length > 0 && (
                 <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length}</span>
               )}
-              {n.key === "properties" && totalPropertyCount > 0 && (
+              {n.key === "properties" && totalPropertyCount !== null && totalPropertyCount > 0 && (
                 <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{totalPropertyCount}</span>
               )}
             </button>
