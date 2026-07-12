@@ -429,7 +429,19 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   {isM2M && <span style={{ fontSize: 11, color: "#6b7280", background: "#f3f4f6", borderRadius: 6, padding: "2px 7px", marginTop: 4, display: "inline-block" }}>Month-to-month</span>}
                 </div>
                 <div style={{ textAlign: "right", marginRight: 16 }}>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a" }}>${(t.rent || 0).toLocaleString()}/mo</div>
+                  {t.section8 ? (() => {
+                    const s8 = Number(t.section8_amount || t.section8Amount || 0);
+                    const tp = Number(t.tenant_portion || t.tenantPortion || 0);
+                    const total = s8 + tp;
+                    return (
+                      <>
+                        <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a" }}>${total.toLocaleString()}/mo</div>
+                        <div style={{ fontSize: 11, color: "#9ca3af" }}>S8: ${s8.toLocaleString()} + Tenant: ${tp.toLocaleString()}</div>
+                      </>
+                    );
+                  })() : (
+                    <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a" }}>${(t.rent || 0).toLocaleString()}/mo</div>
+                  )}
                   {t.deposit > 0 && <div style={{ fontSize: 11, color: "#9ca3af" }}>Deposit: ${(t.deposit || 0).toLocaleString()}</div>}
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
