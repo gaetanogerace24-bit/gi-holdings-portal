@@ -436,13 +436,13 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                     return (
                       <>
                         <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a" }}>${total.toLocaleString()}/mo</div>
-                        <div style={{ fontSize: 11, color: "#9ca3af" }}>S8: ${s8.toLocaleString()} + Tenant: ${tp.toLocaleString()}</div>
+                        <div style={{ fontSize: 11, color: "#1a1a1a" }}>S8: ${s8.toLocaleString()} + Tenant: ${tp.toLocaleString()}</div>
                       </>
                     );
                   })() : (
                     <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a" }}>${(t.rent || 0).toLocaleString()}/mo</div>
                   )}
-                  {t.deposit > 0 && <div style={{ fontSize: 11, color: "#9ca3af" }}>Deposit: ${(t.deposit || 0).toLocaleString()}</div>}
+                  {t.deposit > 0 && <div style={{ fontSize: 11, color: "#1a1a1a" }}>Deposit: ${(t.deposit || 0).toLocaleString()}</div>}
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => onNavigateToDocuments ? onNavigateToDocuments(t.id) : setExpandedDocs(docsOpen ? null : t.id)} style={{ ...outlineBtn, borderColor: "#e5e7eb", color: "#6b7280" }}>
