@@ -26,7 +26,6 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
 
   const allProperties = useMemo(() => {
     if (properties === null) return null;
-
     return [
       ...properties.filter(p => p.status !== "archived").map(p => ({
         ...p,
@@ -209,7 +208,7 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: prop.status === "occupied" ? "#f0f9f4" : "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🏠</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{prop.address}</div>
-                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{prop.type || "Single Family Home"}{t ? ` · ${t.name}` : ""}</div>
+                  <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 2 }}>{prop.type || "Single Family Home"}{t ? ` · ${t.name}` : ""}</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   {prop.status === "occupied"
@@ -232,7 +231,7 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
                           </div>
                           <div>
                             <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
-                            <div style={{ fontSize: 12, color: "#9ca3af" }}>{t.email}</div>
+                            <div style={{ fontSize: 12, color: "#1a1a1a" }}>{t.email}</div>
                           </div>
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -243,7 +242,7 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
                           {t.phone && <InfoRow label="Phone" value={t.phone} />}
                           {t.section8 && <InfoRow label="Section 8" value={`Housing: $${t.section8_amount || t.section8Amount || 0} · Tenant: $${t.tenant_portion || t.tenantPortion || 0}`} />}
                         </div>
-                        {t.notes && <div style={{ marginTop: 12, padding: "10px 12px", background: "#f9fafb", borderRadius: 8, fontSize: 12, color: "#6b7280" }}>📝 {t.notes}</div>}
+                        {t.notes && <div style={{ marginTop: 12, padding: "10px 12px", background: "#f9fafb", borderRadius: 8, fontSize: 12, color: "#1a1a1a" }}>📝 {t.notes}</div>}
                         {!prop._auto && (
                           <div style={{ marginTop: 14, borderTop: "1px solid #f3f4f6", paddingTop: 14 }}>
                             {assigningId === prop.id ? (
@@ -273,7 +272,7 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>Vacant Unit</div>
                       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: 16 }}>
-                        {prop.notes && <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 12 }}>{prop.notes}</div>}
+                        {prop.notes && <div style={{ fontSize: 14, color: "#1a1a1a", marginBottom: 12 }}>{prop.notes}</div>}
                         {prop.section8 && (
                           <div style={{ marginBottom: 14, padding: "10px 12px", background: "#f0f9f4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: "#1b3d2a", marginBottom: 4 }}>Section 8 / Housing Voucher</div>
@@ -333,14 +332,14 @@ function StatCard({ label, value, icon, color }) {
     <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 16 }}>
       <div style={{ fontSize: 22, marginBottom: 6 }}>{icon}</div>
       <div style={{ fontSize: 26, fontWeight: 700, color: color || "#1a1a1a" }}>{value}</div>
-      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{label}</div>
+      <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 2 }}>{label}</div>
     </div>
   );
 }
 function InfoRow({ label, value }) {
   return (
     <div style={{ padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
-      <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</div>
+      <div style={{ fontSize: 11, color: "#1a1a1a", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</div>
       <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a", marginTop: 2 }}>{value || "—"}</div>
     </div>
   );
