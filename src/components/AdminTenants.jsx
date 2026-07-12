@@ -425,7 +425,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
-                  <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 2 }}>{t.address}{t.email ? ` · ${t.email}` : ""}</div>
+                  <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 2 }}>{t.address}</div>
                   {isM2M && <span style={{ fontSize: 11, color: "#6b7280", background: "#f3f4f6", borderRadius: 6, padding: "2px 7px", marginTop: 4, display: "inline-block" }}>Month-to-month</span>}
                 </div>
                 <div style={{ textAlign: "right", marginRight: 16 }}>
@@ -442,7 +442,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   })() : (
                     <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a" }}>${(t.rent || 0).toLocaleString()}/mo</div>
                   )}
-                  {t.deposit > 0 && <div style={{ fontSize: 11, color: "#1a1a1a" }}>Deposit: ${(t.deposit || 0).toLocaleString()}</div>}
+
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => onNavigateToDocuments ? onNavigateToDocuments(t.id) : setExpandedDocs(docsOpen ? null : t.id)} style={{ ...outlineBtn, borderColor: "#e5e7eb", color: "#6b7280" }}>
