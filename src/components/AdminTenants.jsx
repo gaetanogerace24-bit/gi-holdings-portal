@@ -226,6 +226,21 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
 
   const currentTenant = tenants.find(t => t.id === editing);
   const currentPassword = currentTenant?.portal_password || "—";
+  const [showLeaseOverview, setShowLeaseOverview] = useState(false);
+
+  const getLeaseInfo = (t) => {
+    const end = t.leaseEnd || t.lease_end;
+    const start = t.leaseStart || t.lease_start;
+    if (t.month_to_month || t.monthToMonth || !end) return { status: "month-to-month", label: "Month-to-month", start, end: null };
+    const today = new Date(); today.setHours(0,0,0,0);
+    const endDate = new Date(end); endDate.setHours(0,0,0,0);
+    const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+    const status = daysLeft < 0 ? "expired" : daysLeft <= 90 ? "warning" : "ok";
+    const months = Math.floor(Math.abs(daysLeft) / 30);
+    const days = Math.abs(daysLeft) % 30;
+    const label = daysLeft < 0 ? `Expired ${Math.abs(daysLeft)}d ago` : daysLeft === 0 ? "Expires today!" : `${months > 0 ? months + "mo " : ""}${days}d left`;
+    return { daysLeft, status, label, start, end };
+  };
 
   return (
     <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
@@ -236,8 +251,51 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             {tenants.length === 0 ? "No tenants yet" : `${tenants.length} tenant${tenants.length !== 1 ? "s" : ""}`}
           </div>
         </div>
-        <button onClick={openAdd} style={greenBtn}>+ Add tenant</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => setShowLeaseOverview(!showLeaseOverview)} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showLeaseOverview ? "#1b3d2a" : "#e5e7eb", color: showLeaseOverview ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
+            📅 Lease Overview
+          </button>
+          <button onClick={openAdd} style={greenBtn}>+ Add tenant</button>
+        </div>
       </div>
+
+      {showLeaseOverview && (
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", marginBottom: 24, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>📅 Lease Overview</div>
+            <div style={{ fontSize: 12, color: "#9ca3af" }}>⚠️ Warning shown when lease ends within 90 days</div>
+          </div>
+          <div>
+            {tenants.map((t, i) => {
+              const info = getLeaseInfo(t);
+              const badgeColor = info.status === "expired" ? "#dc2626" : info.status === "warning" ? "#d97706" : info.status === "month-to-month" ? "#6b7280" : "#16a34a";
+              const badgeBg = info.status === "expired" ? "#fef2f2" : info.status === "warning" ? "#fffbeb" : info.status === "month-to-month" ? "#f3f4f6" : "#f0fdf4";
+              const icon = info.status === "expired" ? "🔴 " : info.status === "warning" ? "⚠️ " : info.status === "month-to-month" ? "🔄 " : "✅ ";
+              return (
+                <div key={t.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 160px", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < tenants.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>{t.name}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{t.address}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", marginBottom: 2 }}>Start</div>
+                    <div style={{ fontSize: 13, color: "#1a1a1a" }}>{info.start ? new Date(info.start).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", marginBottom: 2 }}>End</div>
+                    <div style={{ fontSize: 13, color: "#1a1a1a" }}>{info.end ? new Date(info.end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: badgeColor, background: badgeBg, border: `1.5px solid ${badgeColor}`, borderRadius: 20, padding: "4px 12px", display: "inline-block" }}>
+                      {icon}{info.label}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "24px", border: "2px solid #4caf7d", marginBottom: 24 }}>
