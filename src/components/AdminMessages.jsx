@@ -190,7 +190,7 @@ export default function AdminMessages({ tenants }) {
       </div>
 
       {tenants.length === 0 ? (
-        <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #000" }}>
+        <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>No tenants to message</div>
         </div>
@@ -212,7 +212,7 @@ export default function AdminMessages({ tenants }) {
               <Label>Quick templates</Label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
                 {TEMPLATES.map(tp => (
-                  <button key={tp.label} onClick={() => setMsg(tp.text)} style={{ padding: "5px 10px", borderRadius: 7, border: "1.5px solid #000", background: "#f9fafb", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#000" }}>
+                  <button key={tp.label} onClick={() => setMsg(tp.text)} style={{ padding: "5px 10px", borderRadius: 7, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#000" }}>
                     {tp.label}
                   </button>
                 ))}
@@ -350,7 +350,7 @@ export default function AdminMessages({ tenants }) {
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <button onClick={() => replyFileInputRef.current?.click()} style={{ padding: "10px", borderRadius: 9, border: "1.5px solid #000", background: "#f9fafb", fontSize: 18, cursor: "pointer", flexShrink: 0 }} title="Attach file">
+                    <button onClick={() => replyFileInputRef.current?.click()} style={{ padding: "10px", borderRadius: 9, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 18, cursor: "pointer", flexShrink: 0 }} title="Attach file">
                       📎
                     </button>
                     <textarea
@@ -358,7 +358,7 @@ export default function AdminMessages({ tenants }) {
                       onChange={e => setReplyMsg(e.target.value)}
                       placeholder="Reply..."
                       rows={2}
-                      style={{ flex: 1, border: "1.5px solid #000", borderRadius: 9, padding: "9px 12px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, resize: "none", boxSizing: "border-box" }}
+                      style={{ flex: 1, border: "1.5px solid #e5e7eb", borderRadius: 9, padding: "9px 12px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, resize: "none", boxSizing: "border-box" }}
                     />
                     <button
                       onClick={handleReply}
@@ -387,5 +387,5 @@ function Label({ children }) {
   return <div style={{ fontSize: 11, fontWeight: 700, color: "#000", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>{children}</div>;
 }
 
-const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #000", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", display: "block" };
-const outlineBtn = { padding: "8px 14px", borderRadius: 8, border: "1.5px solid #000", background: "#f9fafb", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#000", display: "inline-flex", alignItems: "center", gap: 6 };
+const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", display: "block" };
+const outlineBtn = { padding: "8px 14px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#f9fafb", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#000", display: "inline-flex", alignItems: "center", gap: 6 };
