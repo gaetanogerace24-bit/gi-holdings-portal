@@ -431,15 +431,34 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
   );
 }
 
-function ProcessingSheet({ onClose }) {
+function ProcessingSheet({ invoices = [], tenants = [], onClose }) {
+  const tenantName = (id) => tenants.find(t => t.id === id)?.name || "Tenant";
   return (
     <Sheet onClose={onClose}>
       <SheetHeader title="Processing" onClose={onClose} />
-      <div style={{ padding: "40px 20px", textAlign: "center" }}>
-        <div style={{ fontSize: 40, marginBottom: 16 }}>↻</div>
-        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Payment Processing</div>
-        <div style={{ fontSize: 14, color: "#000", lineHeight: 1.6 }}>This section will show payments currently in processing once your merchant account is connected.</div>
-      </div>
+      {invoices.length === 0 ? (
+        <div style={{ padding: "40px 20px", textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>↻</div>
+          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>No payments processing</div>
+          <div style={{ fontSize: 14, color: "#000", lineHeight: 1.6 }}>When a tenant submits a bank payment, it shows here until the ACH transfer clears (3–5 business days), then moves to Completed automatically.</div>
+        </div>
+      ) : (
+        <div style={{ padding: "8px 20px" }}>
+          <div style={{ fontSize: 13, color: "#000", background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
+            ⏳ These payments were submitted by tenants and are clearing through the bank (3–5 business days). They move to Completed automatically when the money lands.
+          </div>
+          {invoices.map(inv => (
+            <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: "1px solid #f3f4f6" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{tenantName(inv.tenant_id)}</div>
+                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{inv.month}</div>
+                {inv.stripe_payment_intent_id && <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>Ref: {inv.stripe_payment_intent_id}</div>}
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(Number(inv.rent || 0) + calcLateFee(inv.due_date))}</div>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ height: 32 }} />
     </Sheet>
   );
@@ -673,9 +692,10 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const allActive = invoices.filter(i => !i.deleted);
   const activeTenants = tenants.filter(t => !t.archived);
 
-  const upcomingList  = allActive.filter(i => !i.paid && getStatus(i) === "upcoming");
-  const overdueList   = allActive.filter(i => !i.paid && getStatus(i) === "overdue");
+  const upcomingList  = allActive.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "upcoming");
+  const overdueList   = allActive.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue");
   const completedList = allActive.filter(i => i.paid);
+  const processingList = allActive.filter(i => !i.paid && i.payment_status === "processing");
 
   const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const upcomingNextMonth = upcomingList.filter(i => {
@@ -704,6 +724,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const upcomingTotal  = upcomingNextMonth.reduce((s, i) => s + Number(i.rent || 0), 0);
   const overdueTotal   = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
   const completedTotal = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
+  const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
 
   const tenantInvoices = (id) => allActive.filter(i => i.tenant_id === id);
   const getPropertyStatus = (t) => tenantInvoices(t.id).some(i => !i.paid && getStatus(i) === "overdue") ? "overdue" : "current";
@@ -786,7 +807,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <div onClick={() => overdueList.length > 0 && setSheet("allOverdue")} style={{ cursor: overdueList.length > 0 ? "pointer" : "default" }}>
           <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
         </div>
-        <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount="$0.00" count="0 invoices" onClick={() => setSheet("processing")} />
+        <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount={fmt(processingTotal)} amountColor={processingTotal > 0 ? "#2563eb" : undefined} count={`${processingList.length} invoice${processingList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("processing")} />
         <SummaryCard badgeColor="#000" badgeLabel="📅 Upcoming" badgeBorder={false} sub="Next month" amount={fmt(upcomingTotal)} count={`${upcomingNextMonth.length} invoice${upcomingNextMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
       </div>
 
@@ -862,7 +883,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
       {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="nextmonth" />}
       {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={completedList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
-      {sheet === "processing" && <ProcessingSheet onClose={() => setSheet(null)} />}
+      {sheet === "processing" && <ProcessingSheet invoices={processingList} tenants={tenants} onClose={() => setSheet(null)} />}
       {sheet === "allOverdue" && (
         <Sheet onClose={() => setSheet(null)}>
           <SheetHeader title="Overdue Invoices" onClose={() => setSheet(null)} />
