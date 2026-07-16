@@ -1,6 +1,31 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
+// ═══════════════════════════════════════════════════════════════════
+// STRIPE SETUP
+//   testing:  TEST_MODE = true   and STRIPE_TEST_MODE secret = true
+//   go live:  TEST_MODE = false  and STRIPE_TEST_MODE secret = false
+// ═══════════════════════════════════════════════════════════════════
+const TEST_MODE = true;
+const STRIPE_PK_TEST = "pk_test_51TRuS9EDXH0jLhRlxSLe38pD6QexUfdNwLuxrRMGlmSuyNkz5CTX3J03ltoDU9NorwBeAqx9baechszegcbKy7Hy00fQAbzjmQ";
+const STRIPE_PK_LIVE = "pk_live_51TRuS9EDXH0jLhRl3r3VOAZTHWcRblzWGIy6xnorvIJheDJe5aAxCs172jinrbAQ5jJ7aLPoMxOabJ50MNLpjEmd009fTYe9Gg";
+const STRIPE_PK = TEST_MODE ? STRIPE_PK_TEST : STRIPE_PK_LIVE;
+
+// Loads Stripe.js once and reuses it
+let stripePromise = null;
+function getStripe() {
+  if (stripePromise) return stripePromise;
+  stripePromise = new Promise((resolve, reject) => {
+    if (window.Stripe) return resolve(window.Stripe(STRIPE_PK));
+    const script = document.createElement("script");
+    script.src = "https://js.stripe.com/v3/";
+    script.onload = () => resolve(window.Stripe(STRIPE_PK));
+    script.onerror = () => reject(new Error("Could not load payment system. Check your connection and try again."));
+    document.head.appendChild(script);
+  });
+  return stripePromise;
+}
+
 function fmt(n) {
   const num = Number(n) || 0;
   return num % 1 === 0
@@ -34,12 +59,6 @@ function classifyInvoice(inv, now) {
   return isOverdue ? "overdue" : isCurrentMonth ? "current" : "future";
 }
 
-function getFutureInvoices(invoices, n, now) {
-  const sorted = [...invoices].sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
-  return sorted.filter(inv => classifyInvoice(inv, now) === "future").slice(0, n);
-}
-
-// ── ONLY CHANGE: accept defaultPayMode prop, default to "current"
 export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess, defaultPayMode = "current" }) {
   const now = new Date();
   const day = now.getDate();
@@ -51,65 +70,23 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     : rent;
 
   const [step, setStep] = useState("summary");
-  // ── ONLY CHANGE: initialize payMode from defaultPayMode prop
   const [payMode, setPayMode] = useState(defaultPayMode);
   const [prepayMonths, setPrepayMonths] = useState(1);
   const [prepayAll, setPrepayAll] = useState(false);
-  const [method, setMethod] = useState(null);
   const [error, setError] = useState(null);
-  const [achName, setAchName] = useState("");
-  const [routing, setRouting] = useState("");
-  const [account, setAccount] = useState("");
-  const [accountType, setAccountType] = useState("checking");
-  const [savedBankInfo, setSavedBankInfo] = useState(null);
-  const [savingBank, setSavingBank] = useState(false);
-  const [bankSaved, setBankSaved] = useState(false);
   const [customInvoices, setCustomInvoices] = useState([]);
   const [payingCustomInvoice, setPayingCustomInvoice] = useState(null);
 
-  // Load saved ACH info from tenant record
-  useEffect(() => {
-    if (!tenant?.id) return;
-    const loadBankInfo = async () => {
-      const { data } = await supabase
-        .from("tenants")
-        .select("bank_routing, bank_account, bank_account_type, bank_name")
-        .eq("id", tenant.id)
-        .single();
-      if (data?.bank_routing) {
-        setSavedBankInfo(data);
-        setRouting(data.bank_routing || "");
-        setAccount(data.bank_account || "");
-        setAccountType(data.bank_account_type || "checking");
-        setAchName(data.bank_name || tenant.name || "");
-      } else {
-        setAchName(tenant.name || "");
-      }
-    };
-    loadBankInfo();
-  }, [tenant?.id]);
+  // Stripe payment state
+  const [paymentData, setPaymentData] = useState(null);
+  const [paying, setPaying] = useState(false);
+  const [resultInfo, setResultInfo] = useState(null);
 
   useEffect(() => {
     if (!tenant?.id) return;
     supabase.from("custom_invoices").select("*").eq("tenant_id", tenant.id).eq("paid", false)
       .then(({ data }) => { if (data) setCustomInvoices(data); });
   }, [tenant?.id]);
-
-  const handleSaveBankInfo = async () => {
-    if (!tenant?.id || !routing || !account) return;
-    setSavingBank(true);
-    await supabase.from("tenants").update({
-      bank_routing: routing,
-      bank_account: account,
-      bank_account_type: accountType,
-      bank_name: achName,
-      updated_at: new Date().toISOString(),
-    }).eq("id", tenant.id);
-    setSavedBankInfo({ bank_routing: routing, bank_account: account, bank_account_type: accountType, bank_name: achName });
-    setSavingBank(false);
-    setBankSaved(true);
-    setTimeout(() => setBankSaved(false), 3000);
-  };
 
   const classified = invoices.map(inv => ({
     ...inv,
@@ -118,12 +95,14 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     liveTotal: Number(inv.rent || 0) + calcLateFee(inv.due_date),
   }));
 
+  const processingInvoices = classified.filter(inv => inv.payment_status === "processing" && !inv.paid);
+
   const payableInvoices = classified
-    .filter(inv => inv._type === "overdue" || inv._type === "current")
+    .filter(inv => (inv._type === "overdue" || inv._type === "current") && inv.payment_status !== "processing")
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
   const futureInvoices = classified
-    .filter(inv => inv._type === "future")
+    .filter(inv => inv._type === "future" && inv.payment_status !== "processing")
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
   const totalFutureMonths = futureInvoices.length;
@@ -156,49 +135,88 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     ? Number(payingCustomInvoice.amount)
     : payMode === "prepay" ? prepayTotal : invoiceTotal;
 
-  const handlePay = async () => {
-    if (!method) return;
-    if (method === "ach" && (!routing || !account || routing.length !== 9)) {
-      setError("Please enter a valid routing number and account number.");
-      return;
-    }
+  const currentRequest = () => ({
+    tenantId: tenant.id,
+    invoiceIds: payingCustomInvoice
+      ? []
+      : payMode === "prepay"
+        ? activePrepayInvoices.map(i => i.id)
+        : selectedInvoice ? [selectedInvoice.id] : [],
+    customInvoiceId: payingCustomInvoice ? payingCustomInvoice.id : null,
+  });
+
+  const startCheckout = async () => {
     setError(null);
     setStep("processing");
     try {
-      const res = await fetch("/api/create-payment-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: total,
-          tenantId: tenant.id,
-          tenantName: tenant.name,
-          address: tenant.address,
-          paymentType: method,
-          invoiceIds: payMode === "prepay"
-            ? activePrepayInvoices.map(i => i.id)
-            : selectedInvoice ? [selectedInvoice.id] : [],
-        }),
+      const { data, error: fnErr } = await supabase.functions.invoke("create-rent-payment", {
+        body: currentRequest(),
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setTimeout(async () => {
-        if (payingCustomInvoice) {
-          const paidDate = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-          await supabase.from("custom_invoices").update({ paid: true, paid_date: paidDate }).eq("id", payingCustomInvoice.id);
-          setCustomInvoices(prev => prev.filter(i => i.id !== payingCustomInvoice.id));
-        }
-        setStep("success");
-        if (onPaymentSuccess) {
-          if (payMode === "prepay") {
-            activePrepayInvoices.forEach(inv => onPaymentSuccess(tenant.id, inv.id, Number(inv.rent || base)));
-          } else if (selectedInvoice) {
-            onPaymentSuccess(tenant.id, selectedInvoice.id, total);
-          }
-        }
-      }, 1500);
+      if (fnErr) throw new Error(fnErr.message || "Could not start payment");
+      if (data?.error) throw new Error(data.error);
+      setPaymentData(data);
+      setStep("checkout");
+    } catch (err) {
+      setError(err.message || "Could not start payment. Please try again.");
+      setStep("summary");
+    }
+  };
+
+  const payWithNewBank = async () => {
+    if (!paymentData?.clientSecret) return;
+    setPaying(true);
+    setError(null);
+    try {
+      const stripe = await getStripe();
+      const collect = await stripe.collectBankAccountForPayment({
+        clientSecret: paymentData.clientSecret,
+        params: {
+          payment_method_type: "us_bank_account",
+          payment_method_data: {
+            billing_details: {
+              name: tenant?.name || "Tenant",
+              email: tenant?.login_email || tenant?.email || undefined,
+            },
+          },
+        },
+      });
+      if (collect.error) throw new Error(collect.error.message);
+      if (collect.paymentIntent?.status === "requires_payment_method") {
+        setPaying(false);
+        return;
+      }
+
+      const confirm = await stripe.confirmUsBankAccountPayment(paymentData.clientSecret);
+      if (confirm.error) throw new Error(confirm.error.message);
+
+      const status = confirm.paymentIntent?.status;
+      setResultInfo({
+        refId: paymentData.paymentIntentId,
+        microdeposits: status === "requires_action",
+      });
+      setStep("success");
     } catch (err) {
       setError(err.message || "Payment failed. Please try again.");
-      setStep("checkout");
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const payWithSavedBank = async () => {
+    setPaying(true);
+    setError(null);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("create-rent-payment", {
+        body: { ...currentRequest(), useSaved: true },
+      });
+      if (fnErr) throw new Error(fnErr.message || "Could not start payment");
+      if (data?.error) throw new Error(data.error);
+      setResultInfo({ refId: data.paymentIntentId, microdeposits: false });
+      setStep("success");
+    } catch (err) {
+      setError(err.message || "Payment failed. Please try again.");
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -217,7 +235,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   if (step === "processing") return (
     <div style={{ padding: 40, textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Processing payment...</div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Setting up your payment...</div>
       <div style={{ fontSize: 13, color: "#6b7280" }}>Please don't close this page</div>
     </div>
   );
@@ -225,20 +243,34 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   if (step === "success") return (
     <div style={{ padding: 24, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ background: "#fff", borderRadius: 16, padding: "40px 28px", textAlign: "center", border: "1px solid rgba(0,0,0,0.07)" }}>
-        <div style={{ fontSize: 56, marginBottom: 14 }}>🎉</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#166534", marginBottom: 6 }}>Payment received!</div>
-        <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20 }}>{fmt(total)} sent to G&I Holdings LLC</div>
+        <div style={{ fontSize: 56, marginBottom: 14 }}>✅</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#166534", marginBottom: 6 }}>Payment submitted!</div>
+        <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20 }}>
+          {fmt(total)} — bank transfers take 3–5 business days to clear.
+        </div>
+        {resultInfo?.microdeposits && (
+          <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: "14px 16px", textAlign: "left", fontSize: 13, color: "#92400e", marginBottom: 14 }}>
+            <strong>One more step:</strong> your bank couldn't be verified instantly. Stripe will send a small
+            deposit to your account in 1–2 days with a 6-character code — follow the emailed link to confirm it,
+            and your payment will complete automatically.
+          </div>
+        )}
         <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "16px 20px", textAlign: "left", fontSize: 13, lineHeight: 2 }}>
           <div style={{ fontWeight: 700, color: "#166534", marginBottom: 4 }}>Payment confirmation</div>
           <div>Amount: <strong>{fmt(total)}</strong></div>
-          {payMode === "prepay"
+          {payMode === "prepay" && !payingCustomInvoice
             ? <div>Months covered: <strong>{activePrepayInvoices.map(i => i.month).join(", ") || "—"}</strong></div>
-            : <div>Invoice: <strong>{selectedInvoice?.month || month}</strong></div>
+            : payingCustomInvoice
+              ? <div>Charge: <strong>{payingCustomInvoice.title}</strong></div>
+              : <div>Invoice: <strong>{selectedInvoice?.month || month}</strong></div>
           }
           <div>Property: {tenant?.address}</div>
           <div>Method: ACH Bank Transfer</div>
-          <div>Ref: TXN-{Math.floor(Math.random() * 9000000 + 1000000)}</div>
+          <div>Ref: {resultInfo?.refId || "—"}</div>
           <div>Date: {new Date().toLocaleDateString()}</div>
+        </div>
+        <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 14 }}>
+          Your invoice will show as paid once the transfer clears.
         </div>
       </div>
     </div>
@@ -247,10 +279,21 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   return (
     <div style={{ padding: 16, fontFamily: "'DM Sans', sans-serif" }}>
 
-      {customInvoices.length > 0 && (
+      {processingInvoices.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          {processingInvoices.map(inv => (
+            <div key={inv.id} style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", borderRadius: 12, padding: "12px 16px", marginBottom: 8, fontSize: 13, color: "#1e40af", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>⏳ <strong>{inv.month}</strong> — payment processing (3–5 business days)</span>
+              <span style={{ fontWeight: 700 }}>{fmt(inv.liveTotal)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {customInvoices.filter(i => i.payment_status !== "processing").length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <SL>Other charges</SL>
-          {customInvoices.map(inv => (
+          {customInvoices.filter(i => i.payment_status !== "processing").map(inv => (
             <div key={inv.id} style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 10, border: "1.5px solid #fca5a5" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <div>
@@ -260,7 +303,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>{fmt(inv.amount)}</div>
               </div>
-              <button onClick={() => { setPayingCustomInvoice(inv); setPayMode("custom"); setStep("summary"); setMethod(null); }}
+              <button onClick={() => { setPayingCustomInvoice(inv); setPayMode("custom"); setStep("summary"); }}
                 style={{ width: "100%", background: "#dc2626", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
                 Pay {fmt(inv.amount)} now →
               </button>
@@ -275,7 +318,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
             <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 2 }}>Paying charge</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#991b1b", marginBottom: 2 }}>{payingCustomInvoice.title}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: "#dc2626" }}>{fmt(payingCustomInvoice.amount)}</div>
-            <button onClick={() => { setPayingCustomInvoice(null); setPayMode("current"); setStep("summary"); setMethod(null); }}
+            <button onClick={() => { setPayingCustomInvoice(null); setPayMode("current"); setStep("summary"); setPaymentData(null); }}
               style={{ marginTop: 8, fontSize: 12, color: "#9ca3af", background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
               ← Cancel
             </button>
@@ -283,10 +326,10 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         </div>
       )}
 
-      {!payingCustomInvoice && (
+      {!payingCustomInvoice && step === "summary" && (
         <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 16 }}>
           {[{ key: "current", label: "💳 Pay balance" }, { key: "prepay", label: "📅 Prepay rent" }].map(m => (
-            <button key={m.key} onClick={() => { setPayMode(m.key); setStep("summary"); setMethod(null); }} style={{
+            <button key={m.key} onClick={() => { setPayMode(m.key); setStep("summary"); setPaymentData(null); }} style={{
               flex: 1, padding: "9px", borderRadius: 8, border: "none", cursor: "pointer",
               background: payMode === m.key ? "#fff" : "transparent",
               color: payMode === m.key ? "#1b3d2a" : "#6b7280",
@@ -297,13 +340,18 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         </div>
       )}
 
-      {payMode === "current" && !payingCustomInvoice && (
+      {payMode === "current" && !payingCustomInvoice && step === "summary" && (
         <>
-          {invoiceLateFee > 0 ? (
+          {payableInvoices.length === 0 && processingInvoices.length > 0 && (
+            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "16px", marginBottom: 14, fontSize: 14, color: "#166534", textAlign: "center" }}>
+              ✅ Nothing due — your payment is processing.
+            </div>
+          )}
+          {selectedInvoice && invoiceLateFee > 0 ? (
             <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#991b1b" }}>
               ⚠️ <strong>+$10.00 every day until paid.</strong> You currently owe <strong>{fmt(invoiceLateFee)}</strong> in late fees on this invoice.
             </div>
-          ) : day < 5 ? (
+          ) : selectedInvoice && day < 5 ? (
             <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#166534" }}>
               ✅ No late fees yet — <strong>{daysLeft} day{daysLeft !== 1 ? "s" : ""} left</strong> before the 5th.
             </div>
@@ -318,7 +366,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                 const isOverdue = inv._type === "overdue";
                 const isSelected = selectedInvoiceId === inv.id;
                 return (
-                  <button key={inv.id} onClick={() => { setSelectedInvoiceId(inv.id); setStep("summary"); setMethod(null); }} style={{
+                  <button key={inv.id} onClick={() => { setSelectedInvoiceId(inv.id); setPaymentData(null); }} style={{
                     width: "100%", marginBottom: 8, padding: "14px 16px", borderRadius: 10, cursor: "pointer", textAlign: "left",
                     border: isSelected ? `2px solid ${isOverdue ? "#dc2626" : "#166534"}` : "1.5px solid #e5e7eb",
                     background: isSelected ? (isOverdue ? "#fef2f2" : "#f0fdf4") : "#fff",
@@ -367,7 +415,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         </>
       )}
 
-      {payMode === "prepay" && (
+      {payMode === "prepay" && step === "summary" && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 14, border: "1px solid rgba(0,0,0,0.07)" }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>📅 Prepay upcoming rent</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>Lock in now — no late fees, no stress.</div>
@@ -381,7 +429,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                   const t = invs.reduce((s, i) => s + Number(i.rent || base), 0);
                   const isActive = !prepayAll && prepayMonths === n;
                   return (
-                    <button key={n} onClick={() => { setPrepayMonths(n); setPrepayAll(false); }} style={{
+                    <button key={n} onClick={() => { setPrepayMonths(n); setPrepayAll(false); setPaymentData(null); }} style={{
                       padding: "10px 16px", borderRadius: 9, cursor: "pointer",
                       border: isActive ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
                       background: isActive ? "#f0f9f4" : "#fff",
@@ -392,7 +440,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                 })}
               </div>
               {showRemainderOption && (
-                <button onClick={() => { setPrepayAll(true); setPrepayMonths(totalFutureMonths); }} style={{
+                <button onClick={() => { setPrepayAll(true); setPrepayMonths(totalFutureMonths); setPaymentData(null); }} style={{
                   width: "100%", padding: "12px 16px", borderRadius: 9, cursor: "pointer", marginBottom: 16,
                   border: prepayAll ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
                   background: prepayAll ? "#f0f9f4" : "#fff",
@@ -428,49 +476,41 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
 
       {step === "summary" && (
         <>
-          <SL>Choose payment method</SL>
-          <div style={{ marginBottom: 16 }}>
-            <button onClick={() => { setMethod("ach"); setStep("checkout"); }} style={{ width: "100%", padding: "18px 12px", borderRadius: 12, cursor: "pointer", textAlign: "center", border: "1.5px solid #e5e7eb", background: "#fff", fontFamily: "'DM Sans', sans-serif" }}>
-              <div style={{ fontSize: 28, marginBottom: 6 }}>🏦</div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>Bank Transfer (ACH)</div>
-              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>Checking or Savings · 3–5 business days</div>
-              {savedBankInfo?.bank_routing && (
-                <div style={{ fontSize: 11, color: "#166534", marginTop: 4, fontWeight: 600 }}>✓ Saved bank info on file</div>
-              )}
+          {error && <ErrBox msg={error} />}
+          {total > 0 && (payingCustomInvoice || (payMode === "current" && selectedInvoice) || (payMode === "prepay" && activePrepayInvoices.length > 0)) && (
+            <button onClick={startCheckout} style={payBtnStyle}>
+              🏦 Pay {fmt(total)} by bank transfer →
             </button>
-          </div>
+          )}
         </>
       )}
 
-      {step === "checkout" && method === "ach" && (
+      {step === "checkout" && paymentData && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "18px", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8, color: "#1b3d2a" }}>🏦 Enter bank details</div>
-          <div style={{ fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>ACH transfers take 3–5 business days.</div>
-          <FF label="Account holder name" value={achName} onChange={setAchName} placeholder={tenant?.name} />
-          <div style={{ marginBottom: 12 }}>
-            <Label>Account type</Label>
-            <div style={{ display: "flex", gap: 8 }}>
-              {["checking", "savings"].map(t => (
-                <button key={t} onClick={() => setAccountType(t)} style={{ flex: 1, padding: "9px", borderRadius: 9, cursor: "pointer", border: accountType === t ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb", background: accountType === t ? "#f0f9f4" : "#fff", color: accountType === t ? "#1b3d2a" : "#6b7280", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, textTransform: "capitalize" }}>{t}</button>
-              ))}
-            </div>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: "#1b3d2a" }}>🏦 Pay {fmt(total)} from your bank</div>
+          <div style={{ fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+            ACH transfers take 3–5 business days. Your invoice shows as paid once the transfer clears.
           </div>
-          <FF label="Routing number (9 digits)" value={routing} onChange={v => setRouting(v.replace(/\D/g, "").slice(0, 9))} placeholder="021000021" inputMode="numeric" />
-          <FF label="Account number" value={account} onChange={v => setAccount(v.replace(/\D/g, "").slice(0, 17))} placeholder="Your account number" inputMode="numeric" />
-          <button
-            onClick={handleSaveBankInfo}
-            disabled={savingBank || !routing || !account || routing.length !== 9}
-            style={{
-              width: "100%", padding: "11px", borderRadius: 10, cursor: "pointer", marginBottom: 12,
-              border: "1.5px solid #bbf7d0", background: bankSaved ? "#f0fdf4" : "#fff",
-              color: bankSaved ? "#166534" : "#1b3d2a", fontFamily: "'DM Sans', sans-serif",
-              fontSize: 13, fontWeight: 600, opacity: (!routing || !account || routing.length !== 9) ? 0.5 : 1,
-            }}>
-            {savingBank ? "Saving..." : bankSaved ? "✓ Bank info saved!" : "💾 Save bank info for next time"}
+
+          {paymentData.savedBank && (
+            <button onClick={payWithSavedBank} disabled={paying} style={{ ...payBtnStyle, opacity: paying ? 0.6 : 1 }}>
+              {paying ? "Submitting..." : `Pay with ${paymentData.savedBank.bank} ••••${paymentData.savedBank.last4} →`}
+            </button>
+          )}
+
+          <button onClick={payWithNewBank} disabled={paying} style={paymentData.savedBank
+            ? { width: "100%", padding: "13px", borderRadius: 12, cursor: "pointer", border: "1.5px solid #1b3d2a", background: "#fff", color: "#1b3d2a", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, marginBottom: 10, opacity: paying ? 0.6 : 1 }
+            : { ...payBtnStyle, opacity: paying ? 0.6 : 1 }}>
+            {paying ? "Connecting..." : paymentData.savedBank ? "Use a different bank account" : "Connect your bank & pay →"}
           </button>
+
+          <div style={{ fontSize: 11, color: "#9ca3af", lineHeight: 1.5, marginBottom: 10 }}>
+            By clicking Pay, you authorize G&I Holdings LLC to debit the amount shown above from your bank
+            account via ACH, and to save this account for future rent payments you initiate.
+          </div>
+
           {error && <ErrBox msg={error} />}
-          <button onClick={handlePay} style={payBtnStyle}>Submit ACH — {fmt(total)} →</button>
-          <button onClick={() => { setStep("summary"); setError(null); }} style={backBtnStyle}>← Back</button>
+          <button onClick={() => { setStep("summary"); setError(null); setPaymentData(null); }} style={backBtnStyle}>← Back</button>
         </div>
       )}
 
@@ -488,15 +528,6 @@ function Row({ label, value, danger }) {
   );
 }
 function SL({ children }) { return <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.9px", color: "#9ca3af", marginBottom: 8 }}>{children}</div>; }
-function Label({ children }) { return <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>{children}</div>; }
 function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#dc2626", marginBottom: 12 }}>⚠️ {msg}</div>; }
-function FF({ label, value, onChange, placeholder, inputMode }) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <Label>{label}</Label>
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} inputMode={inputMode || "text"} style={{ width: "100%", padding: "12px 13px", borderRadius: 10, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#1a1a1a", boxSizing: "border-box", outline: "none" }} />
-    </div>
-  );
-}
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
