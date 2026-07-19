@@ -8,12 +8,12 @@ import AdminDocuments from "./AdminDocuments";
 import AdminProperties from "./AdminProperties";
 
 const NAV = [
+  { key: "payments", icon: "💰", label: "Payments" },
   { key: "tickets", icon: "🎫", label: "Tickets" },
   { key: "tenants", icon: "👥", label: "Tenants" },
   { key: "properties", icon: "🏠", label: "Properties" },
   { key: "documents", icon: "📁", label: "Documents" },
   { key: "messages", icon: "💬", label: "Messages" },
-  { key: "payments", icon: "💰", label: "Payments" },
   { key: "settings", icon: "⚙️", label: "Settings" },
 ];
 
