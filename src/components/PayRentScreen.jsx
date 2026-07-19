@@ -155,7 +155,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
   const totalFutureMonths = futureInvoices.length;
-  const prepayOptions = [1, 2, 3, 6].filter(n => n <= totalFutureMonths);
+  const prepayOptions = [1, 2, 3, 4, 5, 6].filter(n => n <= totalFutureMonths);
   const showRemainderOption = totalFutureMonths > 6;
 
   const activePrepayInvoices = prepayAll
