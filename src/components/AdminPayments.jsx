@@ -726,6 +726,10 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const completedTotal = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
   const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
 
+  // Section 8 — pull housing authority amounts from active tenant records
+  const section8Tenants = activeTenants.filter(t => t.section8 && (Number(t.section8_amount || t.section8Amount || 0) > 0));
+  const section8Total = section8Tenants.reduce((s, t) => s + Number(t.section8_amount || t.section8Amount || 0), 0);
+
   const tenantInvoices = (id) => allActive.filter(i => i.tenant_id === id);
   const getPropertyStatus = (t) => tenantInvoices(t.id).some(i => !i.paid && getStatus(i) === "overdue") ? "overdue" : "current";
   const getOverdueCount = (t) => tenantInvoices(t.id).filter(i => !i.paid && getStatus(i) === "overdue").length;
@@ -809,6 +813,9 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         </div>
         <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount={fmt(processingTotal)} amountColor={processingTotal > 0 ? "#2563eb" : undefined} count={`${processingList.length} invoice${processingList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("processing")} />
         <SummaryCard badgeColor="#000" badgeLabel="📅 Upcoming" badgeBorder={false} sub="Next month" amount={fmt(upcomingTotal)} count={`${upcomingNextMonth.length} invoice${upcomingNextMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <SummaryCard badgeColor="#7c3aed" badgeLabel="🏛 Section 8" badgeBorder={true} sub="Expected this month" amount={fmt(section8Total)} amountColor="#7c3aed" count={`${section8Tenants.length} tenant${section8Tenants.length !== 1 ? "s" : ""}`} onClick={() => setSheet("section8")} />
+        </div>
       </div>
 
       <button onClick={() => setShowSendInvoice(true)} style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -884,6 +891,55 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="nextmonth" />}
       {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={completedList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
       {sheet === "processing" && <ProcessingSheet invoices={processingList} tenants={tenants} onClose={() => setSheet(null)} />}
+      {sheet === "section8" && (
+        <Sheet onClose={() => setSheet(null)}>
+          <SheetHeader title="Section 8 / Housing Authority" onClose={() => setSheet(null)} />
+          <div style={{ padding: "8px 20px 4px" }}>
+            <div style={{ fontSize: 13, color: "#7c3aed", fontWeight: 600, marginBottom: 4 }}>
+              {section8Tenants.length} tenant{section8Tenants.length !== 1 ? "s" : ""} — {fmt(section8Total)} expected this month from housing authority
+            </div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
+              Verify these amounts match your housing authority portal each month.
+            </div>
+          </div>
+          <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "8px 20px", overflow: "hidden" }}>
+            {section8Tenants.map((t, i) => {
+              const s8 = Number(t.section8_amount || t.section8Amount || 0);
+              const tp = Number(t.tenant_portion || t.tenantPortion || 0);
+              const total = s8 + tp;
+              return (
+                <div key={t.id} style={{ padding: "14px 16px", borderBottom: i < section8Tenants.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{t.name}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{t.address}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: "#7c3aed" }}>{fmt(s8)}</div>
+                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>housing authority</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 10, background: "#f5f3ff", borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                    <div style={{ color: "#6b7280" }}>🏛 Housing pays <strong style={{ color: "#7c3aed" }}>{fmt(s8)}</strong></div>
+                    <div style={{ color: "#6b7280" }}>🏠 Tenant pays <strong style={{ color: "#1b3d2a" }}>{fmt(tp)}</strong></div>
+                    <div style={{ color: "#6b7280" }}>Total <strong style={{ color: "#1a1a1a" }}>{fmt(total)}</strong></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ margin: "12px 20px", padding: "12px 16px", background: "#f5f3ff", borderRadius: 10, border: "1px solid #ddd6fe" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#7c3aed" }}>Total from housing authority</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#7c3aed" }}>{fmt(section8Total)}</div>
+            </div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+              Cross-check this total on your housing authority portal each month to confirm no changes.
+            </div>
+          </div>
+          <div style={{ height: 32 }} />
+        </Sheet>
+      )}
       {sheet === "allOverdue" && (
         <Sheet onClose={() => setSheet(null)}>
           <SheetHeader title="Overdue Invoices" onClose={() => setSheet(null)} />
