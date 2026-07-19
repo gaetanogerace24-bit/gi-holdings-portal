@@ -34,14 +34,8 @@ export default function AdminProperties({ tenants = [], onCountChange }) {
     ];
   }, [properties, tenants]);
 
-  if (allProperties === null) {
-    return (
-      <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, marginBottom: 8 }}>Properties</h1>
-        <div style={{ color: "#9ca3af", fontSize: 14 }}>Loading...</div>
-      </div>
-    );
-  }
+  // Render nothing while loading — no flicker
+  if (allProperties === null) return null;
 
   const totalUnits = allProperties.length;
   const occupiedCount = allProperties.filter(p => p.status === "occupied").length;
