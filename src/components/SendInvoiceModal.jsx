@@ -46,9 +46,8 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
     const now = new Date().toISOString();
     const numAmount = Number(amount);
     const today = new Date();
-    const monthName = today.toLocaleString("default", { month: "long", year: "numeric" });
 
-    // 1. Insert into custom_invoices
+    // Insert into custom_invoices ONLY — never into invoices table
     const { error: customError } = await supabase.from("custom_invoices").insert({
       tenant_id: tenantId,
       title: title.trim(),
@@ -65,28 +64,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
       return;
     }
 
-    // 2. Insert into invoices table
-    const { error: invoiceErr } = await supabase.from("invoices").insert({
-      tenant_id: tenantId,
-      month: `${title.trim()} — ${monthName}`,
-      year: today.getFullYear(),
-      month_num: today.getMonth() + 1,
-      rent: numAmount,
-      late_fee: 0,
-      total: numAmount,
-      paid: false,
-      due_date: today.toISOString().split("T")[0],
-      is_custom: true,
-      notes: notes.trim() || null,
-      created_at: now,
-      updated_at: now,
-    }).select().single();
-
-    if (invoiceErr) {
-      setInvoiceError("Warning: saved to tenant portal but admin log failed: " + invoiceErr.message);
-    }
-
-    // 3. Send email + SMS
+    // Send email + SMS
     const tenant = tenants.find(t => t.id === tenantId);
     if (tenant) {
       const firstName = tenant.name.split(" ")[0];
