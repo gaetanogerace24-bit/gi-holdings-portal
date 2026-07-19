@@ -425,7 +425,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
           )}
           {selectedInvoice && invoiceLateFee > 0 ? (
             <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#991b1b" }}>
-              ⚠️ <strong>+${lateFeeRules.dailyFee != null ? `$${lateFeeRules.dailyFee}` : "$10.00"} every day until paid.</strong> You currently owe <strong>{fmt(invoiceLateFee)}</strong> in late fees on this invoice.
+              ⚠️ <strong>+{lateFeeRules.dailyFee != null ? `$${lateFeeRules.dailyFee}.00` : "$10.00"} every day until paid.</strong> You currently owe <strong>{fmt(invoiceLateFee)}</strong> in late fees on this invoice.
             </div>
           ) : selectedInvoice && day < 5 ? (
             <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#166534" }}>
