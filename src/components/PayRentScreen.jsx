@@ -1,20 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabase";
 
-// ═══════════════════════════════════════════════════════════════════
-// STRIPE SETUP — paste your PUBLISHABLE keys here (they are safe to
-// have in frontend code — they can't move money, only start payments).
-// Get them from Stripe -> Developers -> API keys ("Publishable key").
-// TEST_MODE must match the STRIPE_TEST_MODE secret in Supabase:
-//   testing:  TEST_MODE = true   and STRIPE_TEST_MODE secret = true
-//   go live:  TEST_MODE = false  and STRIPE_TEST_MODE secret = false
-// ═══════════════════════════════════════════════════════════════════
 const TEST_MODE = false;
 const STRIPE_PK_TEST = "pk_test_51TRuS9EDXH0jLhRlxSLe38pD6QexUfdNwLuxrRMGlmSuyNkz5CTX3J03ltoDU9NorwBeAqx9baechszegcbKy7Hy00fQAbzjmQ";
 const STRIPE_PK_LIVE = "pk_live_51TRuS9EDXH0jLhRl3r3VOAZTHWcRblzWGIy6xnorvIJheDJe5aAxCs172jinrbAQ5jJ7aLPoMxOabJ50MNLpjEmd009fTYe9Gg";
 const STRIPE_PK = TEST_MODE ? STRIPE_PK_TEST : STRIPE_PK_LIVE;
 
-// Loads Stripe.js once and reuses it
 let stripePromise = null;
 function getStripe() {
   if (stripePromise) return stripePromise;
@@ -36,7 +27,6 @@ function fmt(n) {
     : "$" + num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// rules = { startDay, initialFee, dailyFee } — tenant's custom values or {} for global defaults
 function calcLateFee(dueDateStr, rules = {}) {
   if (!dueDateStr) return 0;
   const today = new Date();
@@ -77,7 +67,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     ? (Number(tenant.tenantPortion || tenant.tenant_portion) || 0)
     : rent;
 
-  // Per-tenant late fee rules — falls back to global defaults when not set
   const lateFeeRules = tenant?.custom_late_fee ? {
     startDay: Number(tenant.late_fee_start_day) || 5,
     initialFee: tenant.initial_late_fee != null ? Number(tenant.initial_late_fee) : 35,
@@ -86,19 +75,21 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
 
   const [step, setStep] = useState("summary");
   const [payMode, setPayMode] = useState(defaultPayMode);
-  const [payMethod, setPayMethod] = useState("ach"); // "ach" | "card"
+  const [payMethod, setPayMethod] = useState("ach");
   const [prepayMonths, setPrepayMonths] = useState(1);
   const [prepayAll, setPrepayAll] = useState(false);
   const [error, setError] = useState(null);
   const [customInvoices, setCustomInvoices] = useState([]);
   const [payingCustomInvoice, setPayingCustomInvoice] = useState(null);
-
-  // Stripe payment state
   const [paymentData, setPaymentData] = useState(null);
   const [paying, setPaying] = useState(false);
   const [resultInfo, setResultInfo] = useState(null);
 
-  // Card fee: 2.9% + $0.30, passed to tenant
+  // Refs for Stripe card Elements — mounted once via useEffect, confirmed on button click
+  const stripeRef = useRef(null);
+  const elementsRef = useRef(null);
+  const cardMountedRef = useRef(false);
+
   const cardFee = (amt) => Math.round((amt * 0.029 + 0.30) * 100) / 100;
   const cardTotal = (amt) => Math.round((amt + cardFee(amt)) * 100) / 100;
 
@@ -107,6 +98,44 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     supabase.from("custom_invoices").select("*").eq("tenant_id", tenant.id).eq("paid", false)
       .then(({ data }) => { if (data) setCustomInvoices(data); });
   }, [tenant?.id]);
+
+  // Mount Stripe Payment Element when entering card checkout
+  useEffect(() => {
+    if (step !== "checkout" || !paymentData || paymentData.payMethod !== "card") return;
+    if (cardMountedRef.current) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const stripe = await getStripe();
+        if (cancelled) return;
+        const elements = stripe.elements({ clientSecret: paymentData.clientSecret });
+        const paymentElement = elements.create("payment");
+        // Wait for DOM to be ready
+        setTimeout(() => {
+          const mountDiv = document.getElementById("stripe-card-mount");
+          if (!mountDiv || cancelled) return;
+          paymentElement.mount(mountDiv);
+          stripeRef.current = stripe;
+          elementsRef.current = elements;
+          cardMountedRef.current = true;
+        }, 100);
+      } catch (err) {
+        if (!cancelled) setError(err.message || "Could not load card form.");
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [step, paymentData]);
+
+  // Reset card refs when leaving checkout
+  useEffect(() => {
+    if (step !== "checkout") {
+      cardMountedRef.current = false;
+      stripeRef.current = null;
+      elementsRef.current = null;
+    }
+  }, [step]);
 
   const classified = invoices.map(inv => ({
     ...inv,
@@ -165,15 +194,12 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     customInvoiceId: payingCustomInvoice ? payingCustomInvoice.id : null,
   });
 
-  // Step 1: ask the server to set up the payment (amount computed server-side)
   const startCheckout = async () => {
     setError(null);
     setStep("processing");
     try {
-      const baseAmount = total;
-      const finalAmount = payMethod === "card" ? cardTotal(baseAmount) : baseAmount;
       const { data, error: fnErr } = await supabase.functions.invoke("create-rent-payment", {
-        body: { ...currentRequest(), paymentMethod: payMethod, cardTotal: payMethod === "card" ? finalAmount : undefined },
+        body: { ...currentRequest(), paymentMethod: payMethod },
       });
       if (fnErr) throw new Error(fnErr.message || "Could not start payment");
       if (data?.error) throw new Error(data.error);
@@ -185,7 +211,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     }
   };
 
-  // Step 2a: pay with a NEW bank account (Stripe's secure bank-connection window)
   const payWithNewBank = async () => {
     if (!paymentData?.clientSecret) return;
     setPaying(true);
@@ -206,19 +231,13 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       });
       if (collect.error) throw new Error(collect.error.message);
       if (collect.paymentIntent?.status === "requires_payment_method") {
-        // Tenant closed the bank window without finishing
         setPaying(false);
         return;
       }
-
       const confirm = await stripe.confirmUsBankAccountPayment(paymentData.clientSecret);
       if (confirm.error) throw new Error(confirm.error.message);
-
       const status = confirm.paymentIntent?.status;
-      setResultInfo({
-        refId: paymentData.paymentIntentId,
-        microdeposits: status === "requires_action",
-      });
+      setResultInfo({ refId: paymentData.paymentIntentId, microdeposits: status === "requires_action" });
       setStep("success");
     } catch (err) {
       setError(err.message || "Payment failed. Please try again.");
@@ -227,7 +246,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     }
   };
 
-  // Step 2b: one-click pay with the bank saved from a previous payment
   const payWithSavedBank = async () => {
     setPaying(true);
     setError(null);
@@ -246,21 +264,17 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     }
   };
 
-  // Step 2c: pay by card using Stripe Elements
+  // Card pay — elements already mounted via useEffect, just confirm on button click
   const payWithCard = async () => {
-    if (!paymentData?.clientSecret) return;
+    if (!stripeRef.current || !elementsRef.current) {
+      setError("Card form not ready yet. Please wait a moment and try again.");
+      return;
+    }
     setPaying(true);
     setError(null);
     try {
-      const stripe = await getStripe();
-      const elements = stripe.elements({ clientSecret: paymentData.clientSecret });
-      const cardElement = elements.create("payment");
-      // Mount into a temp div
-      const mountDiv = document.getElementById("stripe-card-mount");
-      if (mountDiv) cardElement.mount(mountDiv);
-
-      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
-        elements,
+      const { error: confirmError } = await stripeRef.current.confirmPayment({
+        elements: elementsRef.current,
         confirmParams: {
           return_url: window.location.href,
           payment_method_data: {
@@ -541,7 +555,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
           {error && <ErrBox msg={error} />}
           {total > 0 && (payingCustomInvoice || (payMode === "current" && selectedInvoice) || (payMode === "prepay" && activePrepayInvoices.length > 0)) && (
             <>
-              {/* Payment method selector */}
               <SL>How would you like to pay?</SL>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
                 <button onClick={() => setPayMethod("ach")} style={{
