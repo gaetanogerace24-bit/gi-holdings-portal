@@ -106,8 +106,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const classified = invoices.map(inv => ({
     ...inv,
     _type: classifyInvoice(inv, now),
-    liveFee: calcLateFee(inv.due_date, lateFeeRules),
-    liveTotal: Number(inv.rent || 0) + calcLateFee(inv.due_date, lateFeeRules),
+    liveFee: inv.is_custom ? 0 : calcLateFee(inv.due_date, lateFeeRules),
+    liveTotal: inv.is_custom ? Number(inv.rent || 0) : Number(inv.rent || 0) + calcLateFee(inv.due_date, lateFeeRules),
   }));
 
   const processingInvoices = classified.filter(inv => inv.payment_status === "processing" && !inv.paid);
@@ -141,7 +141,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
 
   const selectedInvoice = payableInvoices.find(i => i.id === selectedInvoiceId) || payableInvoices[0];
   const invoiceRent = Number(selectedInvoice?.rent) || rent;
-  const invoiceLateFee = selectedInvoice ? calcLateFee(selectedInvoice.due_date, lateFeeRules) : 0;
+  const invoiceLateFee = selectedInvoice ? (selectedInvoice.is_custom ? 0 : calcLateFee(selectedInvoice.due_date, lateFeeRules)) : 0;
   const invoiceTotal = invoiceRent + invoiceLateFee;
   const daysLate = invoiceLateFee > 35 ? Math.round((invoiceLateFee - 35) / 10) : 0;
   const isSelectedOverdue = selectedInvoice?._type === "overdue";
@@ -380,7 +380,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
             <div style={{ marginBottom: 14 }}>
               <SL>Select invoice to pay</SL>
               {payableInvoices.map(inv => {
-                const fee = calcLateFee(inv.due_date, lateFeeRules);
+                const fee = inv.is_custom ? 0 : calcLateFee(inv.due_date, lateFeeRules);
                 const t = Number(inv.rent || 0) + fee;
                 const isOverdue = inv._type === "overdue";
                 const isSelected = selectedInvoiceId === inv.id;
