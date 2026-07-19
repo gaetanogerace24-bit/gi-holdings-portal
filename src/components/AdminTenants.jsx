@@ -69,6 +69,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const [docForm, setDocForm] = useState({ name: "", category: "Lease agreement", url: "" });
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [generatingNext, setGeneratingNext] = useState(false);
   const [regenMsg, setRegenMsg] = useState(null);
   // Portal access state
   const [showAccess, setShowAccess] = useState(false);
@@ -181,6 +182,47 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
         : `✅ All invoices are already up to date — nothing to add.`
     );
     setRegenerating(false);
+  };
+
+  const handleGenerateNextMonth = async () => {
+    if (!editing) return;
+    setGeneratingNext(true);
+    const now = new Date();
+    const targetYear  = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
+    const targetMonth = now.getMonth() === 11 ? 0 : now.getMonth() + 1;
+    const targetMonthNum = targetMonth + 1;
+    const targetDueDate = `${targetYear}-${String(targetMonthNum).padStart(2,"0")}-01`;
+    const targetMonthName = `${["January","February","March","April","May","June","July","August","September","October","November","December"][targetMonth]} ${targetYear}`;
+
+    const { data: existing } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("tenant_id", editing)
+      .eq("due_date", targetDueDate);
+
+    if (existing && existing.length > 0) {
+      setRegenMsg(`✅ ${targetMonthName} invoice already exists — nothing to add.`);
+    } else {
+      const rentAmount = form.section8
+        ? Number(form.tenantPortion || form.tenant_portion || 0)
+        : Number(form.rent || 0);
+      await supabase.from("invoices").insert({
+        tenant_id: editing,
+        month: targetMonthName,
+        year: targetYear,
+        month_num: targetMonthNum,
+        rent: rentAmount,
+        late_fee: 0,
+        total: rentAmount,
+        paid: false,
+        due_date: targetDueDate,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      if (onInvoicesChanged) await onInvoicesChanged();
+      setRegenMsg(`✅ ${targetMonthName} invoice created for $${rentAmount.toLocaleString()}.`);
+    }
+    setGeneratingNext(false);
   };
 
   const handleRemove = async (id, name) => {
@@ -334,7 +376,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             </div>
           </div>
 
-          {/* Invoice preview + regenerate button (only shown when editing) */}
+          {/* Invoice preview + buttons (only shown when editing) */}
           {invoicePreview && editing && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 8, fontSize: 13, color: "#1b3d2a" }}>
@@ -345,9 +387,30 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   </div>
                 )}
               </div>
-              <button onClick={handleRegenerate} disabled={regenerating} style={{ width: "100%", padding: "10px", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-                {regenerating ? "⏳ Regenerating..." : "🔄 Regenerate invoices for this lease term"}
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={handleRegenerate} disabled={regenerating} style={{ flex: 1, padding: "9px 12px", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                  {regenerating ? "⏳ Regenerating..." : "🔄 Regenerate lease invoices"}
+                </button>
+                <button onClick={handleGenerateNextMonth} disabled={generatingNext} style={{ flex: 1, padding: "9px 12px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                  {generatingNext ? "⏳ Creating..." : "➕ Generate next month"}
+                </button>
+              </div>
+              {regenMsg && (
+                <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 13, color: "#1b3d2a" }}>
+                  {regenMsg}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* For month-to-month tenants show just the Generate next month button */}
+          {form.monthToMonth && editing && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={handleGenerateNextMonth} disabled={generatingNext} style={{ flex: 1, padding: "9px 12px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                  {generatingNext ? "⏳ Creating..." : "➕ Generate next month's invoice"}
+                </button>
+              </div>
               {regenMsg && (
                 <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 13, color: "#1b3d2a" }}>
                   {regenMsg}
