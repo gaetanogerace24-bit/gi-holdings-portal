@@ -6,11 +6,13 @@ import AdminMessages from "./AdminMessages";
 import AdminSettings from "./AdminSettings";
 import AdminPayments from "./AdminPayments";
 import AdminDocuments from "./AdminDocuments";
+import AdminProperties from "./AdminProperties";
 
 const NAV = [
   { key: "overview", icon: "📊", label: "Overview" },
   { key: "tickets", icon: "🎫", label: "Tickets" },
   { key: "tenants", icon: "👥", label: "Tenants" },
+  { key: "properties", icon: "🏠", label: "Properties" },
   { key: "documents", icon: "📁", label: "Documents" },
   { key: "messages", icon: "💬", label: "Messages" },
   { key: "payments", icon: "💰", label: "Payments" },
@@ -20,6 +22,7 @@ const NAV = [
 export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, supabase }) {
   const [active, setActive] = useState("overview");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
+  const [propertyCount, setPropertyCount] = useState(0);
 
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
 
@@ -62,6 +65,9 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
               {n.key === "tenants" && tenants.length > 0 && (
                 <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length}</span>
               )}
+              {n.key === "properties" && propertyCount > 0 && (
+                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{propertyCount}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -87,6 +93,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           {active === "overview" && <AdminOverview tenants={tenants} setTenants={setTenants} invoices={sharedInvoices} setInvoices={setSharedInvoices} onNavigate={setActive} />}
           {active === "tickets" && <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />}
           {active === "tenants" && <AdminTenants tenants={tenants} setTenants={setTenants} />}
+          {active === "properties" && <AdminProperties tenants={tenants} onCountChange={setPropertyCount} />}
           {active === "documents" && <AdminDocuments tenants={tenants} setTenants={setTenants} />}
           {active === "messages" && <AdminMessages tenants={tenants} supabase={supabase} />}
           {active === "payments" && <AdminPayments tenants={tenants} invoices={sharedInvoices} />}
