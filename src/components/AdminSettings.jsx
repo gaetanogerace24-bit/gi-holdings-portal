@@ -14,8 +14,6 @@ const DEFAULTS = {
   adminPassword: "GIHoldings2026!",
 };
 
-// Generic helper: merges only the given keys into whatever is currently saved in the DB,
-// so each section's save button never touches fields outside its own section.
 async function saveFields(fields) {
   const { data } = await supabase
     .from("settings")
@@ -35,9 +33,8 @@ async function saveFields(fields) {
 }
 
 export default function AdminSettings() {
-  const [settings, setSettings] = useState(null); // null = loading
+  const [settings, setSettings] = useState(null);
   const [companyStatus, setCompanyStatus] = useState("idle");
-  const [rentStatus, setRentStatus] = useState("idle");
   const [reminderStatus, setReminderStatus] = useState("idle");
   const [ownerStatus, setOwnerStatus] = useState("idle");
 
@@ -52,13 +49,12 @@ export default function AdminSettings() {
         setSettings({ ...DEFAULTS, ...(data?.value || {}) });
       } catch (e) {
         console.error("Failed to load settings:", e);
-        setSettings(DEFAULTS); // fallback to defaults on error
+        setSettings(DEFAULTS);
       }
     }
     load();
   }, []);
 
-  // Don't render until settings are loaded — prevents flash
   if (settings === null) {
     return (
       <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
@@ -69,10 +65,6 @@ export default function AdminSettings() {
   }
 
   const update = (key, val) => setSettings(s => ({ ...s, [key]: val }));
-
-  // ── Each section below saves ONLY its own fields, and syncs the rest of
-  //    local state with whatever else is currently in the DB afterward, so
-  //    no section can ever overwrite another section's unsaved or saved data.
 
   const handleSaveCompany = async () => {
     setCompanyStatus("saving");
@@ -90,24 +82,6 @@ export default function AdminSettings() {
       console.error("Save failed:", e);
       setCompanyStatus("error");
       setTimeout(() => setCompanyStatus("idle"), 3000);
-    }
-  };
-
-  const handleSaveRent = async () => {
-    setRentStatus("saving");
-    try {
-      const merged = await saveFields({
-        rentDueDay: settings.rentDueDay,
-        initialLateFee: settings.initialLateFee,
-        dailyLateFee: settings.dailyLateFee,
-      });
-      setSettings(merged);
-      setRentStatus("saved");
-      setTimeout(() => setRentStatus("idle"), 3000);
-    } catch (e) {
-      console.error("Save failed:", e);
-      setRentStatus("error");
-      setTimeout(() => setRentStatus("idle"), 3000);
     }
   };
 
@@ -148,7 +122,7 @@ export default function AdminSettings() {
     <div className="admin-page-content" style={{ padding: 28, maxWidth: 740, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Settings</h1>
-        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Manage your company info, late fees, and notifications</div>
+        <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>Manage your company info and notifications</div>
       </div>
 
       <Section title="🏢 Company info">
@@ -161,22 +135,10 @@ export default function AdminSettings() {
         <SaveButton status={companyStatus} onClick={handleSaveCompany} label="Save company info" />
       </Section>
 
-      <Section title="💰 Rent & late fee rules">
-        <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#166534" }}>
-          <strong>Current rules:</strong> Rent due the {settings.rentDueDay}st of each month · $
-          {settings.initialLateFee} late fee on the {Number(settings.rentDueDay) + 4}th · then $
-          {settings.dailyLateFee}/day every day after until paid
-        </div>
-        <Grid>
-          <Field label="Rent due — day of month" value={settings.rentDueDay} onChange={v => update("rentDueDay", v)} type="number" hint="e.g. 1 = 1st of month" />
-          <Field label="Late fee start day" value={String(Number(settings.rentDueDay) + 4)} onChange={() => {}} type="number" hint="Auto-calculated (due day + 4)" />
-          <Field label="Initial late fee ($)" value={settings.initialLateFee} onChange={v => update("initialLateFee", v)} type="number" hint="Charged on the 5th of the month" />
-          <Field label="Daily late fee ($)" value={settings.dailyLateFee} onChange={v => update("dailyLateFee", v)} type="number" hint="Per day after the 5th until paid" />
-        </Grid>
-        <SaveButton status={rentStatus} onClick={handleSaveRent} label="Save rent & late fee rules" />
-      </Section>
-
       <Section title="🔔 Automatic rent reminders">
+        <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>
+          Send tenants an early reminder X days before rent is due on the 1st.
+        </div>
         <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" />
         <SaveButton status={reminderStatus} onClick={handleSaveReminder} label="Save reminder setting" />
       </Section>
