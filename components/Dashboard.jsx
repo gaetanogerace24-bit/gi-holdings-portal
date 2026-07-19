@@ -3,9 +3,12 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
   const dayOfMonth = now.getDate();
   const rent = Number(tenant?.rent) || 0;
 
-  const totalBalance = invoices.reduce((sum, inv) => sum + Number(inv.total), 0);
-  const totalLateFees = invoices.reduce((sum, inv) => sum + Number(inv.late_fee), 0);
-  const hasInvoices = invoices.length > 0;
+  // Exclude custom invoices from the balance card
+  const rentInvoices = invoices.filter(inv => !inv.is_custom);
+
+  const totalBalance = rentInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
+  const totalLateFees = rentInvoices.reduce((sum, inv) => sum + Number(inv.late_fee), 0);
+  const hasInvoices = rentInvoices.length > 0;
 
   // Fallback if no invoices
   const overrideTotal = (tenant?.overrideLate ?? tenant?.override_late) != null ? Number(tenant?.overrideLate ?? tenant?.override_late) : null;
@@ -42,7 +45,7 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
             </div>
             <div style={{ fontSize: 34, fontWeight: 700, color: "#fff", letterSpacing: "-1.5px" }}>${displayTotal.toLocaleString()}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 3 }}>
-              {invoices.length > 1 ? `${invoices.length} open invoices` : `Due the 1st · ${tenant?.unit || tenant?.address?.split(",")[0]}`}
+              {rentInvoices.length > 1 ? `${rentInvoices.length} open invoices` : `Due the 1st · ${tenant?.unit || tenant?.address?.split(",")[0]}`}
             </div>
           </div>
           {displayLateFees > 0 && (
@@ -53,9 +56,9 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
         </div>
 
         {/* Show each invoice if multiple */}
-        {invoices.length > 1 && (
+        {rentInvoices.length > 1 && (
           <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10 }}>
-            {invoices.map(inv => (
+            {rentInvoices.map(inv => (
               <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
                 <span style={{ color: "rgba(255,255,255,0.6)" }}>{inv.month}</span>
                 <span style={{ fontWeight: 600, color: "#fff" }}>${Number(inv.total).toLocaleString()}</span>
