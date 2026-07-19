@@ -147,11 +147,11 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const processingInvoices = classified.filter(inv => inv.payment_status === "processing" && !inv.paid);
 
   const payableInvoices = classified
-    .filter(inv => (inv._type === "overdue" || inv._type === "current") && inv.payment_status !== "processing")
+    .filter(inv => (inv._type === "overdue" || inv._type === "current") && inv.payment_status !== "processing" && !inv.is_custom)
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
   const futureInvoices = classified
-    .filter(inv => inv._type === "future" && inv.payment_status !== "processing")
+    .filter(inv => inv._type === "future" && inv.payment_status !== "processing" && !inv.is_custom)
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
   const totalFutureMonths = futureInvoices.length;
