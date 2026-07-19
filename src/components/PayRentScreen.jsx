@@ -477,7 +477,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,0,0,0.07)" }}>
                 <Row label="Monthly rent" value={fmt(invoiceRent)} />
                 {invoiceLateFee > 0 && <>
-                  <Row label="Base late fee (day 1 — 5th)" value="+ $35.00" danger />
+                  <Row label="Initial fee" value="+ $35.00" danger />
                   {daysLate > 0 && <Row label={`Daily fees ($10 × ${daysLate} days)`} value={`+ $${daysLate * 10}.00`} danger />}
                 </>}
                 {invoiceLateFee === 0 && <Row label="Late fee" value="$0.00" />}
