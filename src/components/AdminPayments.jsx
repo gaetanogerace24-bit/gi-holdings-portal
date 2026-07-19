@@ -814,7 +814,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount={fmt(processingTotal)} amountColor={processingTotal > 0 ? "#2563eb" : undefined} count={`${processingList.length} invoice${processingList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("processing")} />
         <SummaryCard badgeColor="#000" badgeLabel="📅 Upcoming" badgeBorder={false} sub="Next month" amount={fmt(upcomingTotal)} count={`${upcomingNextMonth.length} invoice${upcomingNextMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
         <div style={{ gridColumn: "1 / -1" }}>
-          <SummaryCard badgeColor="#7c3aed" badgeLabel="🏛 Section 8" badgeBorder={true} sub="Expected this month" amount={fmt(section8Total)} amountColor="#7c3aed" count={`${section8Tenants.length} tenant${section8Tenants.length !== 1 ? "s" : ""}`} onClick={() => setSheet("section8")} />
+          <SummaryCard badgeColor="#0d9488" badgeLabel="🏛 Section 8" badgeBorder={true} sub="Expected this month" amount={fmt(section8Total)} amountColor="#0d9488" count={`${section8Tenants.length} tenant${section8Tenants.length !== 1 ? "s" : ""}`} onClick={() => setSheet("section8")} />
         </div>
       </div>
 
@@ -895,7 +895,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <Sheet onClose={() => setSheet(null)}>
           <SheetHeader title="Section 8 / Housing Authority" onClose={() => setSheet(null)} />
           <div style={{ padding: "8px 20px 4px" }}>
-            <div style={{ fontSize: 13, color: "#7c3aed", fontWeight: 600, marginBottom: 4 }}>
+            <div style={{ fontSize: 13, color: "#0d9488", fontWeight: 600, marginBottom: 4 }}>
               {section8Tenants.length} tenant{section8Tenants.length !== 1 ? "s" : ""} — {fmt(section8Total)} expected this month from housing authority
             </div>
             <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
@@ -915,12 +915,12 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                       <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{t.address}</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: "#7c3aed" }}>{fmt(s8)}</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: "#0d9488" }}>{fmt(s8)}</div>
                       <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>housing authority</div>
                     </div>
                   </div>
-                  <div style={{ marginTop: 10, background: "#f5f3ff", borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                    <div style={{ color: "#6b7280" }}>🏛 Housing pays <strong style={{ color: "#7c3aed" }}>{fmt(s8)}</strong></div>
+                  <div style={{ marginTop: 10, background: "#f0fdfa", borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                    <div style={{ color: "#6b7280" }}>🏛 Housing pays <strong style={{ color: "#0d9488" }}>{fmt(s8)}</strong></div>
                     <div style={{ color: "#6b7280" }}>🏠 Tenant pays <strong style={{ color: "#1b3d2a" }}>{fmt(tp)}</strong></div>
                     <div style={{ color: "#6b7280" }}>Total <strong style={{ color: "#1a1a1a" }}>{fmt(total)}</strong></div>
                   </div>
@@ -928,10 +928,10 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
               );
             })}
           </div>
-          <div style={{ margin: "12px 20px", padding: "12px 16px", background: "#f5f3ff", borderRadius: 10, border: "1px solid #ddd6fe" }}>
+          <div style={{ margin: "12px 20px", padding: "12px 16px", background: "#f0fdfa", borderRadius: 10, border: "1px solid #99f6e4" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#7c3aed" }}>Total from housing authority</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: "#7c3aed" }}>{fmt(section8Total)}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#0d9488" }}>Total from housing authority</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#0d9488" }}>{fmt(section8Total)}</div>
             </div>
             <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
               Cross-check this total on your housing authority portal each month to confirm no changes.
