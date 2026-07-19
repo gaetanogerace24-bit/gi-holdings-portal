@@ -376,8 +376,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             </div>
           </div>
 
-          {/* Invoice preview + buttons (only shown when editing) */}
-          {invoicePreview && editing && (
+          {/* Invoice preview + buttons (only shown when editing with a fixed lease) */}
+          {invoicePreview && editing && !form.monthToMonth && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 8, fontSize: 13, color: "#1b3d2a" }}>
                 📅 <strong>{invoicePreview.count} invoice{invoicePreview.count !== 1 ? "s" : ""}</strong> covering {invoicePreview.startLabel} → {invoicePreview.endLabel}
@@ -391,9 +391,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                 <button onClick={handleRegenerate} disabled={regenerating} style={{ flex: 1, padding: "9px 12px", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
                   {regenerating ? "⏳ Regenerating..." : "🔄 Regenerate lease invoices"}
                 </button>
-                <button onClick={handleGenerateNextMonth} disabled={generatingNext} style={{ flex: 1, padding: "9px 12px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
-                  {generatingNext ? "⏳ Creating..." : "➕ Generate next month"}
-                </button>
               </div>
               {regenMsg && (
                 <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 13, color: "#1b3d2a" }}>
@@ -403,7 +400,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             </div>
           )}
 
-          {/* For month-to-month tenants show just the Generate next month button */}
+          {/* Generate next month — only for month-to-month tenants */}
           {form.monthToMonth && editing && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", gap: 8 }}>
