@@ -86,6 +86,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
 
   const [step, setStep] = useState("summary");
   const [payMode, setPayMode] = useState(defaultPayMode);
+  const [payMethod, setPayMethod] = useState("ach"); // "ach" | "card"
   const [prepayMonths, setPrepayMonths] = useState(1);
   const [prepayAll, setPrepayAll] = useState(false);
   const [error, setError] = useState(null);
@@ -93,9 +94,13 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const [payingCustomInvoice, setPayingCustomInvoice] = useState(null);
 
   // Stripe payment state
-  const [paymentData, setPaymentData] = useState(null); // { clientSecret, paymentIntentId, amount, savedBank }
+  const [paymentData, setPaymentData] = useState(null);
   const [paying, setPaying] = useState(false);
-  const [resultInfo, setResultInfo] = useState(null); // { refId, microdeposits }
+  const [resultInfo, setResultInfo] = useState(null);
+
+  // Card fee: 2.9% + $0.30, passed to tenant
+  const cardFee = (amt) => Math.round((amt * 0.029 + 0.30) * 100) / 100;
+  const cardTotal = (amt) => Math.round((amt + cardFee(amt)) * 100) / 100;
 
   useEffect(() => {
     if (!tenant?.id) return;
@@ -165,12 +170,14 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     setError(null);
     setStep("processing");
     try {
+      const baseAmount = total;
+      const finalAmount = payMethod === "card" ? cardTotal(baseAmount) : baseAmount;
       const { data, error: fnErr } = await supabase.functions.invoke("create-rent-payment", {
-        body: currentRequest(),
+        body: { ...currentRequest(), paymentMethod: payMethod, cardTotal: payMethod === "card" ? finalAmount : undefined },
       });
       if (fnErr) throw new Error(fnErr.message || "Could not start payment");
       if (data?.error) throw new Error(data.error);
-      setPaymentData(data);
+      setPaymentData({ ...data, payMethod });
       setStep("checkout");
     } catch (err) {
       setError(err.message || "Could not start payment. Please try again.");
@@ -239,6 +246,42 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     }
   };
 
+  // Step 2c: pay by card using Stripe Elements
+  const payWithCard = async () => {
+    if (!paymentData?.clientSecret) return;
+    setPaying(true);
+    setError(null);
+    try {
+      const stripe = await getStripe();
+      const elements = stripe.elements({ clientSecret: paymentData.clientSecret });
+      const cardElement = elements.create("payment");
+      // Mount into a temp div
+      const mountDiv = document.getElementById("stripe-card-mount");
+      if (mountDiv) cardElement.mount(mountDiv);
+
+      const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.href,
+          payment_method_data: {
+            billing_details: {
+              name: tenant?.name || "Tenant",
+              email: tenant?.login_email || tenant?.email || undefined,
+            },
+          },
+        },
+        redirect: "if_required",
+      });
+      if (confirmError) throw new Error(confirmError.message);
+      setResultInfo({ refId: paymentData.paymentIntentId, microdeposits: false, isCard: true });
+      setStep("success");
+    } catch (err) {
+      setError(err.message || "Card payment failed. Please try again.");
+    } finally {
+      setPaying(false);
+    }
+  };
+
   if (invoices.length === 0 && tenant?.paid) {
     return (
       <div style={{ padding: 24, fontFamily: "'DM Sans', sans-serif" }}>
@@ -265,7 +308,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         <div style={{ fontSize: 56, marginBottom: 14 }}>✅</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#166534", marginBottom: 6 }}>Payment submitted!</div>
         <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20 }}>
-          {fmt(total)} — bank transfers take 3–5 business days to clear.
+          {fmt(resultInfo?.isCard ? cardTotal(total) : total)} — {resultInfo?.isCard ? "card payments clear in 1–2 business days." : "bank transfers take 3–5 business days to clear."}
         </div>
         {resultInfo?.microdeposits && (
           <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: "14px 16px", textAlign: "left", fontSize: 13, color: "#92400e", marginBottom: 14 }}>
@@ -284,7 +327,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               : <div>Invoice: <strong>{selectedInvoice?.month || month}</strong></div>
           }
           <div>Property: {tenant?.address}</div>
-          <div>Method: ACH Bank Transfer</div>
+          <div>Method: {resultInfo?.isCard ? "💳 Debit/Credit Card" : "🏦 ACH Bank Transfer"}</div>
           <div>Ref: {resultInfo?.refId || "—"}</div>
           <div>Date: {new Date().toLocaleDateString()}</div>
         </div>
@@ -497,37 +540,81 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         <>
           {error && <ErrBox msg={error} />}
           {total > 0 && (payingCustomInvoice || (payMode === "current" && selectedInvoice) || (payMode === "prepay" && activePrepayInvoices.length > 0)) && (
-            <button onClick={startCheckout} style={payBtnStyle}>
-              🏦 Pay {fmt(total)} by bank transfer →
-            </button>
+            <>
+              {/* Payment method selector */}
+              <SL>How would you like to pay?</SL>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                <button onClick={() => setPayMethod("ach")} style={{
+                  padding: "12px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center",
+                  border: payMethod === "ach" ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                  background: payMethod === "ach" ? "#f0f9f4" : "#fff",
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  <div style={{ fontSize: 20, marginBottom: 4 }}>🏦</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: payMethod === "ach" ? "#1b3d2a" : "#1a1a1a" }}>Bank transfer</div>
+                  <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, marginTop: 2 }}>No extra fee</div>
+                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>3–5 business days</div>
+                </button>
+                <button onClick={() => setPayMethod("card")} style={{
+                  padding: "12px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center",
+                  border: payMethod === "card" ? "2px solid #2563eb" : "1.5px solid #e5e7eb",
+                  background: payMethod === "card" ? "#eff6ff" : "#fff",
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  <div style={{ fontSize: 20, marginBottom: 4 }}>💳</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: payMethod === "card" ? "#1d4ed8" : "#1a1a1a" }}>Debit / Credit card</div>
+                  <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>+{fmt(cardFee(total))} fee</div>
+                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>1–2 business days</div>
+                </button>
+              </div>
+              {payMethod === "card" && (
+                <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: 12, color: "#1e40af" }}>
+                  💳 Card total: <strong>{fmt(cardTotal(total))}</strong> (includes {fmt(cardFee(total))} processing fee)
+                </div>
+              )}
+              <button onClick={startCheckout} style={payMethod === "card" ? cardPayBtnStyle : payBtnStyle}>
+                {payMethod === "card" ? `💳 Pay ${fmt(cardTotal(total))} by card →` : `🏦 Pay ${fmt(total)} by bank transfer →`}
+              </button>
+            </>
           )}
         </>
       )}
 
       {step === "checkout" && paymentData && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "18px", border: "1px solid rgba(0,0,0,0.07)", marginBottom: 14 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: "#1b3d2a" }}>🏦 Pay {fmt(total)} from your bank</div>
-          <div style={{ fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
-            ACH transfers take 3–5 business days. Your invoice shows as paid once the transfer clears.
-          </div>
-
-          {paymentData.savedBank && (
-            <button onClick={payWithSavedBank} disabled={paying} style={{ ...payBtnStyle, opacity: paying ? 0.6 : 1 }}>
-              {paying ? "Submitting..." : `Pay with ${paymentData.savedBank.bank} ••••${paymentData.savedBank.last4} →`}
-            </button>
+          {paymentData.payMethod === "card" ? (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: "#1d4ed8" }}>💳 Pay {fmt(cardTotal(total))} by card</div>
+              <div style={{ fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+                Card payments clear in 1–2 business days. Includes {fmt(cardFee(total))} processing fee.
+              </div>
+              <div id="stripe-card-mount" style={{ border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "12px", marginBottom: 14, minHeight: 44 }} />
+              <button onClick={payWithCard} disabled={paying} style={{ ...cardPayBtnStyle, opacity: paying ? 0.6 : 1 }}>
+                {paying ? "Processing..." : `💳 Pay ${fmt(cardTotal(total))} →`}
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: "#1b3d2a" }}>🏦 Pay {fmt(total)} from your bank</div>
+              <div style={{ fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+                ACH transfers take 3–5 business days. Your invoice shows as paid once the transfer clears.
+              </div>
+              {paymentData.savedBank && (
+                <button onClick={payWithSavedBank} disabled={paying} style={{ ...payBtnStyle, opacity: paying ? 0.6 : 1 }}>
+                  {paying ? "Submitting..." : `Pay with ${paymentData.savedBank.bank} ••••${paymentData.savedBank.last4} →`}
+                </button>
+              )}
+              <button onClick={payWithNewBank} disabled={paying} style={paymentData.savedBank
+                ? { width: "100%", padding: "13px", borderRadius: 12, cursor: "pointer", border: "1.5px solid #1b3d2a", background: "#fff", color: "#1b3d2a", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, marginBottom: 10, opacity: paying ? 0.6 : 1 }
+                : { ...payBtnStyle, opacity: paying ? 0.6 : 1 }}>
+                {paying ? "Connecting..." : paymentData.savedBank ? "Use a different bank account" : "Connect your bank & pay →"}
+              </button>
+              <div style={{ fontSize: 11, color: "#9ca3af", lineHeight: 1.5, marginBottom: 10 }}>
+                By clicking Pay, you authorize G&I Holdings LLC to debit the amount shown above from your bank
+                account via ACH, and to save this account for future rent payments you initiate.
+              </div>
+            </>
           )}
-
-          <button onClick={payWithNewBank} disabled={paying} style={paymentData.savedBank
-            ? { width: "100%", padding: "13px", borderRadius: 12, cursor: "pointer", border: "1.5px solid #1b3d2a", background: "#fff", color: "#1b3d2a", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, marginBottom: 10, opacity: paying ? 0.6 : 1 }
-            : { ...payBtnStyle, opacity: paying ? 0.6 : 1 }}>
-            {paying ? "Connecting..." : paymentData.savedBank ? "Use a different bank account" : "Connect your bank & pay →"}
-          </button>
-
-          <div style={{ fontSize: 11, color: "#9ca3af", lineHeight: 1.5, marginBottom: 10 }}>
-            By clicking Pay, you authorize G&I Holdings LLC to debit the amount shown above from your bank
-            account via ACH, and to save this account for future rent payments you initiate.
-          </div>
-
           {error && <ErrBox msg={error} />}
           <button onClick={() => { setStep("summary"); setError(null); setPaymentData(null); }} style={backBtnStyle}>← Back</button>
         </div>
@@ -549,4 +636,5 @@ function Row({ label, value, danger }) {
 function SL({ children }) { return <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.9px", color: "#9ca3af", marginBottom: 8 }}>{children}</div>; }
 function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#dc2626", marginBottom: 12 }}>⚠️ {msg}</div>; }
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
+const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
