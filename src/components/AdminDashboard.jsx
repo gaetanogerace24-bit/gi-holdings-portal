@@ -1,5 +1,4 @@
 import { useState } from "react";
-import AdminOverview from "./AdminOverview";
 import AdminTickets from "./AdminTickets";
 import AdminTenants from "./AdminTenants";
 import AdminMessages from "./AdminMessages";
@@ -9,7 +8,6 @@ import AdminDocuments from "./AdminDocuments";
 import AdminProperties from "./AdminProperties";
 
 const NAV = [
-  { key: "overview", icon: "📊", label: "Overview" },
   { key: "tickets", icon: "🎫", label: "Tickets" },
   { key: "tenants", icon: "👥", label: "Tenants" },
   { key: "properties", icon: "🏠", label: "Properties" },
@@ -20,7 +18,7 @@ const NAV = [
 ];
 
 export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, supabase }) {
-  const [active, setActive] = useState("overview");
+  const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
   const [propertyCount, setPropertyCount] = useState(0);
 
@@ -90,7 +88,6 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         </div>
 
         <div className="admin-main" style={{ flex: 1, overflowY: "auto" }}>
-          {active === "overview" && <AdminOverview tenants={tenants} setTenants={setTenants} invoices={sharedInvoices} setInvoices={setSharedInvoices} onNavigate={setActive} />}
           {active === "tickets" && <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />}
           {active === "tenants" && <AdminTenants tenants={tenants} setTenants={setTenants} />}
           {active === "properties" && <AdminProperties tenants={tenants} onCountChange={setPropertyCount} />}
