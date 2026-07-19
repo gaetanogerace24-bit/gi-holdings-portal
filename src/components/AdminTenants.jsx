@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 
-const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent: "", leaseStart: "", leaseEnd: "", notes: "", public_note: "", deposit: "", section8: false, section8Amount: "", tenantPortion: "", monthToMonth: false, loginEmail: "" };
+const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent: "", leaseStart: "", leaseEnd: "", notes: "", public_note: "", deposit: "", section8: false, section8Amount: "", tenantPortion: "", monthToMonth: false, loginEmail: "", customLateFee: false, lateFeeStartDay: "", initialLateFee: "", dailyLateFee: "" };
 const DOC_CATEGORIES = ["Lease agreement", "Move-in inspection", "Community rules", "Other"];
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -94,6 +94,10 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       public_note: t.public_note || "",
       notes: t.notes || "",
       monthToMonth: t.month_to_month || t.monthToMonth || false,
+      customLateFee: Boolean(t.custom_late_fee),
+      lateFeeStartDay: String(t.late_fee_start_day || ""),
+      initialLateFee: String(t.initial_late_fee || ""),
+      dailyLateFee: String(t.daily_late_fee || ""),
     });
     setShowForm(true);
     setRegenMsg(null);
@@ -131,6 +135,10 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       section8_amount: Number(form.section8Amount || form.section8_amount) || 0,
       tenant_portion: Number(form.tenantPortion || form.tenant_portion) || 0,
       month_to_month: Boolean(form.monthToMonth),
+      custom_late_fee: Boolean(form.customLateFee),
+      late_fee_start_day: form.customLateFee && form.lateFeeStartDay ? Number(form.lateFeeStartDay) : null,
+      initial_late_fee: form.customLateFee && form.initialLateFee ? Number(form.initialLateFee) : null,
+      daily_late_fee: form.customLateFee && form.dailyLateFee ? Number(form.dailyLateFee) : null,
       emergency: "(330) 969-6464", contact_email: "tenants@giholdings.com",
       updated_at: new Date().toISOString(),
       // NOTE: login_email is intentionally NOT included here.
@@ -361,6 +369,59 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
                 <FormField label="Housing pays ($/mo)" value={form.section8Amount} onChange={v => setForm({ ...form, section8Amount: v })} placeholder="e.g. 1014" type="number" />
                 <FormField label="Tenant pays ($/mo)" value={form.tenantPortion} onChange={v => setForm({ ...form, tenantPortion: v })} placeholder="e.g. 261" type="number" />
+              </div>
+            )}
+          </div>
+
+          {/* Custom late fee rules */}
+          <div style={{ padding: "14px 16px", background: "#fffbeb", borderRadius: 10, border: "1px solid #fcd34d", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#92400e" }}>⚙️ Custom late fee rules</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>Override global settings for this tenant only</div>
+              </div>
+              <Toggle on={form.customLateFee} onToggle={() => setForm({ ...form, customLateFee: !form.customLateFee })} />
+            </div>
+            {form.customLateFee && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 12, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+                  ⚠️ These override the global Settings for this tenant. Late fee emails and SMS will use these dates.
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                  <div>
+                    <Label>Late fee start day</Label>
+                    <input
+                      type="number"
+                      value={form.lateFeeStartDay}
+                      onChange={e => setForm({ ...form, lateFeeStartDay: e.target.value })}
+                      placeholder="e.g. 10"
+                      style={inputSt}
+                    />
+                    <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>Day of month fees kick in</div>
+                  </div>
+                  <div>
+                    <Label>Initial late fee ($)</Label>
+                    <input
+                      type="number"
+                      value={form.initialLateFee}
+                      onChange={e => setForm({ ...form, initialLateFee: e.target.value })}
+                      placeholder="e.g. 35"
+                      style={inputSt}
+                    />
+                    <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>Charged on start day</div>
+                  </div>
+                  <div>
+                    <Label>Daily late fee ($)</Label>
+                    <input
+                      type="number"
+                      value={form.dailyLateFee}
+                      onChange={e => setForm({ ...form, dailyLateFee: e.target.value })}
+                      placeholder="e.g. 10"
+                      style={inputSt}
+                    />
+                    <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>Per day after start day</div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
