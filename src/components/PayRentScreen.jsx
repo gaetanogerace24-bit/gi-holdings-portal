@@ -9,7 +9,7 @@ import { supabase } from "../supabase";
 //   testing:  TEST_MODE = true   and STRIPE_TEST_MODE secret = true
 //   go live:  TEST_MODE = false  and STRIPE_TEST_MODE secret = false
 // ═══════════════════════════════════════════════════════════════════
-const TEST_MODE = true;
+const TEST_MODE = false;
 const STRIPE_PK_TEST = "pk_test_51TRuS9EDXH0jLhRlxSLe38pD6QexUfdNwLuxrRMGlmSuyNkz5CTX3J03ltoDU9NorwBeAqx9baechszegcbKy7Hy00fQAbzjmQ";
 const STRIPE_PK_LIVE = "pk_live_51TRuS9EDXH0jLhRl3r3VOAZTHWcRblzWGIy6xnorvIJheDJe5aAxCs172jinrbAQ5jJ7aLPoMxOabJ50MNLpjEmd009fTYe9Gg";
 const STRIPE_PK = TEST_MODE ? STRIPE_PK_TEST : STRIPE_PK_LIVE;
