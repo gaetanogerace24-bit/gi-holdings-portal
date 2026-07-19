@@ -44,9 +44,14 @@ export default function App() {
   const [loginError, setLoginError] = useState(null);
 
   const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
-  const currentTenantInvoices = invoices.filter(inv =>
-    inv.tenant_id === currentTenant?.id && !inv.paid && !inv.deleted
-  );
+
+  // Custom invoices get late_fee: 0 so they never accumulate rent late fees
+  const currentTenantInvoices = invoices
+    .filter(inv => inv.tenant_id === currentTenant?.id && !inv.paid && !inv.deleted)
+    .map(inv => inv.is_custom
+      ? { ...inv, late_fee: 0, total: Number(inv.rent || 0) }
+      : inv
+    );
 
   useEffect(() => { loadData(); }, []);
 
