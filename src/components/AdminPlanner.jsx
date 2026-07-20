@@ -65,8 +65,6 @@ export default function AdminPlanner({ tenants = [] }) {
   const onDragEnd = (result) => {
     const { source, destination, type } = result;
     if (!destination) return;
-
-    // Column reorder
     if (type === "COLUMN") {
       const newCols = [...columns];
       const [moved] = newCols.splice(source.index, 1);
@@ -74,23 +72,16 @@ export default function AdminPlanner({ tenants = [] }) {
       saveColumns(newCols);
       return;
     }
-
-    // Card moved
     const newStage = destination.droppableId === "unassigned" ? null : destination.droppableId;
     const propId = result.draggableId;
     moveCard(propId, newStage);
   };
 
+  // Render nothing while loading — no flicker
+  if (loading) return null;
+
   const unassigned = properties.filter(p => !p.planner_stage);
 
-  if (loading) return (
-    <div style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700 }}>🗂 Property Planner</h1>
-      <div style={{ color: "#9ca3af", marginTop: 8 }}>Loading...</div>
-    </div>
-  );
-
-  // Build column list including unassigned
   const allColumns = [
     ...(unassigned.length > 0 ? [{ id: "unassigned", label: "Unassigned", color: "#9ca3af", bg: "#f9fafb", isUnassigned: true }] : []),
     ...columns,
@@ -133,12 +124,7 @@ export default function AdminPlanner({ tenants = [] }) {
                   : properties.filter(p => p.planner_stage === col.id);
 
                 return (
-                  <Draggable
-                    key={col.id}
-                    draggableId={col.id}
-                    index={colIndex}
-                    isDragDisabled={col.isUnassigned}
-                  >
+                  <Draggable key={col.id} draggableId={col.id} index={colIndex} isDragDisabled={col.isUnassigned}>
                     {(colProvided, colSnapshot) => (
                       <div
                         ref={colProvided.innerRef}
@@ -151,11 +137,7 @@ export default function AdminPlanner({ tenants = [] }) {
                           ...colProvided.draggableProps.style,
                         }}
                       >
-                        {/* Column header — drag handle for columns */}
-                        <div
-                          {...colProvided.dragHandleProps}
-                          style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb", cursor: col.isUnassigned ? "default" : "grab", userSelect: "none" }}
-                        >
+                        <div {...colProvided.dragHandleProps} style={{ padding: "14px 16px 10px", borderBottom: "1px solid #e5e7eb", cursor: col.isUnassigned ? "default" : "grab", userSelect: "none" }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <div style={{ width: 10, height: 10, borderRadius: "50%", background: col.color }} />
@@ -174,7 +156,6 @@ export default function AdminPlanner({ tenants = [] }) {
                           </div>
                         </div>
 
-                        {/* Cards */}
                         <Droppable droppableId={col.id} type="CARD">
                           {(cardProvided, cardSnapshot) => (
                             <div
