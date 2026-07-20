@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 import SendInvoiceModal from "./SendInvoiceModal";
+import PayContractorModal from "./PayContractorModal";
 
 // ─── LATE FEE CALCULATOR ─────────────────────────────────────────────────────
 function calcLateFee(dueDateStr) {
@@ -235,7 +236,6 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
   const status = getStatus(inv);
   const liveFee = inv?.paid ? Number(inv?.late_fee || 0) : (inv?.is_custom ? 0 : calcLateFee(inv?.due_date));
   const liveTotal = Number(inv?.rent || 0) + liveFee;
-
   return (
     <Sheet onClose={onClose}>
       <SheetHeader title="Invoice details" onClose={onClose} />
@@ -253,7 +253,6 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
         {inv?.paid && liveFee > 0 && <div style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>Paid Late</div>}
         <div style={{ fontSize: 11, color: "#000", marginTop: 6 }}>Invoice {invoiceNum(inv?.id)}</div>
       </div>
-
       {!inv?.paid && !confirmDelete && (
         <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 10 }}>
           <ActionBtn icon="◉" label="Mark as paid" onClick={() => onMarkPaid(inv)} />
@@ -261,13 +260,11 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
           <ActionBtn icon="🗑" label="Delete invoice" onClick={() => setConfirmDelete(true)} danger />
         </div>
       )}
-
       {inv?.paid && !confirmUnpaid && (
         <div style={{ padding: "0 20px" }}>
           <ActionBtn icon="↩️" label="Mark as unpaid (override)" onClick={() => setConfirmUnpaid(true)} warning />
         </div>
       )}
-
       {confirmUnpaid && (
         <div style={{ margin: "0 20px 10px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#92400e", marginBottom: 6 }}>Mark this invoice as unpaid?</div>
@@ -278,7 +275,6 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
           </div>
         </div>
       )}
-
       {confirmDelete && (
         <div style={{ margin: "0 20px 10px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#991b1b", marginBottom: 6 }}>Delete this invoice?</div>
@@ -289,7 +285,6 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
           </div>
         </div>
       )}
-
       <div style={{ borderTop: "1px solid #f3f4f6", margin: "12px 20px 0" }} />
       <TabBar tab={tab} setTab={setTab} tabs={[{ key: "timeline", label: "Payment timeline" }, { key: "breakdown", label: "Invoice breakdown" }]} />
       <div style={{ padding: "0 20px" }}>
@@ -366,15 +361,10 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
       return due.getMonth() === nextMonth.getMonth() && due.getFullYear() === nextMonth.getFullYear();
     }
     if (filter === "thismonth") {
-      // FIX: filter completed invoices by PAID DATE (when money came in),
-      // not due date — so Gary paying May rent in July shows under July completed.
       if (inv.paid && inv.paid_date) {
         const pd = new Date(inv.paid_date);
-        if (!isNaN(pd)) {
-          return pd.getMonth() === thisMonth.getMonth() && pd.getFullYear() === thisMonth.getFullYear();
-        }
+        if (!isNaN(pd)) return pd.getMonth() === thisMonth.getMonth() && pd.getFullYear() === thisMonth.getFullYear();
       }
-      // fallback to due date if no paid_date
       const parts = (inv.due_date || "").split("T")[0].split("-");
       if (parts.length !== 3) return false;
       const due = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
@@ -671,6 +661,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const [showSendInvoice, setShowSendInvoice] = useState(false);
   const [showSentInvoices, setShowSentInvoices] = useState(false);
   const [sentInvoices, setSentInvoices] = useState([]);
+  const [showPayContractor, setShowPayContractor] = useState(false);
 
   useEffect(() => { setInvoicesLocal(propInvoices); }, [propInvoices]);
 
@@ -705,16 +696,11 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     return due.getMonth() === nextMonthDate.getMonth() && due.getFullYear() === nextMonthDate.getFullYear();
   });
 
-  // FIX: "Completed this month" now filters by PAID DATE so late payments
-  // (e.g. May rent paid in July) show under the month money actually came in.
   const completedThisMonth = completedList.filter(i => {
     if (i.paid_date) {
       const pd = new Date(i.paid_date);
-      if (!isNaN(pd)) {
-        return pd.getMonth() === now.getMonth() && pd.getFullYear() === now.getFullYear();
-      }
+      if (!isNaN(pd)) return pd.getMonth() === now.getMonth() && pd.getFullYear() === now.getFullYear();
     }
-    // fallback: use due date if no paid_date recorded
     const parts = (i.due_date || "").split("T")[0].split("-");
     if (parts.length !== 3) return false;
     const due = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
@@ -726,7 +712,6 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const completedTotal = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
   const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
 
-  // Section 8 — pull housing authority amounts from active tenant records
   const section8Tenants = activeTenants.filter(t => t.section8 && (Number(t.section8_amount || t.section8Amount || 0) > 0));
   const section8Total = section8Tenants.reduce((s, t) => s + Number(t.section8_amount || t.section8Amount || 0), 0);
 
@@ -821,9 +806,16 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       <button onClick={() => setShowSendInvoice(true)} style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
         📤 Send Invoice
       </button>
-      <button onClick={() => { loadSentInvoices(); setShowSentInvoices(true); }} style={{ width: "100%", padding: "8px", background: "none", border: "none", color: "#000", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 14, fontFamily: "'DM Sans', sans-serif" }}>
-        View sent invoices →
+
+      <button onClick={() => setShowPayContractor(true)} style={{ width: "100%", padding: 14, background: "none", border: "1.5px solid #1b3d2a", borderRadius: 12, color: "#1b3d2a", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        💸 Pay Contractor
       </button>
+
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+        <button onClick={() => { loadSentInvoices(); setShowSentInvoices(true); }} style={{ background: "none", border: "none", color: "#000", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+          View sent invoices →
+        </button>
+      </div>
 
       <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, marginBottom: 20 }}>
         {["active", "archived"].map(t => (
@@ -898,9 +890,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
             <div style={{ fontSize: 13, color: "#0d9488", fontWeight: 600, marginBottom: 4 }}>
               {section8Tenants.length} tenant{section8Tenants.length !== 1 ? "s" : ""} — {fmt(section8Total)} expected this month from housing authority
             </div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
-              Verify these amounts match your housing authority portal each month.
-            </div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>Verify these amounts match your housing authority portal each month.</div>
           </div>
           <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "8px 20px", overflow: "hidden" }}>
             {section8Tenants.map((t, i) => {
@@ -933,9 +923,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
               <div style={{ fontSize: 13, fontWeight: 700, color: "#0d9488" }}>Total from housing authority</div>
               <div style={{ fontSize: 20, fontWeight: 800, color: "#0d9488" }}>{fmt(section8Total)}</div>
             </div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
-              Cross-check this total on your housing authority portal each month to confirm no changes.
-            </div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>Cross-check this total on your housing authority portal each month to confirm no changes.</div>
           </div>
           <div style={{ height: 32 }} />
         </Sheet>
@@ -1009,6 +997,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
           onSent={() => { setShowSendInvoice(false); reloadInvoices(); }}
         />
       )}
+      {showPayContractor && <PayContractorModal onClose={() => setShowPayContractor(false)} />}
       {editingInvoice && <EditModal inv={editingInvoice} onClose={() => setEditingInvoice(null)} onSave={handleEditSave} />}
     </div>
   );
