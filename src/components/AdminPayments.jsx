@@ -462,7 +462,6 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onAr
   const upcoming = sorted.filter(i => !i.paid && getStatus(i) === "upcoming");
   const nextPayment = upcoming[upcoming.length - 1] || null;
   const overdueList = sorted.filter(i => !i.paid && getStatus(i) === "overdue");
-  const tenantStatus = overdueList.length > 0 ? "overdue" : "current";
   const leaseStart = tenant?.leaseStart || tenant?.lease_start;
   const leaseEnd = tenant?.leaseEnd || tenant?.lease_end;
   const monthsRemaining = leaseEnd ? Math.max(0, Math.round((new Date(leaseEnd) - new Date()) / (1000 * 60 * 60 * 24 * 30))) : null;
@@ -473,7 +472,7 @@ function CollectionDetailSheet({ tenant, invoices, onClose, onViewInvoices, onAr
         <div style={{ fontSize: 18, fontWeight: 700 }}>{tenant?.address}</div>
         <div style={{ fontSize: 13, color: "#000", marginTop: 2 }}>{tenant?.address}, Youngstown, OH</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-          <Badge status={tenantStatus} />
+          <Badge status={overdueList.length > 0 ? "overdue" : "current"} />
           {monthsRemaining !== null && <span style={{ fontSize: 13, color: "#000" }}>{monthsRemaining} months remaining</span>}
         </div>
       </div>
@@ -808,7 +807,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       </button>
 
       <button onClick={() => setShowPayContractor(true)} style={{ width: "100%", padding: 14, background: "none", border: "1.5px solid #1b3d2a", borderRadius: 12, color: "#1b3d2a", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-        💸 Pay Contractor
+        📋 Send Invoice to Client
       </button>
 
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
@@ -832,7 +831,6 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <div>
           {activeTenants.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#000" }}>No active tenants</div>}
           {activeTenants.map(tenant => {
-            const status = getPropertyStatus(tenant);
             const overdueCount = getOverdueCount(tenant);
             const amount = getDisplayAmount(tenant);
             return (
