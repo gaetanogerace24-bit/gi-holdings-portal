@@ -1,23 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 
-const TEST_MODE = false;
-const TEST_EMAIL = "giholdingsllc8@gmail.com";
-const TEST_PHONE = "+13304804819";
-
-const TELNYX_API_KEY = import.meta.env.VITE_TELNYX_API_KEY;
-const TELNYX_PHONE_NUMBER = import.meta.env.VITE_TELNYX_PHONE_NUMBER || "+13309181957";
-
-async function sendSMS(to, message) {
-  try {
-    await fetch("https://api.telnyx.com/v2/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${TELNYX_API_KEY}` },
-      body: JSON.stringify({ from: TELNYX_PHONE_NUMBER, to, text: message }),
-    });
-  } catch (err) { console.error("SMS failed:", err); }
-}
-
 export default function PayContractorModal({ onClose }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -36,12 +19,13 @@ export default function PayContractorModal({ onClose }) {
     setError(null);
 
     try {
-      // Create Stripe payment link via edge function
+      // Create Stripe payment link + send SMS via edge function
       const { data, error: fnErr } = await supabase.functions.invoke("pay-contractor", {
         body: {
           amount: Number(amount),
           description: description.trim(),
           name: name.trim(),
+          phone: phone.trim() || null,
         },
       });
 
@@ -65,12 +49,9 @@ export default function PayContractorModal({ onClose }) {
         created_at: new Date().toISOString(),
       });
 
-      const firstName = name.trim().split(" ")[0];
-      const toEmail = TEST_MODE ? TEST_EMAIL : email;
-      const toPhone = TEST_MODE ? TEST_PHONE : phone;
-
-      // Send email
-      if (toEmail) {
+      // Send email via Resend
+      if (email.trim()) {
+        const firstName = name.trim().split(" ")[0];
         const subject = `💸 Payment from G&I Holdings — $${Number(amount).toLocaleString()}`;
         const html = `
           <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;">
@@ -87,7 +68,7 @@ export default function PayContractorModal({ onClose }) {
                 <div style="font-size:14px;color:#374151;"><strong>For:</strong> ${description.trim()}</div>
                 ${date ? `<div style="font-size:14px;color:#374151;margin-top:4px;"><strong>Date:</strong> ${date}</div>` : ""}
               </div>
-              <p style="font-size:14px;color:#4b5563;">Click below to enter your bank or card details and collect your payment. It takes about 2 minutes and the money arrives quickly.</p>
+              <p style="font-size:14px;color:#4b5563;">Click below to enter your bank or card details and collect your payment. It takes about 2 minutes.</p>
               <a href="${link}" style="display:block;background:#1b3d2a;color:#fff;text-align:center;padding:14px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:16px;">
                 Collect $${Number(amount).toLocaleString()} →
               </a>
@@ -95,15 +76,9 @@ export default function PayContractorModal({ onClose }) {
             </div>
           </div>
         `;
-
         await supabase.functions.invoke("send-custom-invoice-email", {
-          body: { to: toEmail, subject, html },
+          body: { to: email.trim(), subject, html },
         });
-      }
-
-      // Send SMS
-      if (toPhone) {
-        await sendSMS(toPhone, `G&I Holdings: Hi ${firstName}, you have a payment of $${Number(amount).toLocaleString()} for "${description.trim()}". Click to collect it: ${link}`);
       }
 
       setDone(true);
