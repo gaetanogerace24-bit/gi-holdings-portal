@@ -22,7 +22,7 @@ const NAV = [
 export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, supabase }) {
   const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
-  const [propertyCount, setPropertyCount] = useState(0);
+  const [propertyCount, setPropertyCount] = useState(sharedTenants?.length || 0);
 
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
 
