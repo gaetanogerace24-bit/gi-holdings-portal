@@ -90,14 +90,14 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         </div>
 
         <div className="admin-main" style={{ flex: 1, overflowY: "auto" }}>
-          {active === "tickets" && <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />}
-          {active === "tenants" && <AdminTenants tenants={tenants} setTenants={setTenants} />}
-          {active === "properties" && <AdminProperties tenants={tenants} onCountChange={setPropertyCount} />}
-          {active === "documents" && <AdminDocuments tenants={tenants} setTenants={setTenants} />}
-          {active === "messages" && <AdminMessages tenants={tenants} supabase={supabase} />}
-          {active === "payments" && <AdminPayments tenants={tenants} invoices={sharedInvoices} />}
-          {active === "planner" && <AdminPlanner tenants={tenants} supabase={supabase} />}
-          {active === "settings" && <AdminSettings supabase={supabase} />}
+          <div style={{ display: active === "payments" ? "block" : "none" }}><AdminPayments tenants={tenants} invoices={sharedInvoices} /></div>
+          <div style={{ display: active === "tickets" ? "block" : "none" }}><AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} /></div>
+          <div style={{ display: active === "tenants" ? "block" : "none" }}><AdminTenants tenants={tenants} setTenants={setTenants} /></div>
+          <div style={{ display: active === "properties" ? "block" : "none" }}><AdminProperties tenants={tenants} onCountChange={setPropertyCount} /></div>
+          <div style={{ display: active === "documents" ? "block" : "none" }}><AdminDocuments tenants={tenants} setTenants={setTenants} /></div>
+          <div style={{ display: active === "messages" ? "block" : "none" }}><AdminMessages tenants={tenants} supabase={supabase} /></div>
+          <div style={{ display: active === "planner" ? "block" : "none" }}><AdminPlanner tenants={tenants} supabase={supabase} /></div>
+          <div style={{ display: active === "settings" ? "block" : "none" }}><AdminSettings supabase={supabase} /></div>
         </div>
 
         <div className="admin-mobile-nav" style={{ display: "none", position: "fixed", bottom: 0, left: 0, right: 0, background: "#0f1a14", borderTop: "1px solid rgba(255,255,255,0.1)", zIndex: 100, padding: "6px 0 16px" }}>
