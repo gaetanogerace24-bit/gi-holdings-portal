@@ -85,7 +85,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const [paying, setPaying] = useState(false);
   const [resultInfo, setResultInfo] = useState(null);
 
-  // Refs for Stripe card Elements — mounted once via useEffect, confirmed on button click
   const stripeRef = useRef(null);
   const elementsRef = useRef(null);
   const cardMountedRef = useRef(false);
@@ -99,7 +98,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       .then(({ data }) => { if (data) setCustomInvoices(data); });
   }, [tenant?.id]);
 
-  // Mount Stripe Payment Element when entering card checkout
   useEffect(() => {
     if (step !== "checkout" || !paymentData || paymentData.payMethod !== "card") return;
     if (cardMountedRef.current) return;
@@ -111,7 +109,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         if (cancelled) return;
         const elements = stripe.elements({ clientSecret: paymentData.clientSecret });
         const paymentElement = elements.create("payment");
-        // Wait for DOM to be ready
         setTimeout(() => {
           const mountDiv = document.getElementById("stripe-card-mount");
           if (!mountDiv || cancelled) return;
@@ -128,7 +125,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     return () => { cancelled = true; };
   }, [step, paymentData]);
 
-  // Reset card refs when leaving checkout
   useEffect(() => {
     if (step !== "checkout") {
       cardMountedRef.current = false;
@@ -194,6 +190,13 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     customInvoiceId: payingCustomInvoice ? payingCustomInvoice.id : null,
   });
 
+  // Mark custom invoice as processing in local state after payment submitted
+  const markCustomInvoiceProcessing = (invoiceId) => {
+    setCustomInvoices(prev => prev.map(inv =>
+      inv.id === invoiceId ? { ...inv, payment_status: "processing" } : inv
+    ));
+  };
+
   const startCheckout = async () => {
     setError(null);
     setStep("processing");
@@ -209,6 +212,16 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       setError(err.message || "Could not start payment. Please try again.");
       setStep("summary");
     }
+  };
+
+  const handleSuccess = (refId, microdeposits, isCard) => {
+    // If paying a custom invoice, mark it as processing locally
+    if (payingCustomInvoice) {
+      markCustomInvoiceProcessing(payingCustomInvoice.id);
+    }
+    setResultInfo({ refId, microdeposits, isCard });
+    setStep("success");
+    if (onPaymentSuccess) onPaymentSuccess();
   };
 
   const payWithNewBank = async () => {
@@ -237,8 +250,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       const confirm = await stripe.confirmUsBankAccountPayment(paymentData.clientSecret);
       if (confirm.error) throw new Error(confirm.error.message);
       const status = confirm.paymentIntent?.status;
-      setResultInfo({ refId: paymentData.paymentIntentId, microdeposits: status === "requires_action" });
-      setStep("success");
+      handleSuccess(paymentData.paymentIntentId, status === "requires_action", false);
     } catch (err) {
       setError(err.message || "Payment failed. Please try again.");
     } finally {
@@ -255,8 +267,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       });
       if (fnErr) throw new Error(fnErr.message || "Could not start payment");
       if (data?.error) throw new Error(data.error);
-      setResultInfo({ refId: data.paymentIntentId, microdeposits: false });
-      setStep("success");
+      handleSuccess(data.paymentIntentId, false, false);
     } catch (err) {
       setError(err.message || "Payment failed. Please try again.");
     } finally {
@@ -264,7 +275,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     }
   };
 
-  // Card pay — elements already mounted via useEffect, just confirm on button click
   const payWithCard = async () => {
     if (!stripeRef.current || !elementsRef.current) {
       setError("Card form not ready yet. Please wait a moment and try again.");
@@ -287,8 +297,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         redirect: "if_required",
       });
       if (confirmError) throw new Error(confirmError.message);
-      setResultInfo({ refId: paymentData.paymentIntentId, microdeposits: false, isCard: true });
-      setStep("success");
+      handleSuccess(paymentData.paymentIntentId, false, true);
     } catch (err) {
       setError(err.message || "Card payment failed. Please try again.");
     } finally {
@@ -352,6 +361,10 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     </div>
   );
 
+  // Split custom invoices into processing and payable
+  const processingCustomInvoices = customInvoices.filter(i => i.payment_status === "processing");
+  const payableCustomInvoices = customInvoices.filter(i => i.payment_status !== "processing");
+
   return (
     <div style={{ padding: 16, fontFamily: "'DM Sans', sans-serif" }}>
 
@@ -366,10 +379,22 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         </div>
       )}
 
-      {customInvoices.filter(i => i.payment_status !== "processing").length > 0 && (
+      {/* Processing custom invoices */}
+      {processingCustomInvoices.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          {processingCustomInvoices.map(inv => (
+            <div key={inv.id} style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", borderRadius: 12, padding: "12px 16px", marginBottom: 8, fontSize: 13, color: "#1e40af", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>⏳ <strong>{inv.title}</strong> — payment processing (3–5 business days)</span>
+              <span style={{ fontWeight: 700 }}>{fmt(inv.amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {payableCustomInvoices.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <SL>Other charges</SL>
-          {customInvoices.filter(i => i.payment_status !== "processing").map(inv => (
+          {payableCustomInvoices.map(inv => (
             <div key={inv.id} style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 10, border: "1.5px solid #fca5a5" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <div>
