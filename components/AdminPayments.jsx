@@ -639,7 +639,7 @@ function EditModal({ inv, onClose, onSave }) {
   );
 }
 
-export default function AdminPayments({ tenants = [], invoices: propInvoices = [], setInvoices: propSetInvoices, initialProcessingCustomInvoices = [] }) {
+export default function AdminPayments({ tenants = [], invoices: propInvoices = [], setInvoices: propSetInvoices, initialProcessingCustomInvoices = [], initialPaidCustomInvoices = [] }) {
   const [invoices, setInvoicesLocal] = useState(propInvoices);
   const setInvoices = (val) => { setInvoicesLocal(val); if (propSetInvoices) propSetInvoices(val); };
   const [mainTab, setMainTab] = useState("active");
@@ -653,6 +653,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const [sentInvoices, setSentInvoices] = useState([]);
   const [showPayContractor, setShowPayContractor] = useState(false);
   const [processingCustomInvoices, setProcessingCustomInvoices] = useState(initialProcessingCustomInvoices);
+  const [paidCustomInvoices] = useState(initialPaidCustomInvoices);
 
   useEffect(() => { setInvoicesLocal(propInvoices); }, [propInvoices]);
 
@@ -701,7 +702,16 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
   const upcomingTotal   = upcomingNextMonth.reduce((s, i) => s + Number(i.rent || 0), 0);
   const overdueTotal    = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
-  const completedTotal  = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
+  const paidCustomThisMonth = paidCustomInvoices.filter(i => {
+    if (i.paid_date) {
+      const pd = new Date(i.paid_date);
+      if (!isNaN(pd)) return pd.getMonth() === now.getMonth() && pd.getFullYear() === now.getFullYear();
+    }
+    return false;
+  });
+  const completedTotal = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0)
+    + paidCustomThisMonth.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const completedCount = completedThisMonth.length + paidCustomThisMonth.length;
   const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0)
     + processingCustomInvoices.reduce((s, i) => s + Number(i.amount || 0), 0);
   const processingCount = processingList.length + processingCustomInvoices.length;
@@ -817,7 +827,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-        <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="This month" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedThisMonth.length} invoice${completedThisMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allCompleted")} />
+        <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="This month" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedCount} invoice${completedCount !== 1 ? "s" : ""}`} onClick={() => setSheet("allCompleted")} />
         <div onClick={() => overdueList.length > 0 && setSheet("allOverdue")} style={{ cursor: overdueList.length > 0 ? "pointer" : "default" }}>
           <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
         </div>
