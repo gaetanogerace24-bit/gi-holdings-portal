@@ -654,6 +654,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const [showPayContractor, setShowPayContractor] = useState(false);
   const [processingCustomInvoices, setProcessingCustomInvoices] = useState(initialProcessingCustomInvoices);
   const [paidCustomInvoices] = useState(initialPaidCustomInvoices);
+  console.log("paidCustomInvoices:", initialPaidCustomInvoices, paidCustomInvoices);
 
   useEffect(() => { setInvoicesLocal(propInvoices); }, [propInvoices]);
 
