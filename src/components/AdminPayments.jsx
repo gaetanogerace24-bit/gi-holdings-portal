@@ -652,7 +652,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const [showSentInvoices, setShowSentInvoices] = useState(false);
   const [sentInvoices, setSentInvoices] = useState([]);
   const [showPayContractor, setShowPayContractor] = useState(false);
-  const [processingCustomInvoices, setProcessingCustomInvoices] = useState([]);
+  const [processingCustomInvoices, setProcessingCustomInvoices] = useState(null);
 
   useEffect(() => { setInvoicesLocal(propInvoices); }, [propInvoices]);
 
@@ -712,8 +712,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const overdueTotal    = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
   const completedTotal  = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
   const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0)
-    + processingCustomInvoices.reduce((s, i) => s + Number(i.amount || 0), 0);
-  const processingCount = processingList.length + processingCustomInvoices.length;
+    + ( processingCustomInvoices || []).reduce((s, i) => s + Number(i.amount || 0), 0);
+  const processingCount = processingList.length + (processingCustomInvoices || []).length;
 
   const section8Tenants = activeTenants.filter(t => t.section8 && (Number(t.section8_amount || t.section8Amount || 0) > 0));
   const section8Total = section8Tenants.reduce((s, t) => s + Number(t.section8_amount || t.section8Amount || 0), 0);
