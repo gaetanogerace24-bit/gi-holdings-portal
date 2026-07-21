@@ -1,25 +1,28 @@
 import { useState } from "react";
-import AdminOverview from "./AdminOverview";
 import AdminTickets from "./AdminTickets";
 import AdminTenants from "./AdminTenants";
 import AdminMessages from "./AdminMessages";
 import AdminSettings from "./AdminSettings";
 import AdminPayments from "./AdminPayments";
 import AdminDocuments from "./AdminDocuments";
+import AdminProperties from "./AdminProperties";
+import AdminPlanner from "./AdminPlanner";
 
 const NAV = [
-  { key: "overview", icon: "📊", label: "Overview" },
+  { key: "payments", icon: "💰", label: "Payments" },
   { key: "tickets", icon: "🎫", label: "Tickets" },
   { key: "tenants", icon: "👥", label: "Tenants" },
+  { key: "properties", icon: "🏠", label: "Properties" },
   { key: "documents", icon: "📁", label: "Documents" },
   { key: "messages", icon: "💬", label: "Messages" },
-  { key: "payments", icon: "💰", label: "Payments" },
+  { key: "planner", icon: "📅", label: "Planner" },
   { key: "settings", icon: "⚙️", label: "Settings" },
 ];
 
-export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, supabase }) {
-  const [active, setActive] = useState("overview");
+export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, sharedProcessingCustomInvoices = [], supabase }) {
+  const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
+  const [propertyCount, setPropertyCount] = useState(sharedTenants?.length || 0);
 
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
 
@@ -62,6 +65,9 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
               {n.key === "tenants" && tenants.length > 0 && (
                 <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length}</span>
               )}
+              {n.key === "properties" && propertyCount > 0 && (
+                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{propertyCount}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -84,13 +90,14 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         </div>
 
         <div className="admin-main" style={{ flex: 1, overflowY: "auto" }}>
-          {active === "overview" && <AdminOverview tenants={tenants} setTenants={setTenants} invoices={sharedInvoices} setInvoices={setSharedInvoices} onNavigate={setActive} />}
-          {active === "tickets" && <AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} />}
-          {active === "tenants" && <AdminTenants tenants={tenants} setTenants={setTenants} />}
-          {active === "documents" && <AdminDocuments tenants={tenants} setTenants={setTenants} />}
-          {active === "messages" && <AdminMessages tenants={tenants} supabase={supabase} />}
-          {active === "payments" && <AdminPayments tenants={tenants} invoices={sharedInvoices} />}
-          {active === "settings" && <AdminSettings supabase={supabase} />}
+          <div style={{ display: active === "payments" ? "block" : "none" }}><AdminPayments tenants={tenants} invoices={sharedInvoices} initialProcessingCustomInvoices={sharedProcessingCustomInvoices} /></div>
+          <div style={{ display: active === "tickets" ? "block" : "none" }}><AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} /></div>
+          <div style={{ display: active === "tenants" ? "block" : "none" }}><AdminTenants tenants={tenants} setTenants={setTenants} /></div>
+          <div style={{ display: active === "properties" ? "block" : "none" }}><AdminProperties tenants={tenants} onCountChange={setPropertyCount} /></div>
+          <div style={{ display: active === "documents" ? "block" : "none" }}><AdminDocuments tenants={tenants} setTenants={setTenants} /></div>
+          <div style={{ display: active === "messages" ? "block" : "none" }}><AdminMessages tenants={tenants} supabase={supabase} /></div>
+          <div style={{ display: active === "planner" ? "block" : "none" }}><AdminPlanner tenants={tenants} supabase={supabase} /></div>
+          <div style={{ display: active === "settings" ? "block" : "none" }}><AdminSettings supabase={supabase} /></div>
         </div>
 
         <div className="admin-mobile-nav" style={{ display: "none", position: "fixed", bottom: 0, left: 0, right: 0, background: "#0f1a14", borderTop: "1px solid rgba(255,255,255,0.1)", zIndex: 100, padding: "6px 0 16px" }}>
