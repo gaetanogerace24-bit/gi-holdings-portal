@@ -21,7 +21,6 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
     const numAmount = Number(amount);
     const today = new Date();
 
-    // Insert into custom_invoices ONLY — never into invoices table
     const { error: customError } = await supabase.from("custom_invoices").insert({
       tenant_id: tenantId,
       title: title.trim(),
@@ -71,7 +70,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
         </div>
       `;
 
-      const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added to your account for "${title.trim()}".${notes.trim() ? ` Note: ${notes.trim()}.` : ""} Log in to pay: ${PORTAL_URL}`;
+      const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added to your account for "${title.trim()}".${notes.trim() ? ` Note: ${notes.trim()}.` : ""} Log in to your tenant portal to pay.`;
 
       try {
         await supabase.functions.invoke("send-custom-invoice-email", {
