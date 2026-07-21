@@ -40,6 +40,7 @@ export default function App() {
   const [invoices, setInvoices] = useState([]);
   const [processingCustomInvoices, setProcessingCustomInvoices] = useState([]);
   const [initialPropertyCount, setInitialPropertyCount] = useState(0);
+  const [dataReady, setDataReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loggedInTenantId, setLoggedInTenantId] = useState(null);
   const [defaultPayMode, setDefaultPayMode] = useState("current");
@@ -94,6 +95,7 @@ export default function App() {
       if (propertiesData) setInitialPropertyCount(propertiesData.length);
     } catch (e) { console.error("Failed to load:", e); }
     setLoading(false);
+    setDataReady(true);
   }
 
   async function reloadInvoices() {
@@ -185,7 +187,7 @@ export default function App() {
     setShowModal(false);
   };
 
-  if (screen === "loading" || loading) {
+  if (screen === "loading" || loading || !dataReady) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: "#1b3d2a", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 48 }}>🏡</div>
