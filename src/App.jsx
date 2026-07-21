@@ -39,6 +39,7 @@ export default function App() {
   const [tenants, setTenants] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [processingCustomInvoices, setProcessingCustomInvoices] = useState([]);
+  const [initialPropertyCount, setInitialPropertyCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loggedInTenantId, setLoggedInTenantId] = useState(null);
   const [defaultPayMode, setDefaultPayMode] = useState("current");
@@ -79,16 +80,18 @@ export default function App() {
   async function loadData() {
     setLoading(true);
     try {
-      const [{ data: tenantData }, { data: ticketData }, { data: invoiceData }, { data: customProcessingData }] = await Promise.all([
+      const [{ data: tenantData }, { data: ticketData }, { data: invoiceData }, { data: customProcessingData }, { data: propertiesData }] = await Promise.all([
         supabase.from("tenants").select("*").order("created_at"),
         supabase.from("tickets").select("*").order("created_at", { ascending: false }),
         supabase.from("invoices").select("*").order("created_at", { ascending: false }),
         supabase.from("custom_invoices").select("*").eq("paid", false).eq("payment_status", "processing"),
+        supabase.from("properties").select("id, status").neq("status", "archived"),
       ]);
       if (tenantData) setTenants(tenantData.map(normalizeTenant));
       if (ticketData) setTickets(ticketData.map(normalizeTicket));
       if (invoiceData) setInvoices(invoiceData);
       if (customProcessingData) setProcessingCustomInvoices(customProcessingData);
+      if (propertiesData) setInitialPropertyCount(propertiesData.length);
     } catch (e) { console.error("Failed to load:", e); }
     setLoading(false);
   }
@@ -201,6 +204,7 @@ export default function App() {
       sharedTickets={tickets} setSharedTickets={setTickets}
       sharedInvoices={invoices} setSharedInvoices={setInvoices}
       sharedProcessingCustomInvoices={processingCustomInvoices}
+      initialPropertyCount={initialPropertyCount}
       onInvoicesChanged={reloadInvoices}
       supabase={supabase}
     />
