@@ -155,6 +155,9 @@ function PaymentTimeline({ inv }) {
       events.push({ date: dayBefore, label: "Payment processing initiated", color: "#2563eb" });
       events.push({ date: pd, label: "Payment complete", color: "#2563eb", expand: true, bold: true });
     }
+  } else if (inv.payment_status === "processing") {
+    events.push({ date: new Date(), label: "Payment submitted — processing (3–5 business days)", color: "#2563eb" });
+    events.push({ date: null, label: "Waiting for bank transfer to clear", color: "ghost" });
   } else {
     if (overdueDay <= today) {
       const msPerDay = 1000 * 60 * 60 * 24;
@@ -195,7 +198,7 @@ function PaymentTimeline({ inv }) {
 
 function InvoiceBreakdown({ inv }) {
   const rent = Number(inv?.rent || 0);
-  const lateFee = inv?.paid ? Number(inv?.late_fee || 0) : calcLateFee(inv?.due_date);
+  const lateFee = inv?.paid ? Number(inv?.late_fee || 0) : (inv?.is_custom ? 0 : calcLateFee(inv?.due_date));
   const total = rent + lateFee;
   const daysLate = lateFee > 35 ? Math.round((lateFee - 35) / 10) : 0;
   return (
@@ -228,7 +231,7 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
   const [tab, setTab] = useState("timeline");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmUnpaid, setConfirmUnpaid] = useState(false);
-  const status = getStatus(inv);
+  const status = inv?.payment_status === "processing" ? "processing" : getStatus(inv);
   const liveFee = inv?.paid ? Number(inv?.late_fee || 0) : (inv?.is_custom ? 0 : calcLateFee(inv?.due_date));
   const liveTotal = Number(inv?.rent || 0) + liveFee;
   return (
@@ -248,11 +251,16 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
         {inv?.paid && liveFee > 0 && <div style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, marginTop: 2 }}>Paid Late</div>}
         <div style={{ fontSize: 11, color: "#000", marginTop: 6 }}>Invoice {invoiceNum(inv?.id)}</div>
       </div>
-      {!inv?.paid && !confirmDelete && (
+      {!inv?.paid && inv?.payment_status !== "processing" && !confirmDelete && (
         <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 10 }}>
           <ActionBtn icon="◉" label="Mark as paid" onClick={() => onMarkPaid(inv)} />
           <ActionBtn icon="✏️" label="Edit invoice" onClick={() => onEdit(inv)} />
           <ActionBtn icon="🗑" label="Delete invoice" onClick={() => setConfirmDelete(true)} danger />
+        </div>
+      )}
+      {inv?.payment_status === "processing" && (
+        <div style={{ margin: "0 20px", background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 12, padding: "12px 16px", fontSize: 13, color: "#1e40af" }}>
+          ⏳ Payment is processing — ACH transfer clears in 3–5 business days.
         </div>
       )}
       {inv?.paid && !confirmUnpaid && (
@@ -313,7 +321,7 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
       <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
         {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#000" }}>No invoices yet</div>}
         {sorted.map((inv, i) => {
-          const status = getStatus(inv);
+          const status = inv.payment_status === "processing" ? "processing" : getStatus(inv);
           const isDeleted = inv.deleted;
           const liveTotal = inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + (inv.is_custom ? 0 : calcLateFee(inv.due_date));
           const label = inv.is_custom ? (inv.month?.split(" —")[0] || "Custom charge") : "Rent & Fees";
@@ -329,6 +337,7 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
                 <div style={{ fontSize: 12, marginTop: 3 }}>
                   {isDeleted ? <span style={{ color: "#000" }}>🗑 Deleted</span>
                     : status === "completed" ? <span style={{ color: "#16a34a" }}>✓ Completed {inv.paid_date ? fmtDate(inv.paid_date) : ""}</span>
+                    : status === "processing" ? <span style={{ color: "#2563eb", fontWeight: 600 }}>↻ Processing</span>
                     : status === "overdue" ? <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>
                     : <span style={{ color: "#2563eb" }}>📅 Upcoming</span>}
                 </div>
@@ -388,7 +397,7 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
         {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#000" }}>No invoices</div>}
         {sorted.map((inv, i) => {
           const tenant = tenants.find(t => t.id === inv.tenant_id);
-          const status = getStatus(inv);
+          const status = inv.payment_status === "processing" ? "processing" : getStatus(inv);
           const liveTotal = inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + (inv.is_custom ? 0 : calcLateFee(inv.due_date));
           const label = inv.is_custom ? (inv.month?.split(" —")[0] || "Custom charge") : "Rent & Fees";
           return (
@@ -403,6 +412,7 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
                 <div style={{ fontSize: 14, fontWeight: 700, color: status === "overdue" ? "#dc2626" : status === "completed" ? "#16a34a" : "#1f2937" }}>{fmt(liveTotal)}</div>
                 <div style={{ fontSize: 12, marginTop: 3 }}>
                   {status === "completed" ? <span style={{ color: "#16a34a" }}>✓ Completed</span>
+                    : status === "processing" ? <span style={{ color: "#2563eb", fontWeight: 600 }}>↻ Processing</span>
                     : status === "overdue" ? <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>
                     : <span style={{ color: "#2563eb" }}>📅 Upcoming</span>}
                 </div>
@@ -416,12 +426,13 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
   );
 }
 
-function ProcessingSheet({ invoices = [], tenants = [], onClose }) {
+function ProcessingSheet({ invoices = [], customInvoices = [], tenants = [], onClose }) {
   const tenantName = (id) => tenants.find(t => t.id === id)?.name || "Tenant";
+  const total = invoices.length + customInvoices.length;
   return (
     <Sheet onClose={onClose}>
       <SheetHeader title="Processing" onClose={onClose} />
-      {invoices.length === 0 ? (
+      {total === 0 ? (
         <div style={{ padding: "40px 20px", textAlign: "center" }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>↻</div>
           <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>No payments processing</div>
@@ -436,6 +447,15 @@ function ProcessingSheet({ invoices = [], tenants = [], onClose }) {
                 <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{inv.month}</div>
               </div>
               <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(Number(inv.rent || 0) + calcLateFee(inv.due_date))}</div>
+            </div>
+          ))}
+          {customInvoices.map(inv => (
+            <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: "1px solid #f3f4f6" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{tenantName(inv.tenant_id)}</div>
+                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{inv.title}</div>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(Number(inv.amount || 0))}</div>
             </div>
           ))}
         </div>
@@ -632,6 +652,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const [showSentInvoices, setShowSentInvoices] = useState(false);
   const [sentInvoices, setSentInvoices] = useState([]);
   const [showPayContractor, setShowPayContractor] = useState(false);
+  const [processingCustomInvoices, setProcessingCustomInvoices] = useState([]);
 
   useEffect(() => { setInvoicesLocal(propInvoices); }, [propInvoices]);
 
@@ -639,6 +660,16 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     const load = async () => {
       const { data } = await supabase.from("tenants").select("*").eq("archived", true);
       if (data) setArchivedTenants(data);
+    };
+    load();
+  }, []);
+
+  // Load processing custom invoices for the Processing card
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("custom_invoices")
+        .select("*").eq("paid", false).eq("payment_status", "processing");
+      if (data) setProcessingCustomInvoices(data);
     };
     load();
   }, []);
@@ -680,7 +711,9 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const upcomingTotal   = upcomingNextMonth.reduce((s, i) => s + Number(i.rent || 0), 0);
   const overdueTotal    = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
   const completedTotal  = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
-  const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
+  const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0)
+    + processingCustomInvoices.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const processingCount = processingList.length + processingCustomInvoices.length;
 
   const section8Tenants = activeTenants.filter(t => t.section8 && (Number(t.section8_amount || t.section8Amount || 0) > 0));
   const section8Total = section8Tenants.reduce((s, t) => s + Number(t.section8_amount || t.section8Amount || 0), 0);
@@ -726,7 +759,6 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     setEditingInvoice(null);
   };
 
-  // Load both tenant custom invoices AND client invoices merged together
   const loadSentInvoices = async () => {
     const [{ data: tenantInvs }, { data: clientInvs }] = await Promise.all([
       supabase.from("custom_invoices").select("*").order("created_at", { ascending: false }),
@@ -780,6 +812,13 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const clientStatusColor = (s) => s === "completed" ? "#16a34a" : s === "processing" ? "#2563eb" : s === "paid" ? "#16a34a" : "#d97706";
   const clientStatusLabel = (s) => s === "completed" ? "✓ Completed" : s === "processing" ? "↻ Processing" : s === "paid" ? "✓ Paid" : "⏳ Pending";
 
+  // Helper to get tenant invoice status label
+  const getTenantInvStatusLabel = (inv) => {
+    if (inv.paid) return <span style={{ color: "#16a34a" }}>✓ Paid</span>;
+    if (inv.payment_status === "processing") return <span style={{ color: "#2563eb", fontWeight: 600 }}>↻ Processing</span>;
+    return <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Unpaid</span>;
+  };
+
   return (
     <div className="admin-page-content" style={{ padding: 24, fontFamily: "'DM Sans', sans-serif", maxWidth: 580 }}>
       <div style={{ marginBottom: 24 }}>
@@ -791,7 +830,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <div onClick={() => overdueList.length > 0 && setSheet("allOverdue")} style={{ cursor: overdueList.length > 0 ? "pointer" : "default" }}>
           <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
         </div>
-        <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount={fmt(processingTotal)} amountColor={processingTotal > 0 ? "#2563eb" : undefined} count={`${processingList.length} invoice${processingList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("processing")} />
+        <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount={fmt(processingTotal)} amountColor={processingTotal > 0 ? "#2563eb" : undefined} count={`${processingCount} invoice${processingCount !== 1 ? "s" : ""}`} onClick={() => setSheet("processing")} />
         <SummaryCard badgeColor="#000" badgeLabel="📅 Upcoming" badgeBorder={false} sub="Next month" amount={fmt(upcomingTotal)} count={`${upcomingNextMonth.length} invoice${upcomingNextMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
         <div style={{ gridColumn: "1 / -1" }}>
           <SummaryCard badgeColor="#0d9488" badgeLabel="🏛 Section 8" badgeBorder={true} sub="Expected this month" amount={fmt(section8Total)} amountColor="#0d9488" count={`${section8Tenants.length} tenant${section8Tenants.length !== 1 ? "s" : ""}`} onClick={() => setSheet("section8")} />
@@ -875,7 +914,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
       {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="nextmonth" />}
       {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={completedList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
-      {sheet === "processing" && <ProcessingSheet invoices={processingList} tenants={tenants} onClose={() => setSheet(null)} />}
+      {sheet === "processing" && <ProcessingSheet invoices={processingList} customInvoices={processingCustomInvoices} tenants={tenants} onClose={() => setSheet(null)} />}
       {sheet === "section8" && (
         <Sheet onClose={() => setSheet(null)}>
           <SheetHeader title="Section 8 / Housing Authority" onClose={() => setSheet(null)} />
@@ -974,7 +1013,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                         {isClient ? (
                           <span style={{ color: clientStatusColor(inv._clientStatus), fontWeight: 600 }}>{clientStatusLabel(inv._clientStatus)}</span>
                         ) : (
-                          inv.paid ? <span style={{ color: "#16a34a" }}>✓ Paid</span> : <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Unpaid</span>
+                          getTenantInvStatusLabel(inv)
                         )}
                       </div>
                     </div>
