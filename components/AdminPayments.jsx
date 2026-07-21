@@ -702,15 +702,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
   const upcomingTotal   = upcomingNextMonth.reduce((s, i) => s + Number(i.rent || 0), 0);
   const overdueTotal    = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
-  const paidCustomThisMonth = paidCustomInvoices.filter(i => {
-    if (!i.paid_date) return false;
-    const pd = new Date(i.paid_date);
-    if (!isNaN(pd)) return pd.getMonth() === now.getMonth() && pd.getFullYear() === now.getFullYear();
-    // fallback: check created_at
-    const ca = new Date(i.created_at);
-    if (!isNaN(ca)) return ca.getMonth() === now.getMonth() && ca.getFullYear() === now.getFullYear();
-    return false;
-  });
+  const paidCustomThisMonth = paidCustomInvoices;
   const completedTotal = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0)
     + paidCustomThisMonth.reduce((s, i) => s + Number(i.amount || 0), 0);
   const completedCount = completedThisMonth.length + paidCustomThisMonth.length;
