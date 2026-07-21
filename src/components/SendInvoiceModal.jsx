@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 
-const FROM_EMAIL = "rent@giholdingsllc.com";
 const PORTAL_URL = "https://giholdingsllc.com";
 
 export default function SendInvoiceModal({ tenants, onClose, onSent }) {
@@ -39,12 +38,9 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
       return;
     }
 
-    // Send email + SMS via edge function
     const tenant = tenants.find(t => t.id === tenantId);
     if (tenant) {
       const firstName = tenant.name.split(" ")[0];
-      const toEmail = tenant.email;
-      const toPhone = tenant.phone;
       const subject = `📋 New charge: ${title.trim()} — $${numAmount.toLocaleString()}`;
 
       const html = `
@@ -75,25 +71,20 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
         </div>
       `;
 
-      // Send email via edge function
+      const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added to your account for "${title.trim()}".${notes.trim() ? ` Note: ${notes.trim()}.` : ""} Log in to pay: ${PORTAL_URL}`;
+
       try {
         await supabase.functions.invoke("send-custom-invoice-email", {
-          body: { to: toEmail, subject, html },
+          body: {
+            to: tenant.email,
+            subject,
+            html,
+            smsTo: tenant.phone,
+            smsMessage,
+          },
         });
       } catch (emailErr) {
-        console.error("Email send failed:", emailErr);
-      }
-
-      // Send SMS via edge function (Telnyx key lives server-side)
-      if (toPhone) {
-        const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added to your account for "${title.trim()}".${notes.trim() ? ` Note: ${notes.trim()}.` : ""} Log in to pay: ${PORTAL_URL}`;
-        try {
-          await supabase.functions.invoke("send-sms", {
-            body: { to: toPhone, message: smsMessage },
-          });
-        } catch (smsErr) {
-          console.error("SMS send failed:", smsErr);
-        }
+        console.error("Email/SMS send failed:", emailErr);
       }
     }
 
