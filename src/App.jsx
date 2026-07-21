@@ -38,6 +38,7 @@ export default function App() {
   const [tickets, setTickets] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [processingCustomInvoices, setProcessingCustomInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loggedInTenantId, setLoggedInTenantId] = useState(null);
   const [defaultPayMode, setDefaultPayMode] = useState("current");
@@ -45,7 +46,6 @@ export default function App() {
 
   const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
 
-  // Custom invoices get late_fee: 0 so they never accumulate rent late fees
   const currentTenantInvoices = invoices
     .filter(inv => inv.tenant_id === currentTenant?.id && !inv.paid && !inv.deleted)
     .map(inv => inv.is_custom
@@ -79,14 +79,16 @@ export default function App() {
   async function loadData() {
     setLoading(true);
     try {
-      const [{ data: tenantData }, { data: ticketData }, { data: invoiceData }] = await Promise.all([
+      const [{ data: tenantData }, { data: ticketData }, { data: invoiceData }, { data: customProcessingData }] = await Promise.all([
         supabase.from("tenants").select("*").order("created_at"),
         supabase.from("tickets").select("*").order("created_at", { ascending: false }),
         supabase.from("invoices").select("*").order("created_at", { ascending: false }),
+        supabase.from("custom_invoices").select("*").eq("paid", false).eq("payment_status", "processing"),
       ]);
       if (tenantData) setTenants(tenantData.map(normalizeTenant));
       if (ticketData) setTickets(ticketData.map(normalizeTicket));
       if (invoiceData) setInvoices(invoiceData);
+      if (customProcessingData) setProcessingCustomInvoices(customProcessingData);
     } catch (e) { console.error("Failed to load:", e); }
     setLoading(false);
   }
@@ -198,6 +200,7 @@ export default function App() {
       onLogout={handleLogout} sharedTenants={tenants} setSharedTenants={setTenants}
       sharedTickets={tickets} setSharedTickets={setTickets}
       sharedInvoices={invoices} setSharedInvoices={setInvoices}
+      sharedProcessingCustomInvoices={processingCustomInvoices}
       onInvoicesChanged={reloadInvoices}
       supabase={supabase}
     />
