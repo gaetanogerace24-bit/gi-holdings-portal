@@ -19,7 +19,7 @@ const NAV = [
   { key: "settings", icon: "⚙️", label: "Settings" },
 ];
 
-export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, sharedProcessingCustomInvoices = [], initialPropertyCount = 0, supabase }) {
+export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenants, sharedTickets, setSharedTickets, sharedInvoices = [], setSharedInvoices, sharedProcessingCustomInvoices = [], sharedPaidCustomInvoices = [], initialPropertyCount = 0, supabase }) {
   const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
   const [propertyCount, setPropertyCount] = useState(initialPropertyCount);
@@ -90,7 +90,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
         </div>
 
         <div className="admin-main" style={{ flex: 1, overflowY: "auto" }}>
-          <div style={{ display: active === "payments" ? "block" : "none" }}><AdminPayments tenants={tenants} invoices={sharedInvoices} initialProcessingCustomInvoices={sharedProcessingCustomInvoices} /></div>
+          <div style={{ display: active === "payments" ? "block" : "none" }}><AdminPayments tenants={tenants} invoices={sharedInvoices} initialProcessingCustomInvoices={sharedProcessingCustomInvoices} initialPaidCustomInvoices={sharedPaidCustomInvoices} /></div>
           <div style={{ display: active === "tickets" ? "block" : "none" }}><AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} /></div>
           <div style={{ display: active === "tenants" ? "block" : "none" }}><AdminTenants tenants={tenants} setTenants={setTenants} /></div>
           <div style={{ display: active === "properties" ? "block" : "none" }}><AdminProperties tenants={tenants} onCountChange={setPropertyCount} /></div>
