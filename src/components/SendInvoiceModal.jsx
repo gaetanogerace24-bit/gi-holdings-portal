@@ -3,31 +3,6 @@ import { supabase } from "../supabase";
 
 const FROM_EMAIL = "rent@giholdingsllc.com";
 const PORTAL_URL = "https://giholdingsllc.com";
-const TEST_MODE = true;
-const TEST_EMAIL = "giholdingsllc8@gmail.com";
-const TEST_PHONE = "+13304804819"; // your real cell for testing — change this
-
-const TELNYX_API_KEY = import.meta.env.VITE_TELNYX_API_KEY;
-const TELNYX_PHONE_NUMBER = import.meta.env.VITE_TELNYX_PHONE_NUMBER || "+13309181957";
-
-async function sendSMS(to, message) {
-  try {
-    await fetch("https://api.telnyx.com/v2/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${TELNYX_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: TELNYX_PHONE_NUMBER,
-        to,
-        text: message,
-      }),
-    });
-  } catch (err) {
-    console.error("SMS send failed:", err);
-  }
-}
 
 export default function SendInvoiceModal({ tenants, onClose, onSent }) {
   const [tenantId, setTenantId] = useState("");
@@ -64,12 +39,12 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
       return;
     }
 
-    // Send email + SMS
+    // Send email + SMS via edge function
     const tenant = tenants.find(t => t.id === tenantId);
     if (tenant) {
       const firstName = tenant.name.split(" ")[0];
-      const toEmail = TEST_MODE ? TEST_EMAIL : tenant.email;
-      const toPhone = TEST_MODE ? TEST_PHONE : tenant.phone;
+      const toEmail = tenant.email;
+      const toPhone = tenant.phone;
       const subject = `📋 New charge: ${title.trim()} — $${numAmount.toLocaleString()}`;
 
       const html = `
@@ -100,19 +75,25 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
         </div>
       `;
 
-      // Send email
+      // Send email via edge function
       try {
         await supabase.functions.invoke("send-custom-invoice-email", {
-          body: { to: toEmail, subject: TEST_MODE ? `[TEST - ${tenant.name}] ${subject}` : subject, html },
+          body: { to: toEmail, subject, html },
         });
       } catch (emailErr) {
         console.error("Email send failed:", emailErr);
       }
 
-      // Send SMS
+      // Send SMS via edge function (Telnyx key lives server-side)
       if (toPhone) {
         const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added to your account for "${title.trim()}".${notes.trim() ? ` Note: ${notes.trim()}.` : ""} Log in to pay: ${PORTAL_URL}`;
-        await sendSMS(toPhone, smsMessage);
+        try {
+          await supabase.functions.invoke("send-sms", {
+            body: { to: toPhone, message: smsMessage },
+          });
+        } catch (smsErr) {
+          console.error("SMS send failed:", smsErr);
+        }
       }
     }
 
