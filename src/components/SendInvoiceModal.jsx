@@ -70,7 +70,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
         </div>
       `;
 
-      const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added to your account for "${title.trim()}".${notes.trim() ? ` Note: ${notes.trim()}.` : ""} Log in to your tenant portal to pay.`;
+      const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added to your account for "${title.trim()}".${notes.trim() ? ` Note: ${notes.trim()}.` : ""} Log in to pay at giholdingsllc.com`;
 
       try {
         await supabase.functions.invoke("send-custom-invoice-email", {
