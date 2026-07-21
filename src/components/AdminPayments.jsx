@@ -711,9 +711,10 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const upcomingTotal   = upcomingNextMonth.reduce((s, i) => s + Number(i.rent || 0), 0);
   const overdueTotal    = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
   const completedTotal  = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
+  const processingCustomLoaded = processingCustomInvoices !== null;
   const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0)
-    + ( processingCustomInvoices || []).reduce((s, i) => s + Number(i.amount || 0), 0);
-  const processingCount = processingList.length + (processingCustomInvoices || []).length;
+    + (processingCustomLoaded ? processingCustomInvoices.reduce((s, i) => s + Number(i.amount || 0), 0) : 0);
+  const processingCount = processingList.length + (processingCustomLoaded ? processingCustomInvoices.length : 0);
 
   const section8Tenants = activeTenants.filter(t => t.section8 && (Number(t.section8_amount || t.section8Amount || 0) > 0));
   const section8Total = section8Tenants.reduce((s, t) => s + Number(t.section8_amount || t.section8Amount || 0), 0);
