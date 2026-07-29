@@ -401,11 +401,11 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
           const liveTotal = inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + (inv.is_custom ? 0 : calcLateFee(inv.due_date));
           const label = inv.is_custom ? (inv.month?.split(" —")[0] || "Custom charge") : "Rent & Fees";
           return (
-            <div key={inv.id} onClick={() => onSelect(inv, tenant || { name: "Deleted tenant", address: "—" })}
+            <div key={inv.id} onClick={() => onSelect(inv, tenant || { name: inv.tenant_name || "Deleted tenant", address: inv.tenant_address || "—" })}
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer" }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>{tenant?.name || "Deleted tenant"}</div>
-                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{label} · {tenant?.address || "—"}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>{tenant?.name || inv.tenant_name || "Deleted tenant"}</div>
+                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{label} · {tenant?.address || inv.tenant_address || "—"}</div>
                 <div style={{ fontSize: 12, color: "#000", marginTop: 1 }}>Due {fmtDate(inv.due_date)}</div>
               </div>
               <div style={{ textAlign: "right" }}>
