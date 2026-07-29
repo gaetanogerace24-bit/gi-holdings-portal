@@ -657,54 +657,60 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       {payMode === "prepay" && step === "summary" && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 14, border: "1px solid rgba(0,0,0,0.07)" }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>📅 Prepay upcoming rent</div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>Lock in now — no late fees, no stress.</div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>Select the months you want to pay — total updates automatically.</div>
           {totalFutureMonths === 0 ? (
             <div style={{ fontSize: 13, color: "#9ca3af", textAlign: "center", padding: "12px 0" }}>No upcoming invoices found. Contact your landlord.</div>
           ) : (
             <>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: showRemainderOption ? 10 : 16 }}>
-                {prepayOptions.map(n => {
-                  const invs = futureInvoices.slice(0, n);
-                  const t = invs.reduce((s, i) => s + Number(i.rent || base), 0);
-                  const isActive = !prepayAll && prepayMonths === n;
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 10 }}>
+                <button onClick={() => { setPrepayAll(true); setPrepayMonths(totalFutureMonths); setPaymentData(null); }} style={{ fontSize: 12, padding: "5px 12px", borderRadius: 6, border: "1.5px solid #e5e7eb", background: "#fff", color: "#374151", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>Select all</button>
+                <button onClick={() => { setPrepayAll(false); setPrepayMonths(0); setPaymentData(null); }} style={{ fontSize: 12, padding: "5px 12px", borderRadius: 6, border: "1.5px solid #e5e7eb", background: "#fff", color: "#374151", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>Clear</button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                {futureInvoices.map((inv, idx) => {
+                  const isChecked = prepayAll || idx < prepayMonths;
+                  const invAmt = Number(inv.rent || base);
                   return (
-                    <button key={n} onClick={() => { setPrepayMonths(n); setPrepayAll(false); setPaymentData(null); }} style={{
-                      padding: "10px 16px", borderRadius: 9, cursor: "pointer",
-                      border: isActive ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
-                      background: isActive ? "#f0f9f4" : "#fff",
-                      color: isActive ? "#1b3d2a" : "#6b7280",
-                      fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
-                    }}>{n} mo{n > 1 ? "s" : ""} — {fmt(t)}</button>
+                    <div key={inv.id} onClick={() => {
+                      setPaymentData(null);
+                      if (prepayAll) {
+                        setPrepayAll(false);
+                        setPrepayMonths(idx);
+                      } else if (idx < prepayMonths) {
+                        setPrepayMonths(idx);
+                      } else {
+                        setPrepayMonths(idx + 1);
+                      }
+                    }} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      background: isChecked ? "#f0f9f4" : "#fff",
+                      border: isChecked ? "2px solid #4caf7d" : "1.5px solid #e5e7eb",
+                      borderRadius: 10, padding: "12px 14px", cursor: "pointer",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{
+                          width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                          background: isChecked ? "#1b3d2a" : "#fff",
+                          border: isChecked ? "none" : "1.5px solid #d1d5db",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          {isChecked && <span style={{ color: "#fff", fontSize: 13, lineHeight: 1 }}>✓</span>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>{inv.month}</div>
+                          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 1 }}>Due {inv.due_date?.split("T")[0]}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: isChecked ? "#1b3d2a" : "#374151" }}>{fmt(invAmt)}</div>
+                    </div>
                   );
                 })}
               </div>
-              {showRemainderOption && (
-                <button onClick={() => { setPrepayAll(true); setPrepayMonths(totalFutureMonths); setPaymentData(null); }} style={{
-                  width: "100%", padding: "12px 16px", borderRadius: 9, cursor: "pointer", marginBottom: 16,
-                  border: prepayAll ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
-                  background: prepayAll ? "#f0f9f4" : "#fff",
-                  color: prepayAll ? "#1b3d2a" : "#6b7280",
-                  fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, textAlign: "left",
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                }}>
-                  <span>🏠 Remainder of lease ({totalFutureMonths} months)</span>
-                  <span style={{ fontWeight: 800, color: prepayAll ? "#1b3d2a" : "#374151" }}>
-                    {fmt(futureInvoices.reduce((s, i) => s + Number(i.rent || base), 0))}
-                  </span>
-                </button>
-              )}
               {activePrepayInvoices.length > 0 && (
                 <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: "#9ca3af", marginBottom: 8 }}>Months covered</div>
-                  {activePrepayInvoices.map(inv => (
-                    <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f3f4f6", fontSize: 14 }}>
-                      <span style={{ color: "#374151" }}>{inv.month}</span>
-                      <span style={{ fontWeight: 600, color: "#1b3d2a" }}>{fmt(inv.rent || base)}</span>
-                    </div>
-                  ))}
-                  <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 10, marginTop: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>Total</span>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: "#1b3d2a" }}>{fmt(prepayTotal)}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontSize: 13, color: "#6b7280" }}>{activePrepayInvoices.length} month{activePrepayInvoices.length !== 1 ? "s" : ""} selected</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "#1b3d2a" }}>{fmt(prepayTotal)}</div>
                   </div>
                 </div>
               )}
