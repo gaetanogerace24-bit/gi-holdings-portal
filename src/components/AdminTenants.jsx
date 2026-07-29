@@ -233,6 +233,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
         tenant_id: editing, month: targetMonthName, year: targetYear,
         month_num: targetMonthNum, rent: rentAmount, late_fee: 0, total: rentAmount,
         paid: false, due_date: targetDueDate,
+        tenant_name: form.name || null,
+        tenant_address: form.address || null,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       });
       if (onInvoicesChanged) await onInvoicesChanged();
