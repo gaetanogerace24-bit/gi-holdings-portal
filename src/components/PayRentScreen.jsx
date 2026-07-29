@@ -443,7 +443,9 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     }
   };
 
-  if (invoices.length === 0 && tenant?.paid) {
+  const hasUnpaidCustomInvoices = customInvoices.filter(i => i.payment_status !== "processing").length > 0;
+
+  if (invoices.length === 0 && tenant?.paid && !hasUnpaidCustomInvoices) {
     return (
       <div style={{ padding: 24, fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ background: "#fff", borderRadius: 16, padding: "48px 28px", textAlign: "center", border: "1px solid rgba(0,0,0,0.07)" }}>
