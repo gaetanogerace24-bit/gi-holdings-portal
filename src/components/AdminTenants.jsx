@@ -43,15 +43,40 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
     });
   }
 
-  // Fetch existing invoices for this tenant so we never duplicate
+  // Fetch ALL existing invoices for this tenant (including soft-deleted)
   const { data: existing } = await supabase
     .from("invoices")
-    .select("due_date, paid")
+    .select("id, due_date, paid, deleted, rent")
     .eq("tenant_id", tenantId);
 
-  const existingDates = new Set((existing || []).map(inv => inv.due_date));
+  const existingAll = existing || [];
 
-  // Only insert invoices whose due_date doesn't already exist (paid or unpaid)
+  // Hard delete soft-deleted invoices that overlap with what we're about to create
+  const dueDatesToGenerate = new Set(allInvoices.map(inv => inv.due_date));
+  const toHardDelete = existingAll.filter(inv => inv.deleted && dueDatesToGenerate.has(inv.due_date));
+  if (toHardDelete.length > 0) {
+    await supabase.from("invoices").delete().in("id", toHardDelete.map(i => i.id));
+  }
+
+  // Also delete unpaid invoices where the rent amount changed (not paid ones — leave those alone)
+  const toUpdateRent = existingAll.filter(inv =>
+    !inv.deleted && !inv.paid && dueDatesToGenerate.has(inv.due_date) &&
+    Number(inv.rent) !== Number(rent)
+  );
+  if (toUpdateRent.length > 0) {
+    await supabase.from("invoices").delete().in("id", toUpdateRent.map(i => i.id));
+  }
+
+  // Re-fetch after deletions to get current state
+  const { data: afterDelete } = await supabase
+    .from("invoices")
+    .select("due_date")
+    .eq("tenant_id", tenantId)
+    .eq("deleted", false);
+
+  const existingDates = new Set((afterDelete || []).map(inv => inv.due_date));
+
+  // Only insert invoices whose due_date doesn't already exist
   const toInsert = allInvoices.filter(inv => !existingDates.has(inv.due_date));
 
   if (toInsert.length > 0) {
@@ -71,7 +96,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const [regenerating, setRegenerating] = useState(false);
   const [generatingNext, setGeneratingNext] = useState(false);
   const [regenMsg, setRegenMsg] = useState(null);
-  // Portal access state
   const [showAccess, setShowAccess] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -108,8 +132,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   };
   const closeForm = () => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM); setRegenMsg(null); setShowAccess(false); };
 
-  // Portal access (login email + password) is now fully independent from the contact email field.
-  // This only updates login_email and portal_password — never touches the main "email" column.
   const handleSaveAccess = async () => {
     if (!editing || !form.loginEmail) return;
     setSavingAccess(true);
@@ -142,11 +164,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       daily_late_fee: form.customLateFee && form.dailyLateFee ? Number(form.dailyLateFee) : null,
       emergency: "(330) 969-6464", contact_email: "tenants@giholdings.com",
       updated_at: new Date().toISOString(),
-      // NOTE: login_email is intentionally NOT included here.
-      // It is only ever updated via handleSaveAccess (Portal access credentials section).
     };
     if (editing) {
-      // For brand-new tenants without a login_email yet, default it once to match contact email.
       const existing = tenants.find(t => t.id === editing);
       if (existing && !existing.login_email) {
         tenantData.login_email = form.email || "";
@@ -161,7 +180,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
         } : t));
       }
     } else {
-      // New tenant: login_email defaults to contact email on creation only.
       const { data } = await supabase.from("tenants").insert({ ...tenantData, login_email: form.email || "", paid: false, documents: [] }).select().single();
       if (data) {
         setTenants([...tenants, { ...data, leaseStart: data.lease_start, leaseEnd: data.lease_end, section8Amount: data.section8_amount, tenantPortion: data.tenant_portion, monthToMonth: data.month_to_month }]);
@@ -174,11 +192,12 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const handleRegenerate = async () => {
     if (!editing || !form.leaseStart || !form.leaseEnd) return;
     setRegenerating(true);
+    setRegenMsg(null);
     const count = await generateLeaseInvoices(editing, form.leaseStart, form.leaseEnd, form.rent);
     if (onInvoicesChanged) await onInvoicesChanged();
     setRegenMsg(
       count > 0
-        ? `✅ ${count} new invoice${count !== 1 ? "s" : ""} added for the extended lease term.`
+        ? `✅ ${count} new invoice${count !== 1 ? "s" : ""} added for the lease term.`
         : `✅ All invoices are already up to date — nothing to add.`
     );
     setRegenerating(false);
@@ -192,13 +211,14 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     const targetMonth = now.getMonth() === 11 ? 0 : now.getMonth() + 1;
     const targetMonthNum = targetMonth + 1;
     const targetDueDate = `${targetYear}-${String(targetMonthNum).padStart(2,"0")}-01`;
-    const targetMonthName = `${["January","February","March","April","May","June","July","August","September","October","November","December"][targetMonth]} ${targetYear}`;
+    const targetMonthName = `${MONTH_NAMES[targetMonth]} ${targetYear}`;
 
     const { data: existing } = await supabase
       .from("invoices")
       .select("id")
       .eq("tenant_id", editing)
-      .eq("due_date", targetDueDate);
+      .eq("due_date", targetDueDate)
+      .eq("deleted", false);
 
     if (existing && existing.length > 0) {
       setRegenMsg(`✅ ${targetMonthName} invoice already exists — nothing to add.`);
@@ -207,17 +227,10 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
         ? Number(form.tenantPortion || form.tenant_portion || 0)
         : Number(form.rent || 0);
       await supabase.from("invoices").insert({
-        tenant_id: editing,
-        month: targetMonthName,
-        year: targetYear,
-        month_num: targetMonthNum,
-        rent: rentAmount,
-        late_fee: 0,
-        total: rentAmount,
-        paid: false,
-        due_date: targetDueDate,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        tenant_id: editing, month: targetMonthName, year: targetYear,
+        month_num: targetMonthNum, rent: rentAmount, late_fee: 0, total: rentAmount,
+        paid: false, due_date: targetDueDate,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       });
       if (onInvoicesChanged) await onInvoicesChanged();
       setRegenMsg(`✅ ${targetMonthName} invoice created for $${rentAmount.toLocaleString()}.`);
@@ -227,11 +240,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
 
   const handleRemove = async (id, name) => {
     if (window.confirm(`Remove ${name}? This cannot be undone.`)) {
-      await supabase
-        .from("properties")
-        .update({ tenant_id: null, status: "vacant", planner_stage: "vacant" })
-        .eq("tenant_id", id);
-
+      await supabase.from("properties").update({ tenant_id: null, status: "vacant", planner_stage: "vacant" }).eq("tenant_id", id);
       await supabase.from("tenants").delete().eq("id", id);
       setTenants(tenants.filter(t => t.id !== id));
     }
@@ -365,7 +374,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             ℹ️ "Contact email" is just for your records — it does NOT change the tenant's portal login. Update login credentials in the section below.
           </div>
 
-          {/* Month-to-month toggle */}
           <div style={{ padding: "14px 16px", background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
@@ -376,7 +384,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             </div>
           </div>
 
-          {/* Invoice preview + buttons (only shown when editing with a fixed lease) */}
           {invoicePreview && editing && !form.monthToMonth && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 8, fontSize: 13, color: "#1b3d2a" }}>
@@ -400,7 +407,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             </div>
           )}
 
-          {/* Generate next month — only for month-to-month tenants */}
           {form.monthToMonth && editing && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", gap: 8 }}>
@@ -416,7 +422,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             </div>
           )}
 
-          {/* Section 8 */}
           <div style={{ padding: "14px 16px", background: "#f0f9f4", borderRadius: 10, border: "1px solid #bbf7d0", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
@@ -433,7 +438,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             )}
           </div>
 
-          {/* Custom late fee rules */}
           <div style={{ padding: "14px 16px", background: "#fffbeb", borderRadius: 10, border: "1px solid #fcd34d", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
@@ -445,40 +449,22 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             {form.customLateFee && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 12, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
-                  ⚠️ These override the global Settings for this tenant. Late fee emails and SMS will use these dates.
+                  ⚠️ These override the global Settings for this tenant.
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   <div>
                     <Label>Late fee start day</Label>
-                    <input
-                      type="number"
-                      value={form.lateFeeStartDay}
-                      onChange={e => setForm({ ...form, lateFeeStartDay: e.target.value })}
-                      placeholder="e.g. 10"
-                      style={inputSt}
-                    />
+                    <input type="number" value={form.lateFeeStartDay} onChange={e => setForm({ ...form, lateFeeStartDay: e.target.value })} placeholder="e.g. 10" style={inputSt} />
                     <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>Day of month fees kick in</div>
                   </div>
                   <div>
                     <Label>Initial late fee ($)</Label>
-                    <input
-                      type="number"
-                      value={form.initialLateFee}
-                      onChange={e => setForm({ ...form, initialLateFee: e.target.value })}
-                      placeholder="e.g. 35"
-                      style={inputSt}
-                    />
+                    <input type="number" value={form.initialLateFee} onChange={e => setForm({ ...form, initialLateFee: e.target.value })} placeholder="e.g. 35" style={inputSt} />
                     <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>Charged on start day</div>
                   </div>
                   <div>
                     <Label>Daily late fee ($)</Label>
-                    <input
-                      type="number"
-                      value={form.dailyLateFee}
-                      onChange={e => setForm({ ...form, dailyLateFee: e.target.value })}
-                      placeholder="e.g. 10"
-                      style={inputSt}
-                    />
+                    <input type="number" value={form.dailyLateFee} onChange={e => setForm({ ...form, dailyLateFee: e.target.value })} placeholder="e.g. 10" style={inputSt} />
                     <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 4 }}>Per day after start day</div>
                   </div>
                 </div>
@@ -486,7 +472,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             )}
           </div>
 
-          {/* Portal access section — fully independent from contact email above */}
           {editing && (
             <div style={{ marginBottom: 14 }}>
               <button onClick={() => setShowAccess(!showAccess)} style={{
@@ -510,27 +495,17 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
               {showAccess && (
                 <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "16px" }}>
                   <div style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
-                    ⚠️ This is the email & password the tenant uses to sign in. Changing it here does NOT affect the contact email above, and vice versa.
+                    ⚠️ This is the email & password the tenant uses to sign in.
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                     <div>
                       <Label>Login email</Label>
-                      <input
-                        value={form.loginEmail || ""}
-                        onChange={e => setForm({ ...form, loginEmail: e.target.value })}
-                        style={inputSt}
-                        placeholder="login@email.com"
-                      />
+                      <input value={form.loginEmail || ""} onChange={e => setForm({ ...form, loginEmail: e.target.value })} style={inputSt} placeholder="login@email.com" />
                     </div>
                     <div>
                       <Label>Current password</Label>
                       <div style={{ position: "relative" }}>
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={currentPassword}
-                          readOnly
-                          style={{ ...inputSt, background: "#f3f4f6", color: "#6b7280", paddingRight: 36 }}
-                        />
+                        <input type={showPassword ? "text" : "password"} value={currentPassword} readOnly style={{ ...inputSt, background: "#f3f4f6", color: "#6b7280", paddingRight: 36 }} />
                         <button onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#9ca3af" }}>
                           {showPassword ? "🙈" : "👁"}
                         </button>
@@ -539,21 +514,13 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   </div>
                   <div style={{ marginBottom: 12 }}>
                     <Label>Set new password</Label>
-                    <input
-                      type="text"
-                      value={newPassword}
-                      onChange={e => setNewPassword(e.target.value)}
-                      placeholder="Leave blank to keep current password"
-                      style={{ ...inputSt, width: "100%", boxSizing: "border-box" }}
-                    />
+                    <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Leave blank to keep current password" style={{ ...inputSt, width: "100%", boxSizing: "border-box" }} />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <button onClick={handleSaveAccess} disabled={savingAccess} style={{ ...greenBtn, fontSize: 13, padding: "9px 18px" }}>
                       {savingAccess ? "Saving..." : accessSaved ? "✅ Saved!" : "Save login credentials"}
                     </button>
-                    <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                      Tenant logs in at giholdingsllc.com with this email & password
-                    </div>
+                    <div style={{ fontSize: 12, color: "#9ca3af" }}>Tenant logs in at giholdingsllc.com</div>
                   </div>
                 </div>
               )}
@@ -564,15 +531,13 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>
               🔒 Private notes <span style={{ color: "#9ca3af", fontWeight: 400, textTransform: "none" }}>(only you see this)</span>
             </div>
-            <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Private notes — tenant cannot see this..."
-              rows={2} style={{ width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", resize: "none" }} />
+            <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Private notes — tenant cannot see this..." rows={2} style={{ width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", resize: "none" }} />
           </div>
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>
               💬 Tenant message <span style={{ color: "#9ca3af", fontWeight: 400, textTransform: "none" }}>(tenant sees this in their portal)</span>
             </div>
-            <textarea value={form.public_note || ""} onChange={e => setForm({ ...form, public_note: e.target.value })} placeholder="Message for tenant — they will see this in their My Unit tab..."
-              rows={2} style={{ width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #bbf7d0", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", resize: "none", background: "#f0f9f4" }} />
+            <textarea value={form.public_note || ""} onChange={e => setForm({ ...form, public_note: e.target.value })} placeholder="Message for tenant — they will see this in their My Unit tab..." rows={2} style={{ width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #bbf7d0", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box", resize: "none", background: "#f0f9f4" }} />
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
@@ -621,7 +586,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   })() : (
                     <div style={{ fontSize: 17, fontWeight: 700, color: "#1b3d2a" }}>${(t.rent || 0).toLocaleString()}/mo</div>
                   )}
-
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => onNavigateToDocuments ? onNavigateToDocuments(t.id) : setExpandedDocs(docsOpen ? null : t.id)} style={{ ...outlineBtn, borderColor: "#e5e7eb", color: "#6b7280" }}>
