@@ -56,6 +56,146 @@ function classifyInvoice(inv, now) {
   return isOverdue ? "overdue" : isCurrentMonth ? "current" : "future";
 }
 
+// ── Autopay Section Component ─────────────────────────────────────────────
+function AutopaySection({ tenant }) {
+  const [autopayEnabled, setAutopayEnabled] = useState(tenant?.autopay_enabled || false);
+  const [autopayStep, setAutopayStep] = useState("idle"); // idle | connecting | success | disabling
+  const [autopayError, setAutopayError] = useState(null);
+  const autopayMountedRef = useRef(false);
+
+  const handleEnableAutopay = async () => {
+    setAutopayStep("connecting");
+    setAutopayError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("setup-autopay", {
+        body: { tenantId: tenant.id },
+      });
+      if (error || data?.error) throw new Error(error?.message || data?.error || "Could not set up autopay");
+
+      const stripe = await getStripe();
+
+      // Collect bank account for setup (saves for future use)
+      const result = await stripe.collectBankAccountForSetup({
+        clientSecret: data.clientSecret,
+        params: {
+          payment_method_type: "us_bank_account",
+          payment_method_data: {
+            billing_details: {
+              name: tenant?.name || "Tenant",
+              email: tenant?.login_email || tenant?.email || undefined,
+            },
+          },
+        },
+      });
+
+      if (result.error) throw new Error(result.error.message);
+      if (result.setupIntent?.status === "requires_payment_method") {
+        setAutopayStep("idle");
+        return;
+      }
+
+      // Confirm the setup intent
+      const confirm = await stripe.confirmUsBankAccountSetup(data.clientSecret);
+      if (confirm.error) throw new Error(confirm.error.message);
+
+      const paymentMethodId = confirm.setupIntent?.payment_method;
+
+      // Save to Supabase
+      await supabase.from("tenants").update({
+        autopay_enabled: true,
+        stripe_payment_method_id: typeof paymentMethodId === "string" ? paymentMethodId : paymentMethodId?.id,
+      }).eq("id", tenant.id);
+
+      setAutopayEnabled(true);
+      setAutopayStep("success");
+    } catch (err) {
+      setAutopayError(err.message || "Could not set up autopay. Please try again.");
+      setAutopayStep("idle");
+    }
+  };
+
+  const handleDisableAutopay = async () => {
+    setAutopayStep("disabling");
+    try {
+      await supabase.functions.invoke("setup-autopay", {
+        body: { tenantId: tenant.id, action: "disable" },
+      });
+      await supabase.from("tenants").update({
+        autopay_enabled: false,
+        stripe_payment_method_id: null,
+      }).eq("id", tenant.id);
+      setAutopayEnabled(false);
+      setAutopayStep("idle");
+    } catch (err) {
+      setAutopayError("Could not disable autopay. Please try again.");
+      setAutopayStep("idle");
+    }
+  };
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginTop: 16, border: "1px solid rgba(0,0,0,0.07)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>🔄 Autopay</div>
+          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+            {autopayEnabled
+              ? "Your rent is automatically paid on the 1st of each month."
+              : "Automatically pay rent on the 1st of each month."}
+          </div>
+        </div>
+        <div style={{
+          width: 44, height: 24, borderRadius: 12, cursor: "pointer",
+          background: autopayEnabled ? "#4caf7d" : "#d1d5db",
+          position: "relative", transition: "background 0.2s",
+          flexShrink: 0,
+        }} onClick={autopayEnabled ? handleDisableAutopay : handleEnableAutopay}>
+          <div style={{
+            width: 18, height: 18, borderRadius: "50%", background: "#fff",
+            position: "absolute", top: 3,
+            left: autopayEnabled ? 23 : 3,
+            transition: "left 0.2s",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          }} />
+        </div>
+      </div>
+
+      {autopayEnabled && autopayStep !== "success" && (
+        <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#166534" }}>
+          ✅ Autopay is active — your rent will be automatically charged on the 1st of each month via ACH bank transfer.
+        </div>
+      )}
+
+      {autopayStep === "connecting" && (
+        <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#1e40af" }}>
+          ⏳ Connecting your bank account... please follow the prompts.
+        </div>
+      )}
+
+      {autopayStep === "success" && (
+        <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#166534" }}>
+          ✅ Autopay enabled! Your rent will be automatically paid on the 1st of each month.
+        </div>
+      )}
+
+      {autopayStep === "disabling" && (
+        <div style={{ fontSize: 12, color: "#6b7280", padding: "8px 0" }}>Disabling autopay...</div>
+      )}
+
+      {autopayError && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#dc2626", marginTop: 8 }}>
+          ⚠️ {autopayError}
+        </div>
+      )}
+
+      {!autopayEnabled && autopayStep === "idle" && (
+        <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8, lineHeight: 1.5 }}>
+          By enabling autopay, you authorize G&I Holdings LLC to debit your rent amount via ACH on the 1st of each month. You can disable at any time.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess, defaultPayMode = "current" }) {
   const now = new Date();
   const day = now.getDate();
@@ -190,7 +330,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     customInvoiceId: payingCustomInvoice ? payingCustomInvoice.id : null,
   });
 
-  // Mark custom invoice as processing in local state after payment submitted
   const markCustomInvoiceProcessing = (invoiceId) => {
     setCustomInvoices(prev => prev.map(inv =>
       inv.id === invoiceId ? { ...inv, payment_status: "processing" } : inv
@@ -215,7 +354,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   };
 
   const handleSuccess = (refId, microdeposits, isCard) => {
-    // If paying a custom invoice, mark it as processing locally
     if (payingCustomInvoice) {
       markCustomInvoiceProcessing(payingCustomInvoice.id);
     }
@@ -313,6 +451,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
           <div style={{ fontSize: 22, fontWeight: 700, color: "#166534", marginBottom: 8 }}>You're all paid up!</div>
           <div style={{ fontSize: 14, color: "#6b7280" }}>Your {month} rent has been received. Thank you!</div>
         </div>
+        <AutopaySection tenant={tenant} />
       </div>
     );
   }
@@ -358,10 +497,10 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
           Your invoice will show as paid once the transfer clears.
         </div>
       </div>
+      <AutopaySection tenant={tenant} />
     </div>
   );
 
-  // Split custom invoices into processing and payable
   const processingCustomInvoices = customInvoices.filter(i => i.payment_status === "processing");
   const payableCustomInvoices = customInvoices.filter(i => i.payment_status !== "processing");
 
@@ -379,7 +518,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         </div>
       )}
 
-      {/* Processing custom invoices */}
       {processingCustomInvoices.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           {processingCustomInvoices.map(inv => (
@@ -615,6 +753,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               </button>
             </>
           )}
+          {/* Autopay section always visible at bottom */}
+          <AutopaySection tenant={tenant} />
         </>
       )}
 
