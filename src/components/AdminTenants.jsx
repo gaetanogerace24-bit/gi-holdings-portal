@@ -5,7 +5,7 @@ const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent
 const DOC_CATEGORIES = ["Lease agreement", "Move-in inspection", "Community rules", "Other"];
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
+async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent, tenantName, tenantAddress) {
   if (!leaseStart || !leaseEnd || !rent) return 0;
   const startStr = leaseStart.split("T")[0];
   const endStr = leaseEnd.split("T")[0];
@@ -24,7 +24,8 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
     const monthNum = cursor.getMonth() + 1;
     const monthName = MONTH_NAMES[cursor.getMonth()];
     allInvoices.push({
-      tenant_id: tenantId, month: `${monthName} ${year}`, year, month_num: monthNum,
+      tenant_id: tenantId, tenant_name: tenantName || null, tenant_address: tenantAddress || null,
+      month: `${monthName} ${year}`, year, month_num: monthNum,
       rent: Number(rent), late_fee: 0, total: Number(rent), paid: false,
       due_date: `${year}-${String(monthNum).padStart(2, "0")}-01`,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -36,7 +37,8 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent) {
   if (endDay > 1) {
     const proratedRent = Math.round((Number(rent) / daysInEndMonth) * endDay * 100) / 100;
     allInvoices.push({
-      tenant_id: tenantId, month: `${MONTH_NAMES[em - 1]} ${ey} (Prorated ${endDay} days)`,
+      tenant_id: tenantId, tenant_name: tenantName || null, tenant_address: tenantAddress || null,
+      month: `${MONTH_NAMES[em - 1]} ${ey} (Prorated ${endDay} days)`,
       year: ey, month_num: em, rent: proratedRent, late_fee: 0, total: proratedRent, paid: false,
       due_date: `${ey}-${String(em).padStart(2, "0")}-01`,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -193,7 +195,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     if (!editing || !form.leaseStart || !form.leaseEnd) return;
     setRegenerating(true);
     setRegenMsg(null);
-    const count = await generateLeaseInvoices(editing, form.leaseStart, form.leaseEnd, form.rent);
+    const currentTenantData = tenants.find(t => t.id === editing);
+    const count = await generateLeaseInvoices(editing, form.leaseStart, form.leaseEnd, form.rent, currentTenantData?.name, currentTenantData?.address);
     if (onInvoicesChanged) await onInvoicesChanged();
     setRegenMsg(
       count > 0
