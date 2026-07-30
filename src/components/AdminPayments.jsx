@@ -1083,18 +1083,38 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
               </div>
               <div style={{ fontSize: 13, color: "#000", marginBottom: 4 }}>{displayName} · {displaySub}</div>
               <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 2 }}>{fmt(displayAmount)}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937", marginBottom: 4 }}>{displayTitle}</div>
-              {inv.notes && <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 4 }}>{inv.notes}</div>}
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937", marginBottom: 8 }}>{displayTitle}</div>
+              {inv.notes && <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 8 }}>{inv.notes}</div>}
 
-              {/* Client-specific fields */}
-              {isClient && inv.date && (
-                <div style={{ fontSize: 12, color: "#000", marginBottom: 2 }}>Invoice date: {fmtDate(inv.date)}</div>
-              )}
-              {isClient && inv.completion_date && (
-                <div style={{ fontSize: 12, color: "#000", marginBottom: 2 }}>Job completed: {fmtDate(inv.completion_date)}</div>
-              )}
-              <div style={{ fontSize: 12, color: "#000", marginBottom: 6 }}>
-                {isClient ? "Due: Upon receipt" : `Due: ${fmtDate(inv.due_date)}`}
+              <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                {isClient && inv.email && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "#6b7280" }}>Email</span>
+                    <span style={{ color: "#1f2937" }}>{inv.email}</span>
+                  </div>
+                )}
+                {isClient && inv.phone && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "#6b7280" }}>Phone</span>
+                    <span style={{ color: "#1f2937" }}>{inv.phone}</span>
+                  </div>
+                )}
+                {isClient && inv.date && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "#6b7280" }}>Invoice date</span>
+                    <span style={{ color: "#1f2937" }}>{fmtDate(inv.date)}</span>
+                  </div>
+                )}
+                {isClient && inv.completion_date && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "#6b7280" }}>Job completed</span>
+                    <span style={{ color: "#1f2937" }}>{fmtDate(inv.completion_date)}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: "#6b7280" }}>Due</span>
+                  <span style={{ color: "#1f2937" }}>{isClient ? "Upon receipt" : fmtDate(inv.due_date)}</span>
+                </div>
               </div>
 
               {/* Status */}
