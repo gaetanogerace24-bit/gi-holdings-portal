@@ -177,7 +177,6 @@ export default function App() {
         .update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() })
         .eq("id", tenantId);
     }
-    setActiveTab("tickets");
   };
 
   const addTicket = async (ticket) => {
@@ -267,4 +266,5 @@ export default function App() {
     </div>
   );
 }
+
 
