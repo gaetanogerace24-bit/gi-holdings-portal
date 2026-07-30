@@ -1177,7 +1177,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
               const msPerDay = 1000 * 60 * 60 * 24;
               const isLate = feeStartDate && today >= feeStartDate;
-              const daysLate = isLate ? Math.floor((today.getTime() - feeStartDate!.getTime()) / msPerDay) : 0;
+              const daysLate = isLate ? Math.floor((today.getTime() - feeStartDate.getTime()) / msPerDay) : 0;
               const feesAccrued = isLate ? Number(initialFee) + (daysLate * Number(dailyFee)) : 0;
               const totalOwed = displayAmount + feesAccrued;
 
