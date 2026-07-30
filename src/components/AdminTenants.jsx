@@ -302,7 +302,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     });
 
     if (onInvoicesChanged) await onInvoicesChanged();
-    setProratedMsg(`✅ Prorated invoice created — $${proratedAmount.toFixed(2)} for ${daysRemaining} days in ${monthName}.`);
+    setProratedMsg(`✅ Prorated invoice created — $${proratedAmount.toFixed(2)} for ${daysRemaining} days in ${monthName}. Toggle again to generate another.`);
     setShowProrated(false);
     setProratedMoveIn("");
     setSendingProrated(false);
@@ -499,7 +499,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e" }}>📅 Prorated first month</div>
                     <div style={{ fontSize: 11, color: "#b45309", marginTop: 2 }}>Charge tenant for partial month if they moved in mid-month</div>
                   </div>
-                  <div onClick={() => setShowProrated(v => !v)}
+                  <div onClick={() => { setShowProrated(v => !v); setProratedMsg(null); }}
                     style={{ width: 40, height: 22, borderRadius: 11, background: showProrated ? "#d97706" : "#d1d5db", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
                     <div style={{ position: "absolute", top: 2, left: showProrated ? 19 : 2, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
                   </div>
@@ -858,3 +858,4 @@ function docIcon(cat) {
 const greenBtn = { background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" };
 const outlineBtn = { padding: "7px 12px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#6b7280" };
 const inputSt = { width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#1a1a1a", boxSizing: "border-box" };
+
