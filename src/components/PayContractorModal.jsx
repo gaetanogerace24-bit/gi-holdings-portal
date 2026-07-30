@@ -248,16 +248,10 @@ export default function PayContractorModal({ onClose }) {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <button onClick={handleSend} disabled={saving || !canSubmit}
-            style={{ ...greenBtn, opacity: canSubmit ? 1 : 0.5 }}>
-            {saving ? "Sending..." : "📋 Send invoice"}
-          </button>
-          <button onClick={handleManual} disabled={saving || !canSubmit}
-            style={{ background: "none", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "12px", fontSize: 14, color: "#6b7280", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", opacity: canSubmit ? 1 : 0.5 }}>
-            📝 Mark as paid
-          </button>
-        </div>
+        <button onClick={handleSend} disabled={saving || !canSubmit}
+          style={{ ...greenBtn, width: "100%", opacity: canSubmit ? 1 : 0.5 }}>
+          {saving ? "Sending..." : "📋 Send invoice"}
+        </button>
       </div>
     </div>
   );
