@@ -765,7 +765,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const allActiveNonArchived = allActive.filter(i => !i.tenant_id || activeTenantIds.has(i.tenant_id));
 
   const upcomingList   = allActiveNonArchived.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "upcoming");
-  const overdueList    = allActiveNonArchived.filter(i => !i.paid && !i.is_custom && i.payment_status !== "processing" && getStatus(i) === "overdue");
+  const overdueList    = allActiveNonArchived.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue");
   const completedList  = allActiveNonArchived.filter(i => i.paid);
   const processingList = allActiveNonArchived.filter(i => !i.paid && i.payment_status === "processing");
 
