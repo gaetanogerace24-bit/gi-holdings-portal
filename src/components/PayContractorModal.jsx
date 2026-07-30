@@ -37,7 +37,14 @@ export default function PayContractorModal({ onClose }) {
           amount: Number(amount),
           description: description.trim(),
           name: name.trim(),
+          email: email.trim() || null,
           phone: phone.trim() || null,
+          invoiceDate,
+          completionDate: completionDate || null,
+          lateFeeEnabled,
+          lateFeeStartDay: lateFeeEnabled ? Number(lateFeeStartDay) || null : null,
+          initialLateFee: lateFeeEnabled ? Number(initialLateFee) || null : null,
+          dailyLateFee: lateFeeEnabled ? Number(dailyLateFee) || null : null,
         },
       });
 
