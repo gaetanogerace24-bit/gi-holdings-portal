@@ -5,19 +5,12 @@ function todayStr() {
   return new Date().toISOString().split("T")[0];
 }
 
-function plusTwoDaysStr() {
-  const d = new Date();
-  d.setDate(d.getDate() + 2);
-  return d.toISOString().split("T")[0];
-}
-
 export default function PayContractorModal({ onClose }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(todayStr());
-  const [dueDate, setDueDate] = useState(plusTwoDaysStr());
   const [completionDate, setCompletionDate] = useState("");
   const [description, setDescription] = useState("");
   const [lateFeeEnabled, setLateFeeEnabled] = useState(false);
@@ -57,7 +50,6 @@ export default function PayContractorModal({ onClose }) {
         amount: Number(amount),
         description: description.trim(),
         date: invoiceDate,
-        due_date: dueDate,
         completion_date: completionDate || null,
         late_fee_enabled: lateFeeEnabled,
         late_fee_start_day: lateFeeEnabled ? Number(lateFeeStartDay) || null : null,
@@ -93,12 +85,12 @@ export default function PayContractorModal({ onClose }) {
                 <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Description:</strong> ${description.trim()}</div>
                 <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Invoice date:</strong> ${invoiceDate}</div>
                 ${completionDate ? `<div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Job completed:</strong> ${completionDate}</div>` : ""}
-                <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Due date:</strong> ${dueDate}</div>
+                <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Due:</strong> Upon receipt</div>
                 <div style="font-size:14px;color:#374151;"><strong>Billed by:</strong> G&I Holdings LLC</div>
               </div>
               ${lateFeeHtml}
               <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:13px;color:#991b1b;">
-                ⚠️ Payment is due by ${dueDate}. Please pay promptly to avoid any delays.
+                ⚠️ Payment is due upon receipt. Please pay promptly to avoid any delays.
               </div>
               <a href="${link}" style="display:block;background:#1b3d2a;color:#fff;text-align:center;padding:14px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:16px;">
                 Pay Invoice — $${Number(amount).toLocaleString()} →
@@ -132,7 +124,6 @@ export default function PayContractorModal({ onClose }) {
         amount: Number(amount),
         description: description.trim(),
         date: invoiceDate,
-        due_date: dueDate,
         completion_date: completionDate || null,
         late_fee_enabled: lateFeeEnabled,
         late_fee_start_day: lateFeeEnabled ? Number(lateFeeStartDay) || null : null,
@@ -217,16 +208,10 @@ export default function PayContractorModal({ onClose }) {
           </div>
         </div>
 
-        {/* Job completion date + Due date */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-          <div>
-            <Label>Job completion date</Label>
-            <input value={completionDate} onChange={e => setCompletionDate(e.target.value)} type="date" style={inputSt} />
-          </div>
-          <div>
-            <Label>Due date</Label>
-            <input value={dueDate} onChange={e => setDueDate(e.target.value)} type="date" style={inputSt} />
-          </div>
+        {/* Job completion date */}
+        <div style={{ marginBottom: 14 }}>
+          <Label>Job completion date</Label>
+          <input value={completionDate} onChange={e => setCompletionDate(e.target.value)} type="date" style={inputSt} />
         </div>
 
         {/* Description */}
@@ -271,7 +256,7 @@ export default function PayContractorModal({ onClose }) {
         {/* Preview banner */}
         {amount && description && (
           <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#1b3d2a" }}>
-            📋 <strong>{name || "Client"}</strong> will receive an invoice for <strong>${Number(amount || 0).toLocaleString()}</strong> due <strong>{dueDate}</strong> via email + SMS.
+            📋 <strong>{name || "Client"}</strong> will receive an invoice for <strong>${Number(amount || 0).toLocaleString()}</strong> due immediately via email + SMS.
           </div>
         )}
 
