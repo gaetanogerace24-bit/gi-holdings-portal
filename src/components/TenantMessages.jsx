@@ -82,6 +82,7 @@ export default function TenantMessages({ tenant }) {
         },
       });
     } catch (e) { console.error("Message notification failed:", e); }
+  }
 
   const allSorted = [...messages].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
@@ -181,3 +182,4 @@ export default function TenantMessages({ tenant }) {
     </div>
   );
 }
+
