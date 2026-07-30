@@ -1,13 +1,29 @@
 import { useState } from "react";
 import { supabase } from "../supabase";
 
+function todayStr() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function plusTwoDaysStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
+  return d.toISOString().split("T")[0];
+}
+
 export default function PayContractorModal({ onClose }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(todayStr());
+  const [dueDate, setDueDate] = useState(plusTwoDaysStr());
+  const [completionDate, setCompletionDate] = useState("");
   const [description, setDescription] = useState("");
+  const [lateFeeEnabled, setLateFeeEnabled] = useState(false);
+  const [lateFeeStartDay, setLateFeeStartDay] = useState("");
+  const [initialLateFee, setInitialLateFee] = useState("");
+  const [dailyLateFee, setDailyLateFee] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [paymentLink, setPaymentLink] = useState(null);
@@ -40,7 +56,13 @@ export default function PayContractorModal({ onClose }) {
         phone: phone.trim() || null,
         amount: Number(amount),
         description: description.trim(),
-        date: date || new Date().toISOString().split("T")[0],
+        date: invoiceDate,
+        due_date: dueDate,
+        completion_date: completionDate || null,
+        late_fee_enabled: lateFeeEnabled,
+        late_fee_start_day: lateFeeEnabled ? Number(lateFeeStartDay) || null : null,
+        initial_late_fee: lateFeeEnabled ? Number(initialLateFee) || null : null,
+        daily_late_fee: lateFeeEnabled ? Number(dailyLateFee) || null : null,
         method: "stripe",
         status: "pending",
         stripe_payment_link: link,
@@ -50,6 +72,10 @@ export default function PayContractorModal({ onClose }) {
       if (email.trim()) {
         const firstName = name.trim().split(" ")[0];
         const subject = `📋 Invoice from G&I Holdings LLC — $${Number(amount).toLocaleString()}`;
+        const lateFeeHtml = lateFeeEnabled && lateFeeStartDay ? `
+          <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#92400e;">
+            ⚠️ <strong>Late fees apply:</strong> A $${Number(initialLateFee || 0).toLocaleString()} fee is added on day ${lateFeeStartDay} of the month${dailyLateFee ? `, plus $${Number(dailyLateFee).toLocaleString()}/day after that` : ""}.
+          </div>` : "";
         const html = `
           <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;">
             <div style="background:linear-gradient(160deg,#1b3d2a,#2d5c42);padding:28px 24px;border-radius:12px 12px 0 0;">
@@ -65,11 +91,14 @@ export default function PayContractorModal({ onClose }) {
                 <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Invoice Details</div>
                 <div style="font-size:28px;font-weight:800;color:#1a1a1a;margin-bottom:12px;">$${Number(amount).toLocaleString()}</div>
                 <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Description:</strong> ${description.trim()}</div>
-                ${date ? `<div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Date:</strong> ${date}</div>` : ""}
+                <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Invoice date:</strong> ${invoiceDate}</div>
+                ${completionDate ? `<div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Job completed:</strong> ${completionDate}</div>` : ""}
+                <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Due date:</strong> ${dueDate}</div>
                 <div style="font-size:14px;color:#374151;"><strong>Billed by:</strong> G&I Holdings LLC</div>
               </div>
+              ${lateFeeHtml}
               <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:13px;color:#991b1b;">
-                ⚠️ Payment is due upon receipt. Please pay promptly to avoid any delays.
+                ⚠️ Payment is due by ${dueDate}. Please pay promptly to avoid any delays.
               </div>
               <a href="${link}" style="display:block;background:#1b3d2a;color:#fff;text-align:center;padding:14px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:16px;">
                 Pay Invoice — $${Number(amount).toLocaleString()} →
@@ -102,7 +131,13 @@ export default function PayContractorModal({ onClose }) {
         phone: phone.trim() || null,
         amount: Number(amount),
         description: description.trim(),
-        date: date || new Date().toISOString().split("T")[0],
+        date: invoiceDate,
+        due_date: dueDate,
+        completion_date: completionDate || null,
+        late_fee_enabled: lateFeeEnabled,
+        late_fee_start_day: lateFeeEnabled ? Number(lateFeeStartDay) || null : null,
+        initial_late_fee: lateFeeEnabled ? Number(initialLateFee) || null : null,
+        daily_late_fee: lateFeeEnabled ? Number(dailyLateFee) || null : null,
         method: "manual",
         status: "paid",
         created_at: new Date().toISOString(),
@@ -143,20 +178,22 @@ export default function PayContractorModal({ onClose }) {
 
   return (
     <div style={overlay}>
-      <div style={modal}>
+      <div style={{ ...modal, maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <div style={{ fontSize: 17, fontWeight: 700 }}>📋 Send Invoice to Client</div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>✕</button>
         </div>
         <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 18 }}>
-          Send a payment invoice to a client or contractor. They get an email + SMS with a Stripe link to pay you directly.
+          Client or contractor gets an email + SMS with a Stripe payment link.
         </div>
 
+        {/* Client name */}
         <div style={{ marginBottom: 14 }}>
           <Label>Client / company name *</Label>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. ABC Property Management" style={inputSt} />
         </div>
 
+        {/* Email + Phone */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
           <div>
             <Label>Email</Label>
@@ -168,6 +205,7 @@ export default function PayContractorModal({ onClose }) {
           </div>
         </div>
 
+        {/* Amount + Invoice date */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
           <div>
             <Label>Amount ($) *</Label>
@@ -175,18 +213,65 @@ export default function PayContractorModal({ onClose }) {
           </div>
           <div>
             <Label>Invoice date</Label>
-            <input value={date} onChange={e => setDate(e.target.value)} type="date" style={inputSt} />
+            <input value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} type="date" style={inputSt} />
           </div>
         </div>
 
-        <div style={{ marginBottom: 16 }}>
+        {/* Job completion date + Due date */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div>
+            <Label>Job completion date</Label>
+            <input value={completionDate} onChange={e => setCompletionDate(e.target.value)} type="date" style={inputSt} />
+          </div>
+          <div>
+            <Label>Due date</Label>
+            <input value={dueDate} onChange={e => setDueDate(e.target.value)} type="date" style={inputSt} />
+          </div>
+        </div>
+
+        {/* Description */}
+        <div style={{ marginBottom: 14 }}>
           <Label>Description / services rendered *</Label>
           <input value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Property management services — July 2026" style={inputSt} />
         </div>
 
+        {/* Late fee toggle */}
+        <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937" }}>Late fee rules</div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>Charge fees if not paid on time</div>
+            </div>
+            <div onClick={() => setLateFeeEnabled(v => !v)}
+              style={{ width: 42, height: 24, borderRadius: 12, background: lateFeeEnabled ? "#1b3d2a" : "#d1d5db", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+              <div style={{ position: "absolute", top: 3, left: lateFeeEnabled ? 21 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+            </div>
+          </div>
+          {lateFeeEnabled && (
+            <div style={{ marginTop: 14, borderTop: "1px solid #e5e7eb", paddingTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div>
+                <Label>Start day</Label>
+                <input value={lateFeeStartDay} onChange={e => setLateFeeStartDay(e.target.value)} type="number" placeholder="e.g. 5" style={inputSt} />
+                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Day of month</div>
+              </div>
+              <div>
+                <Label>Initial fee ($)</Label>
+                <input value={initialLateFee} onChange={e => setInitialLateFee(e.target.value)} type="number" placeholder="e.g. 50" style={inputSt} />
+                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>One-time</div>
+              </div>
+              <div>
+                <Label>Daily fee ($)</Label>
+                <input value={dailyLateFee} onChange={e => setDailyLateFee(e.target.value)} type="number" placeholder="e.g. 10" style={inputSt} />
+                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Per day after</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Preview banner */}
         {amount && description && (
           <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#1b3d2a" }}>
-            📋 <strong>{name || "Client"}</strong> will receive an invoice for <strong>${Number(amount || 0).toLocaleString()}</strong> via email + SMS with a Stripe payment link.
+            📋 <strong>{name || "Client"}</strong> will receive an invoice for <strong>${Number(amount || 0).toLocaleString()}</strong> due <strong>{dueDate}</strong> via email + SMS.
           </div>
         )}
 
