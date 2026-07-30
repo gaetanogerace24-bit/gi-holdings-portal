@@ -1159,6 +1159,59 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
               </div>
             )}
 
+            {/* Late fee tracker */}
+            {lateFeeOn && (() => {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+
+              // Determine fee start date
+              const refDateStr = isClient ? inv.date : inv.due_date;
+              let feeStartDate = null;
+              if (refDateStr && startDay) {
+                const parts = refDateStr.split("T")[0].split("-");
+                if (parts.length === 3) {
+                  feeStartDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(startDay));
+                  feeStartDate.setHours(0, 0, 0, 0);
+                }
+              }
+
+              const msPerDay = 1000 * 60 * 60 * 24;
+              const isLate = feeStartDate && today >= feeStartDate;
+              const daysLate = isLate ? Math.floor((today.getTime() - feeStartDate!.getTime()) / msPerDay) : 0;
+              const feesAccrued = isLate ? Number(initialFee) + (daysLate * Number(dailyFee)) : 0;
+              const totalOwed = displayAmount + feesAccrued;
+
+              const cardBg = isLate ? "#fef2f2" : "#f9fafb";
+              const numColor = isLate ? "#dc2626" : "#1f2937";
+              const labelColor = isLate ? "#991b1b" : "#6b7280";
+
+              return (
+                <div style={{ margin: "0 20px 16px", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1f2937", marginBottom: 12 }}>Late fee tracker</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                    <div style={{ background: cardBg, borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: labelColor, marginBottom: 4 }}>Status</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: numColor }}>
+                        {isLate ? `${daysLate} day${daysLate !== 1 ? "s" : ""} late` : "Not late yet"}
+                      </div>
+                    </div>
+                    <div style={{ background: cardBg, borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: labelColor, marginBottom: 4 }}>Days late</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: numColor }}>{daysLate}</div>
+                    </div>
+                    <div style={{ background: cardBg, borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: labelColor, marginBottom: 4 }}>Fees accrued</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: numColor }}>{fmt(feesAccrued)}</div>
+                    </div>
+                  </div>
+                  <div style={{ borderTop: `1px solid ${isLate ? "#fca5a5" : "#e5e7eb"}`, paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: isLate ? "#991b1b" : "#6b7280", fontWeight: 600 }}>Total now owed</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: isLate ? "#dc2626" : "#1f2937" }}>{fmt(totalOwed)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Delete button */}
             <div style={{ padding: "0 20px" }}>
               <button onClick={() => { handleDeleteCustomInvoice(inv.id, inv._type); setSelectedSentInvoice(null); }}
