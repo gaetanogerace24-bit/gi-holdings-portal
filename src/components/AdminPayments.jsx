@@ -639,7 +639,7 @@ function EditModal({ inv, onClose, onSave }) {
   );
 }
 
-export default function AdminPayments({ tenants = [], invoices: propInvoices = [], setInvoices: propSetInvoices, initialProcessingCustomInvoices = [], initialPaidCustomInvoices = [] }) {
+export default function AdminPayments({ tenants = [], invoices: propInvoices = [], setInvoices: propSetInvoices, initialProcessingCustomInvoices = [], initialPaidCustomInvoices = [], initialPaidClientInvoices = [] }) {
   const [invoices, setInvoicesLocal] = useState(propInvoices);
   const setInvoices = (val) => { setInvoicesLocal(val); if (propSetInvoices) propSetInvoices(val); };
   const [mainTab, setMainTab] = useState("active");
@@ -655,6 +655,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const [showPayContractor, setShowPayContractor] = useState(false);
   const [processingCustomInvoices, setProcessingCustomInvoices] = useState(initialProcessingCustomInvoices);
   const [paidCustomInvoices] = useState(initialPaidCustomInvoices);
+  const [paidClientInvoices] = useState(initialPaidClientInvoices);
   console.log("paidCustomInvoices:", initialPaidCustomInvoices, paidCustomInvoices);
 
   useEffect(() => { setInvoicesLocal(propInvoices); }, [propInvoices]);
@@ -706,8 +707,18 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const overdueTotal    = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
   const paidCustomThisMonth = paidCustomInvoices;
   const completedTotal = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0)
-    + paidCustomThisMonth.reduce((s, i) => s + Number(i.amount || 0), 0);
-  const completedCount = completedThisMonth.length + paidCustomThisMonth.length;
+    + paidCustomThisMonth.reduce((s, i) => s + Number(i.amount || 0), 0)
+    + paidClientInvoices.filter(i => {
+        if (!i.updated_at) return false;
+        const d = new Date(i.updated_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }).reduce((s, i) => s + Number(i.amount || 0), 0);
+  const completedCount = completedThisMonth.length + paidCustomThisMonth.length
+    + paidClientInvoices.filter(i => {
+        if (!i.updated_at) return false;
+        const d = new Date(i.updated_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }).length;
   const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0)
     + processingCustomInvoices.reduce((s, i) => s + Number(i.amount || 0), 0);
   const processingCount = processingList.length + processingCustomInvoices.length;
