@@ -691,7 +691,40 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                     </div>
                   </div>
                 </div>
-                <div style={{ fontSize: 11, color: "#b45309", marginTop: 8 }}>A prorated invoice will be created automatically when you add this tenant.</div>
+                {editing ? (
+                  <button onClick={async () => {
+                    if (!form.proratedMoveInDate || !form.rent) return;
+                    const moveIn = new Date(form.proratedMoveInDate);
+                    const year = moveIn.getFullYear();
+                    const month = moveIn.getMonth();
+                    const day = moveIn.getDate();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const daysRemaining = daysInMonth - day + 1;
+                    const rentAmount = form.section8 ? Number(form.tenantPortion || 0) : Number(form.rent || 0);
+                    const proratedAmount = Math.round((rentAmount / daysInMonth) * daysRemaining * 100) / 100;
+                    const monthName = `${MONTH_NAMES[month]} ${year}`;
+                    const dueDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                    await supabase.from("invoices").insert({
+                      tenant_id: editing,
+                      month: `${monthName} — Prorated (${daysRemaining} days)`,
+                      year, month_num: month + 1,
+                      rent: proratedAmount, late_fee: 0, total: proratedAmount,
+                      paid: false, due_date: dueDate,
+                      is_custom: true,
+                      tenant_name: form.name || null,
+                      tenant_address: form.address || null,
+                      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+                    });
+                    if (onInvoicesChanged) await onInvoicesChanged();
+                    alert(`✅ Prorated invoice created — $${proratedAmount.toFixed(2)} for ${daysRemaining} days in ${monthName}.`);
+                    setForm({ ...form, proratedFirst: false, proratedMoveInDate: "" });
+                  }} disabled={!form.proratedMoveInDate || !form.rent}
+                    style={{ width: "100%", marginTop: 8, padding: "9px", background: (form.proratedMoveInDate && form.rent) ? "#d97706" : "#d1d5db", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: (form.proratedMoveInDate && form.rent) ? "pointer" : "not-allowed", fontFamily: "'DM Sans', sans-serif" }}>
+                    Generate prorated invoice →
+                  </button>
+                ) : (
+                  <div style={{ fontSize: 11, color: "#b45309", marginTop: 8 }}>A prorated invoice will be created automatically when you add this tenant.</div>
+                )}
               </div>
             )}
           </div>
