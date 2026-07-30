@@ -179,7 +179,7 @@ export default function AdminPlanner({ tenants = [] }) {
                                         {...cardProv.dragHandleProps}
                                         style={{
                                           background: "#fff", borderRadius: 10,
-                                          border: "1.5px solid #e5e7eb",
+                                          border: prop.planner_stage === "inspection" ? "1.5px solid #fb923c" : "1.5px solid #e5e7eb",
                                           padding: "12px 14px", cursor: "grab",
                                           boxShadow: cardSnap.isDragging ? "0 6px 18px rgba(0,0,0,0.12)" : "0 1px 3px rgba(0,0,0,0.06)",
                                           userSelect: "none", marginBottom: 8,
@@ -206,6 +206,22 @@ export default function AdminPlanner({ tenants = [] }) {
                                           <option value="">— Unassigned —</option>
                                           {columns.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                                         </select>
+                                        {prop.planner_stage === "inspection" && (
+                                          <div style={{ marginTop: 10, background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "8px 10px" }} onMouseDown={e => e.stopPropagation()}>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#9a3412", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 5 }}>📅 Inspection date</div>
+                                            <input
+                                              type="date"
+                                              value={prop.inspection_date || ""}
+                                              onChange={async e => {
+                                                const d = e.target.value;
+                                                setProperties(prev => prev.map(p => p.id === prop.id ? { ...p, inspection_date: d } : p));
+                                                await supabase.from("properties").update({ inspection_date: d }).eq("id", prop.id);
+                                              }}
+                                              onMouseDown={e => e.stopPropagation()}
+                                              style={{ width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid #fed7aa", background: "#fff", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", cursor: "pointer" }}
+                                            />
+                                          </div>
+                                        )}
                                       </div>
                                     )}
                                   </Draggable>
