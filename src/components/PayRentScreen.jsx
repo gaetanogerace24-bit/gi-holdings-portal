@@ -359,7 +359,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     }
     setResultInfo({ refId, microdeposits, isCard });
     setStep("success");
-    if (onPaymentSuccess) onPaymentSuccess();
+    const paidInvoiceIds = payingCustomInvoice ? [] : (payMode === "prepay" ? activePrepayInvoices.map(i => i.id) : selectedInvoice ? [selectedInvoice.id] : []);
+    if (onPaymentSuccess) onPaymentSuccess(tenant.id, paidInvoiceIds);
   };
 
   const payWithNewBank = async () => {
