@@ -651,6 +651,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const [showSendInvoice, setShowSendInvoice] = useState(false);
   const [showSentInvoices, setShowSentInvoices] = useState(false);
   const [sentInvoices, setSentInvoices] = useState([]);
+  const [selectedSentInvoice, setSelectedSentInvoice] = useState(null);
   const [showPayContractor, setShowPayContractor] = useState(false);
   const [processingCustomInvoices, setProcessingCustomInvoices] = useState(initialProcessingCustomInvoices);
   const [paidCustomInvoices] = useState(initialPaidCustomInvoices);
@@ -842,7 +843,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       </button>
 
       <div style={{ marginBottom: 14 }}>
-        <button onClick={() => { loadSentInvoices(); setShowSentInvoices(true); }} style={{ background: "none", border: "none", color: "#000", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+        <button onClick={() => { loadSentInvoices(); setSelectedSentInvoice(null); setShowSentInvoices(true); }} style={{ background: "none", border: "none", color: "#000", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
           View sent invoices →
         </button>
       </div>
@@ -979,8 +980,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       {sheet === "invoices" && selectedTenant && <InvoiceListSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => setSheet(null)} onSelect={inv => { setSelectedInvoice(inv); setSheet("invoice"); }} />}
       {sheet === "invoice" && selectedInvoice && selectedTenant && <InvoiceDetailSheet inv={selectedInvoice} tenant={selectedTenant} onClose={() => { setSheet("invoices"); setSelectedInvoice(null); }} onMarkPaid={handleMarkPaid} onMarkUnpaid={handleMarkUnpaid} onEdit={inv => setEditingInvoice(inv)} onDelete={handleDelete} />}
 
-      {showSentInvoices && (
-        <Sheet onClose={() => setShowSentInvoices(false)}>
+      {showSentInvoices && !selectedSentInvoice && (
+        <Sheet onClose={() => { setShowSentInvoices(false); setSelectedSentInvoice(null); }}>
           <SheetHeader title="Sent Invoices" onClose={() => setShowSentInvoices(false)} />
           <div style={{ padding: "8px 20px 4px" }}>
             <div style={{ fontSize: 13, color: "#000" }}>{sentInvoices.length} invoice{sentInvoices.length !== 1 ? "s" : ""} sent</div>
@@ -995,7 +996,9 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
               const displayTitle = isClient ? inv.description : inv.title;
               const displayAmount = Number(inv.amount || 0);
               return (
-                <div key={inv.id} style={{ padding: "14px 16px", borderBottom: i < sentInvoices.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                <div key={inv.id}
+                  onClick={() => !isClient && setSelectedSentInvoice(inv)}
+                  style={{ padding: "14px 16px", borderBottom: i < sentInvoices.length - 1 ? "1px solid #f3f4f6" : "none", cursor: isClient ? "default" : "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
@@ -1016,7 +1019,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                     <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>${displayAmount.toLocaleString()}</div>
                       {isClient && (
-                        <select value={inv._clientStatus || "pending"} onChange={e => handleUpdateClientStatus(inv.id, e.target.value)}
+                        <select value={inv._clientStatus || "pending"} onChange={e => { e.stopPropagation(); handleUpdateClientStatus(inv.id, e.target.value); }}
                           style={{ fontSize: 11, border: "1px solid #e5e7eb", borderRadius: 6, padding: "3px 6px", marginBottom: 6, fontFamily: "'DM Sans', sans-serif", background: "#fff", cursor: "pointer" }}>
                           <option value="pending">Pending</option>
                           <option value="processing">Processing</option>
@@ -1024,8 +1027,9 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                         </select>
                       )}
                       <div>
-                        <button onClick={() => handleDeleteCustomInvoice(inv.id, inv._type)} style={{ fontSize: 12, color: "#dc2626", border: "1.5px solid #fca5a5", borderRadius: 8, padding: "4px 10px", background: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>🗑 Delete</button>
+                        <button onClick={e => { e.stopPropagation(); handleDeleteCustomInvoice(inv.id, inv._type); }} style={{ fontSize: 12, color: "#dc2626", border: "1.5px solid #fca5a5", borderRadius: 8, padding: "4px 10px", background: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>🗑 Delete</button>
                       </div>
+                      {!isClient && <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Tap to view ›</div>}
                     </div>
                   </div>
                   {isClient && inv.stripe_payment_link && (
@@ -1040,6 +1044,79 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
           <div style={{ height: 32 }} />
         </Sheet>
       )}
+
+      {showSentInvoices && selectedSentInvoice && (() => {
+        const inv = selectedSentInvoice;
+        const tenant = tenants.find(t => t.id === inv.tenant_id);
+        const dueDate = inv.due_date ? fmtDate(inv.due_date) : "—";
+        const lateFeeOn = inv.late_fee_enabled;
+        const startDay = inv.late_fee_start_day;
+        const initialFee = inv.initial_late_fee;
+        const dailyFee = inv.daily_late_fee;
+
+        // Compute late fee start date if due_date exists
+        let lateFeeStartDate = null;
+        if (lateFeeOn && inv.due_date && startDay) {
+          const parts = inv.due_date.split("T")[0].split("-");
+          if (parts.length === 3) {
+            const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(startDay));
+            lateFeeStartDate = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+          }
+        }
+
+        return (
+          <Sheet onClose={() => setSelectedSentInvoice(null)}>
+            <div style={{ display: "flex", alignItems: "center", padding: "20px 20px 0", gap: 10 }}>
+              <button onClick={() => setSelectedSentInvoice(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#000", padding: 0 }}>‹</button>
+              <div style={{ fontSize: 17, fontWeight: 700 }}>Invoice details</div>
+            </div>
+
+            {/* Header card */}
+            <div style={{ margin: "14px 20px", background: "#f9fafb", borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 13, color: "#000", marginBottom: 4 }}>{tenant?.name || "—"} · {tenant?.address || "—"}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 2 }}>{fmt(Number(inv.amount || 0))}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937", marginBottom: 4 }}>{inv.title}</div>
+              {inv.notes && <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 4 }}>{inv.notes}</div>}
+              <div style={{ fontSize: 12, color: "#000" }}>Due: {dueDate}</div>
+              <div style={{ marginTop: 8 }}>{getTenantInvStatusLabel(inv)}</div>
+            </div>
+
+            {/* Late fee rules */}
+            {lateFeeOn ? (
+              <div style={{ margin: "0 20px 16px", background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#991b1b", marginBottom: 10 }}>⚠️ Late fee rules</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "#000" }}>Fees start</span>
+                    <span style={{ fontWeight: 600, color: "#1f2937" }}>Day {startDay} of the month{lateFeeStartDate ? ` (${lateFeeStartDate})` : ""}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "#000" }}>Initial fee</span>
+                    <span style={{ fontWeight: 600, color: "#dc2626" }}>{fmt(initialFee)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "#000" }}>Daily fee after that</span>
+                    <span style={{ fontWeight: 600, color: "#dc2626" }}>{fmt(dailyFee)}/day</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ margin: "0 20px 16px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 12, padding: 14, fontSize: 13, color: "#6b7280" }}>
+                No late fee rules on this invoice.
+              </div>
+            )}
+
+            {/* Delete button */}
+            <div style={{ padding: "0 20px" }}>
+              <button onClick={() => { handleDeleteCustomInvoice(inv.id, "tenant"); setSelectedSentInvoice(null); }}
+                style={{ width: "100%", padding: 14, border: "1.5px solid #fca5a5", borderRadius: 12, background: "#fff", color: "#dc2626", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                🗑 Delete invoice
+              </button>
+            </div>
+            <div style={{ height: 32 }} />
+          </Sheet>
+        );
+      })()}
 
       {showSendInvoice && (
         <SendInvoiceModal
