@@ -1,24 +1,30 @@
 import { useState } from "react";
 
-const CATEGORIES = ["Plumbing", "HVAC / Heat", "Electrical", "Appliance", "Pest control", "General", "Other"];
-const URGENCIES = [
-  { key: "low", label: "Low", color: "#166534", bg: "#dcfce7", border: "#4ade80" },
-  { key: "medium", label: "Medium", color: "#92400e", bg: "#fef3c7", border: "#fbbf24" },
-  { key: "high", label: "High", color: "#991b1b", bg: "#fee2e2", border: "#f87171" },
+const EMERGENCY_TYPES = [
+  { key: "burst_pipe", label: "Burst pipe / flood", icon: "🚿" },
+  { key: "gas_leak", label: "Gas leak", icon: "🔥" },
+  { key: "electrical", label: "Electrical hazard", icon: "⚡" },
+  { key: "roof_leak", label: "Roof leak", icon: "🏚" },
+  { key: "furnace", label: "Furnace issues", icon: "🌡️" },
+  { key: "other", label: "Other emergency", icon: "❗" },
 ];
 
 export default function SubmitTicketModal({ onClose, onSubmit }) {
-  const [category, setCategory] = useState("Plumbing");
-  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
-  const [urgency, setUrgency] = useState("low");
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
-    if (!title.trim()) return;
+    if (!category || !description.trim()) return;
     setSubmitted(true);
+    const selectedType = EMERGENCY_TYPES.find(t => t.key === category);
     setTimeout(() => {
-      onSubmit({ title, category, description, urgency });
+      onSubmit({
+        title: selectedType?.label || category,
+        category: selectedType?.label || category,
+        description,
+        urgency: "high",
+      });
     }, 1200);
   };
 
@@ -34,68 +40,80 @@ export default function SubmitTicketModal({ onClose, onSubmit }) {
     >
       <div style={{
         background: "#fff", width: "100%", borderRadius: "22px 22px 0 0",
-        padding: "8px 20px 32px", maxHeight: "90vh", overflowY: "auto",
+        maxHeight: "92vh", overflowY: "auto",
       }}>
-        <div style={{ width: 40, height: 4, background: "#e5e7eb", borderRadius: 2, margin: "12px auto 20px" }} />
+        <div style={{ width: 40, height: 4, background: "#e5e7eb", borderRadius: 2, margin: "12px auto 0" }} />
 
         {submitted ? (
-          <div style={{ textAlign: "center", padding: "30px 0" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🔧</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#1b3d2a" }}>Maintenance request submitted!</div>
-            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>We'll be in touch soon.</div>
+          <div style={{ textAlign: "center", padding: "48px 20px" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#1b3d2a" }}>Emergency report sent!</div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>You will be contacted as soon as possible.</div>
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 20, color: "#1a1a1a" }}>New Maintenance Request</div>
-
-            <Label>Issue title</Label>
-            <input
-              value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="Brief description of the problem"
-              style={inputStyle}
-            />
-
-            <Label>Category</Label>
-            <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-            </select>
-
-            <Label>Urgency level</Label>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-              {URGENCIES.map(u => (
-                <button key={u.key} onClick={() => setUrgency(u.key)} style={{
-                  flex: 1, padding: "9px 4px", borderRadius: 9,
-                  border: urgency === u.key ? `2px solid ${u.border}` : "1.5px solid #e5e7eb",
-                  background: urgency === u.key ? u.bg : "#fff",
-                  color: urgency === u.key ? u.color : "#6b7280",
-                  fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
-                  cursor: "pointer", transition: "all 0.15s",
-                }}>
-                  {u.label}
-                </button>
-              ))}
+            {/* Red header */}
+            <div style={{ background: "#dc2626", padding: "16px 20px 14px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>Emergency only</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Report an emergency</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 6, lineHeight: 1.5 }}>
+                For immediate safety hazards only. Per your lease, repairs under $300 are your responsibility.
+              </div>
             </div>
 
-            <Label>Description <span style={{ color: "#9ca3af", fontWeight: 400 }}>(optional)</span></Label>
-            <textarea
-              value={description} onChange={e => setDescription(e.target.value)}
-              placeholder="Give us as much detail as possible — when did it start, how bad is it..."
-              rows={4}
-              style={{ ...inputStyle, resize: "none", lineHeight: "1.5" }}
-            />
+            <div style={{ padding: "16px 20px 32px" }}>
+              {/* Warning banner */}
+              <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 10, padding: "11px 14px", marginBottom: 18, fontSize: 13, color: "#991b1b", lineHeight: 1.5 }}>
+                This goes directly to G&I Holdings. Non-emergency requests will not be responded to.
+              </div>
 
-            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+              {/* Category tiles */}
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: "#6b7280", marginBottom: 10 }}>
+                What is the emergency?
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+                {EMERGENCY_TYPES.map(t => (
+                  <button key={t.key} onClick={() => setCategory(t.key)} style={{
+                    border: category === t.key ? "2px solid #dc2626" : "1.5px solid #e5e7eb",
+                    borderRadius: 10, padding: "10px 12px", background: category === t.key ? "#fef2f2" : "#fff",
+                    cursor: "pointer", textAlign: "left", fontFamily: "'DM Sans', sans-serif",
+                  }}>
+                    <div style={{ fontSize: 18, marginBottom: 3 }}>{t.icon}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: category === t.key ? "#991b1b" : "#1a1a1a" }}>{t.label}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Description */}
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: "#6b7280", marginBottom: 6 }}>
+                Describe what's happening
+              </div>
+              <textarea
+                value={description} onChange={e => setDescription(e.target.value)}
+                placeholder="What happened, when did it start, how bad is it..."
+                rows={4}
+                style={{ width: "100%", padding: "11px 13px", borderRadius: 11, fontSize: 14, border: "1.5px solid #e5e7eb", outline: "none", fontFamily: "'DM Sans', sans-serif", color: "#1a1a1a", marginBottom: 14, boxSizing: "border-box", display: "block", resize: "none", lineHeight: 1.5 }}
+              />
+
+              <button onClick={handleSubmit} disabled={!category || !description.trim()} style={{
+                width: "100%", padding: 14, border: "none", borderRadius: 12,
+                background: category && description.trim() ? "#dc2626" : "#d1d5db",
+                fontFamily: "'DM Sans', sans-serif", fontSize: 15,
+                fontWeight: 700, color: "#fff", cursor: category && description.trim() ? "pointer" : "not-allowed",
+                marginBottom: 10,
+              }}>
+                Send emergency report
+              </button>
+
               <button onClick={onClose} style={{
-                flex: 1, padding: "12px", border: "1.5px solid #e5e7eb", borderRadius: 12,
+                width: "100%", padding: 12, border: "1.5px solid #e5e7eb", borderRadius: 12,
                 background: "#fff", fontFamily: "'DM Sans', sans-serif", fontSize: 14,
                 fontWeight: 500, color: "#6b7280", cursor: "pointer",
               }}>Cancel</button>
-              <button onClick={handleSubmit} style={{
-                flex: 2, padding: "12px", border: "none", borderRadius: 12,
-                background: title.trim() ? "#1b3d2a" : "#d1d5db",
-                fontFamily: "'DM Sans', sans-serif", fontSize: 14,
-                fontWeight: 700, color: "#fff", cursor: title.trim() ? "pointer" : "not-allowed",
-              }}>Submit Request</button>
+
+              <div style={{ textAlign: "center", marginTop: 10, fontSize: 12, color: "#9ca3af" }}>
+                You will be contacted as soon as possible
+              </div>
             </div>
           </>
         )}
@@ -103,18 +121,3 @@ export default function SubmitTicketModal({ onClose, onSubmit }) {
     </div>
   );
 }
-
-function Label({ children }) {
-  return (
-    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: "#6b7280", marginBottom: 6 }}>
-      {children}
-    </div>
-  );
-}
-
-const inputStyle = {
-  width: "100%", padding: "11px 13px", borderRadius: 11, fontSize: 14,
-  border: "1.5px solid #e5e7eb", outline: "none",
-  fontFamily: "'DM Sans', sans-serif", color: "#1a1a1a",
-  marginBottom: 14, boxSizing: "border-box", display: "block",
-};
