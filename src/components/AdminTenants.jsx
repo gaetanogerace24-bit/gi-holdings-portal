@@ -103,6 +103,10 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const [showPassword, setShowPassword] = useState(false);
   const [accessSaved, setAccessSaved] = useState(false);
   const [savingAccess, setSavingAccess] = useState(false);
+  const [showProrated, setShowProrated] = useState(false);
+  const [proratedMoveIn, setProratedMoveIn] = useState("");
+  const [sendingProrated, setSendingProrated] = useState(false);
+  const [proratedMsg, setProratedMsg] = useState(null);
 
   const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); setRegenMsg(null); setShowAccess(false); };
   const openEdit = (t) => {
@@ -243,7 +247,42 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     setGeneratingNext(false);
   };
 
-  const handleRemove = async (id, name) => {
+  const handleSendProrated = async () => {
+    if (!editing || !proratedMoveIn) return;
+    setSendingProrated(true);
+    setProratedMsg(null);
+
+    const moveIn = new Date(proratedMoveIn);
+    const year = moveIn.getFullYear();
+    const month = moveIn.getMonth(); // 0-indexed
+    const day = moveIn.getDate();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysRemaining = daysInMonth - day + 1;
+    const rentAmount = form.section8
+      ? Number(form.tenantPortion || form.tenant_portion || 0)
+      : Number(form.rent || 0);
+    const proratedAmount = Math.round((rentAmount / daysInMonth) * daysRemaining * 100) / 100;
+    const monthName = `${MONTH_NAMES[month]} ${year}`;
+    const dueDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    await supabase.from("invoices").insert({
+      tenant_id: editing,
+      month: `${monthName} — Prorated (${daysRemaining} days)`,
+      year, month_num: month + 1,
+      rent: proratedAmount, late_fee: 0, total: proratedAmount,
+      paid: false, due_date: dueDate,
+      is_custom: true,
+      tenant_name: form.name || null,
+      tenant_address: form.address || null,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    });
+
+    if (onInvoicesChanged) await onInvoicesChanged();
+    setProratedMsg(`✅ Prorated invoice created — $${proratedAmount.toFixed(2)} for ${daysRemaining} days in ${monthName}.`);
+    setShowProrated(false);
+    setProratedMoveIn("");
+    setSendingProrated(false);
+  };
     if (window.confirm(`Remove ${name}? This cannot be undone.`)) {
       await supabase.from("properties").update({ tenant_id: null, status: "vacant", planner_stage: "vacant" }).eq("tenant_id", id);
       await supabase.from("tenants").delete().eq("id", id);
@@ -424,6 +463,59 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
               {regenMsg && (
                 <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 13, color: "#1b3d2a" }}>
                   {regenMsg}
+                </div>
+              )}
+
+              {/* Prorated first month */}
+              <div style={{ marginTop: 10, border: "1px solid #fcd34d", borderRadius: 10, background: "#fffbeb", padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e" }}>📅 Prorated first month</div>
+                    <div style={{ fontSize: 11, color: "#b45309", marginTop: 2 }}>Charge tenant for partial month if they moved in mid-month</div>
+                  </div>
+                  <div onClick={() => setShowProrated(v => !v)}
+                    style={{ width: 40, height: 22, borderRadius: 11, background: showProrated ? "#d97706" : "#d1d5db", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                    <div style={{ position: "absolute", top: 2, left: showProrated ? 19 : 2, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+                  </div>
+                </div>
+                {showProrated && (
+                  <div style={{ marginTop: 12, borderTop: "1px solid #fcd34d", paddingTop: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 4 }}>Move-in date</div>
+                        <input type="date" value={proratedMoveIn} onChange={e => setProratedMoveIn(e.target.value)}
+                          style={{ width: "100%", padding: "7px 9px", borderRadius: 7, border: "1px solid #fcd34d", fontSize: 12, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", background: "#fff" }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 4 }}>Monthly rent</div>
+                        <div style={{ padding: "7px 9px", borderRadius: 7, border: "1px solid #fcd34d", fontSize: 12, background: "#fff", color: "#92400e", fontWeight: 600 }}>
+                          ${(form.section8 ? Number(form.tenantPortion || 0) : Number(form.rent || 0)).toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 4 }}>Prorated amount</div>
+                        <div style={{ padding: "7px 9px", borderRadius: 7, border: "1px solid #fcd34d", fontSize: 13, background: "#fff", color: "#92400e", fontWeight: 700 }}>
+                          {(() => {
+                            if (!proratedMoveIn) return "—";
+                            const d = new Date(proratedMoveIn);
+                            const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+                            const daysRemaining = daysInMonth - d.getDate() + 1;
+                            const rent = form.section8 ? Number(form.tenantPortion || 0) : Number(form.rent || 0);
+                            return `$${(Math.round((rent / daysInMonth) * daysRemaining * 100) / 100).toFixed(2)}`;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={handleSendProrated} disabled={!proratedMoveIn || sendingProrated}
+                      style={{ width: "100%", padding: "9px", background: proratedMoveIn ? "#d97706" : "#d1d5db", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: proratedMoveIn ? "pointer" : "not-allowed", fontFamily: "'DM Sans', sans-serif" }}>
+                      {sendingProrated ? "⏳ Creating..." : "Send prorated invoice →"}
+                    </button>
+                  </div>
+                )}
+              </div>
+              {proratedMsg && (
+                <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginTop: 8, fontSize: 13, color: "#1b3d2a" }}>
+                  {proratedMsg}
                 </div>
               )}
             </div>
