@@ -548,6 +548,13 @@ function ArchivedTenantCard({ tenant, invoices, onSelect, onDelete }) {
   const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
   const totalPaid = invoices.filter(i => i.paid).reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
   const archivedAt = tenant.archived_at ? fmtDate(tenant.archived_at) : "—";
+  const isSection8 = tenant.section8 || tenant.section_8;
+  const s8Amount = Number(tenant.section8_amount || tenant.section8Amount || 0);
+  const tenantPortion = Number(tenant.tenant_portion || tenant.tenantPortion || 0);
+  const leaseStart = tenant.lease_start || tenant.leaseStart || "";
+  const leaseEnd = tenant.lease_end || tenant.leaseEnd || "";
+  const monthToMonth = tenant.month_to_month || tenant.monthToMonth || false;
+
   return (
     <div style={{ borderBottom: "1px solid #f3f4f6", padding: "16px 0" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setExpanded(!expanded)}>
@@ -564,31 +571,107 @@ function ArchivedTenantCard({ tenant, invoices, onSelect, onDelete }) {
           <div style={{ fontSize: 11, color: "#000", marginTop: 4 }}>{invoices.length} invoice{invoices.length !== 1 ? "s" : ""}</div>
         </div>
       </div>
+
       {expanded && (
-        <div style={{ marginTop: 14, background: "#f9fafb", borderRadius: 12, padding: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-            <div><div style={{ fontSize: 11, color: "#000", textTransform: "uppercase", fontWeight: 600 }}>Total collected</div><div style={{ fontSize: 13, color: "#16a34a", fontWeight: 700, marginTop: 2 }}>{fmt(totalPaid)}</div></div>
-          </div>
-          <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
-            {sorted.map((inv, i) => {
-              const status = getStatus(inv);
-              const liveTotal = inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + (inv.is_custom ? 0 : calcLateFee(inv.due_date));
-              return (
-                <div key={inv.id} onClick={() => onSelect(inv, tenant)}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer", background: "#fff" }}>
-                  <div>
-                    <div style={{ fontSize: 13, color: "#000" }}>{inv.month}</div>
-                    <div style={{ fontSize: 11, color: "#000" }}>Due {fmtDate(inv.due_date)}</div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{fmt(liveTotal)}</div>
-                    <div style={{ fontSize: 11, marginTop: 2 }}>{status === "completed" ? <span style={{ color: "#16a34a" }}>✓ Paid</span> : <span style={{ color: "#dc2626" }}>Unpaid</span>}</div>
-                  </div>
+        <div style={{ marginTop: 14 }}>
+          {/* Tenant info */}
+          <div style={{ background: "#f9fafb", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 12 }}>Tenant info</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Full name</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1f2937" }}>{tenant.name || "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Address</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1f2937" }}>{tenant.address || "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Email</div>
+                <div style={{ fontSize: 13, color: "#1f2937" }}>{tenant.email || tenant.login_email || "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Phone</div>
+                <div style={{ fontSize: 13, color: "#1f2937" }}>{tenant.phone || "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Portal login</div>
+                <div style={{ fontSize: 13, color: "#1f2937" }}>{tenant.login_email || "—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Monthly rent</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1f2937" }}>{fmt(tenant.rent || 0)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Security deposit</div>
+                <div style={{ fontSize: 13, color: "#1f2937" }}>{fmt(tenant.deposit || 0)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Lease term</div>
+                <div style={{ fontSize: 13, color: "#1f2937" }}>
+                  {monthToMonth ? "Month to month" : leaseStart && leaseEnd ? `${fmtDate(leaseStart)} – ${fmtDate(leaseEnd)}` : "—"}
                 </div>
-              );
-            })}
+              </div>
+              {tenant.notes && (
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Notes</div>
+                  <div style={{ fontSize: 13, color: "#1f2937" }}>{tenant.notes}</div>
+                </div>
+              )}
+            </div>
           </div>
-          <div style={{ marginTop: 14, borderTop: "1px solid #e5e7eb", paddingTop: 14 }}>
+
+          {/* Section 8 */}
+          {isSection8 && (
+            <div style={{ background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 12, padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#0d9488", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 10 }}>🏛 Section 8</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div style={{ background: "#fff", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Housing pays</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0d9488" }}>{fmt(s8Amount)}</div>
+                </div>
+                <div style={{ background: "#fff", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Tenant pays</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1f2937" }}>{fmt(tenantPortion)}</div>
+                </div>
+                <div style={{ background: "#fff", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Total rent</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1f2937" }}>{fmt(s8Amount + tenantPortion)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Payment history */}
+          <div style={{ background: "#f9fafb", borderRadius: 12, padding: "12px 14px", marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.7px" }}>Payment history</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>{fmt(totalPaid)} collected</div>
+            </div>
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+              {sorted.length === 0 && <div style={{ padding: 16, textAlign: "center", fontSize: 13, color: "#9ca3af" }}>No invoices</div>}
+              {sorted.map((inv, i) => {
+                const status = getStatus(inv);
+                const liveTotal = inv.paid ? Number(inv.total || inv.rent) : Number(inv.rent) + (inv.is_custom ? 0 : calcLateFee(inv.due_date));
+                return (
+                  <div key={inv.id} onClick={() => onSelect(inv, tenant)}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer", background: "#fff" }}>
+                    <div>
+                      <div style={{ fontSize: 13, color: "#000" }}>{inv.month}</div>
+                      <div style={{ fontSize: 11, color: "#000" }}>Due {fmtDate(inv.due_date)}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{fmt(liveTotal)}</div>
+                      <div style={{ fontSize: 11, marginTop: 2 }}>{status === "completed" ? <span style={{ color: "#16a34a" }}>✓ Paid</span> : <span style={{ color: "#dc2626" }}>Unpaid</span>}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Delete */}
+          <div style={{ paddingTop: 4 }}>
             {!confirmDelete ? (
               <button onClick={() => setConfirmDelete(true)} style={{ padding: "8px 16px", background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, color: "#dc2626", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>🗑 Delete from archive</button>
             ) : (
@@ -1236,3 +1319,4 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     </div>
   );
 }
+
