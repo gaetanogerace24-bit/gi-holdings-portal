@@ -306,13 +306,15 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     return { daysLeft, status, label, start, end };
   };
 
+  const activeTenants = tenants.filter(t => !t.archived);
+
   return (
     <div className="admin-page-content" style={{ padding: 28, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a1a", margin: 0, letterSpacing: "-0.5px" }}>Tenants & Units</h1>
           <div style={{ fontSize: 14, color: "#6b7280", marginTop: 4 }}>
-            {tenants.length === 0 ? "No tenants yet" : `${tenants.length} tenant${tenants.length !== 1 ? "s" : ""}`}
+            {activeTenants.length === 0 ? "No tenants yet" : `${activeTenants.length} tenant${activeTenants.length !== 1 ? "s" : ""}`}
           </div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -330,13 +332,13 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
             <div style={{ fontSize: 12, color: "#9ca3af" }}>⚠️ Warning shown when lease ends within 90 days</div>
           </div>
           <div>
-            {tenants.map((t, i) => {
+            {activeTenants.map((t, i) => {
               const info = getLeaseInfo(t);
               const badgeColor = info.status === "expired" ? "#dc2626" : info.status === "warning" ? "#d97706" : info.status === "month-to-month" ? "#6b7280" : "#16a34a";
               const badgeBg = info.status === "expired" ? "#fef2f2" : info.status === "warning" ? "#fffbeb" : info.status === "month-to-month" ? "#f3f4f6" : "#f0fdf4";
               const icon = info.status === "expired" ? "🔴 " : info.status === "warning" ? "⚠️ " : info.status === "month-to-month" ? "🔄 " : "✅ ";
               return (
-                <div key={t.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 160px", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < tenants.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                <div key={t.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 160px", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: i < activeTenants.length - 1 ? "1px solid #f3f4f6" : "none" }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>{t.name}</div>
                     <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{t.address}</div>
@@ -554,7 +556,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
         </div>
       )}
 
-      {tenants.length === 0 && !showForm && (
+      {activeTenants.length === 0 && !showForm && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>No tenants added yet</div>
@@ -563,7 +565,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {tenants.map(t => {
+        {activeTenants.map(t => {
           const docsOpen = expandedDocs === t.id;
           const isM2M = t.month_to_month || t.monthToMonth;
           return (
