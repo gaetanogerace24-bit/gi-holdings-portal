@@ -806,8 +806,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     setArchivedTenants(prev => prev.filter(t => t.id !== tenant.id));
   };
 
-  const clientStatusColor = (s) => s === "completed" ? "#16a34a" : s === "processing" ? "#2563eb" : s === "paid" ? "#16a34a" : "#d97706";
-  const clientStatusLabel = (s) => s === "completed" ? "✓ Completed" : s === "processing" ? "↻ Processing" : s === "paid" ? "✓ Paid" : "⏳ Pending";
+  const clientStatusColor = (s) => s === "completed" ? "#16a34a" : s === "processing" ? "#2563eb" : s === "paid" ? "#16a34a" : "#dc2626";
+  const clientStatusLabel = (s) => s === "completed" ? "✓ Completed" : s === "processing" ? "↻ Processing" : s === "paid" ? "✓ Paid" : "⏱ Unpaid";
 
   // Helper to get tenant invoice status label
   const getTenantInvStatusLabel = (inv) => {
