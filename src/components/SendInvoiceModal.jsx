@@ -8,6 +8,10 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
+  const [lateFeeEnabled, setLateFeeEnabled] = useState(false);
+  const [lateFeeStartDay, setLateFeeStartDay] = useState("5");
+  const [initialLateFee, setInitialLateFee] = useState("35");
+  const [dailyLateFee, setDailyLateFee] = useState("10");
   const [saving, setSaving] = useState(false);
   const [sent, setSent] = useState(false);
   const [invoiceError, setInvoiceError] = useState(null);
@@ -29,6 +33,10 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
       paid: false,
       due_date: now,
       created_at: now,
+      late_fee_enabled: lateFeeEnabled,
+      late_fee_start_day: lateFeeEnabled ? Number(lateFeeStartDay) || 5 : null,
+      initial_late_fee: lateFeeEnabled ? Number(initialLateFee) || 35 : null,
+      daily_late_fee: lateFeeEnabled ? Number(dailyLateFee) || 10 : null,
     });
 
     if (customError) {
@@ -41,6 +49,14 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
     if (tenant) {
       const firstName = tenant.name.split(" ")[0];
       const subject = `📋 New charge: ${title.trim()} — $${numAmount.toLocaleString()}`;
+
+      const lateFeeNote = lateFeeEnabled
+        ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#92400e;">
+            ⚠️ Late fees apply if not paid by the ${Number(lateFeeStartDay)}${Number(lateFeeStartDay) === 1 ? "st" : Number(lateFeeStartDay) === 2 ? "nd" : Number(lateFeeStartDay) === 3 ? "rd" : "th"} of the month. Initial fee: $${initialLateFee}, then $${dailyLateFee}/day.
+           </div>`
+        : `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px 16px;margin-bottom:24px;font-size:13px;color:#92400e;">
+            ℹ️ This charge does <strong>not</strong> accrue late fees. Please pay at your earliest convenience.
+           </div>`;
 
       const html = `
         <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;">
@@ -60,9 +76,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
               <div style="font-size:14px;color:#374151;margin-bottom:4px;"><strong>Due:</strong> ${today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
               ${notes.trim() ? `<div style="font-size:14px;color:#6b7280;margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;"><strong>Note:</strong> ${notes.trim()}</div>` : ""}
             </div>
-            <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px 16px;margin-bottom:24px;font-size:13px;color:#92400e;">
-              ℹ️ This charge does <strong>not</strong> accrue late fees. Please pay at your earliest convenience.
-            </div>
+            ${lateFeeNote}
             <a href="${PORTAL_URL}" style="display:block;background:#4caf7d;color:#fff;text-align:center;padding:14px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:16px;">
               Log in to pay now → giholdingsllc.com
             </a>
@@ -70,7 +84,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
         </div>
       `;
 
-      const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added to your account for "${title.trim()}".${notes.trim() ? ` Note: ${notes.trim()}.` : ""} Log in to your tenant portal to pay.`;
+      const smsMessage = `G&I Holdings: Hi ${firstName}, a new charge of $${numAmount.toLocaleString()} has been added for "${title.trim()}".${lateFeeEnabled ? ` Late fees of $${dailyLateFee}/day apply after the ${lateFeeStartDay}th.` : ""} Log in to your tenant portal to pay.`;
 
       try {
         await supabase.functions.invoke("send-custom-invoice-email", {
@@ -98,16 +112,11 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
     <div style={overlay}>
       <div style={modal}>
         <div style={{ textAlign: "center", padding: "20px 0" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>{invoiceError ? "⚠️" : "✅"}</div>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Invoice sent!</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>
-            <strong>{tenant?.name}</strong> will see "{title}" in their portal and received an email and text notification.
+            <strong>{tenant?.name}</strong> received an email and text notification.
           </div>
-          {invoiceError && (
-            <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#dc2626", marginBottom: 16, textAlign: "left" }}>
-              {invoiceError}
-            </div>
-          )}
           <button onClick={onClose} style={greenBtn}>Done</button>
         </div>
       </div>
@@ -116,7 +125,7 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
 
   return (
     <div style={overlay}>
-      <div style={modal}>
+      <div style={{ ...modal, maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ fontSize: 17, fontWeight: 700 }}>Send Invoice</div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>✕</button>
@@ -146,12 +155,56 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
             style={inputSt} />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 14 }}>
           <Label>Notes (optional)</Label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)}
             placeholder="Any additional details for the tenant..."
             rows={2}
             style={{ ...inputSt, resize: "none", lineHeight: 1.5 }} />
+        </div>
+
+        {/* Late fee rules */}
+        <div style={{ background: "#fffbeb", border: "1.5px solid #fcd34d", borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#92400e" }}>⚙️ Late fee rules</div>
+            <div onClick={() => setLateFeeEnabled(!lateFeeEnabled)} style={{
+              width: 40, height: 22, borderRadius: 11, cursor: "pointer",
+              background: lateFeeEnabled ? "#d97706" : "#d1d5db",
+              position: "relative", transition: "background 0.2s", flexShrink: 0,
+            }}>
+              <div style={{
+                width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                position: "absolute", top: 3,
+                left: lateFeeEnabled ? 21 : 3,
+                transition: "left 0.2s",
+              }} />
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: "#92400e", marginBottom: lateFeeEnabled ? 12 : 0 }}>
+            Add late fees if not paid on time
+          </div>
+          {lateFeeEnabled && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Start day</div>
+                <input type="number" value={lateFeeStartDay} onChange={e => setLateFeeStartDay(e.target.value)}
+                  placeholder="5" style={{ ...inputSt, borderColor: "#fcd34d" }} />
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3 }}>Day of month</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Initial fee ($)</div>
+                <input type="number" value={initialLateFee} onChange={e => setInitialLateFee(e.target.value)}
+                  placeholder="35" style={{ ...inputSt, borderColor: "#fcd34d" }} />
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3 }}>One-time</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 4 }}>Daily fee ($)</div>
+                <input type="number" value={dailyLateFee} onChange={e => setDailyLateFee(e.target.value)}
+                  placeholder="10" style={{ ...inputSt, borderColor: "#fcd34d" }} />
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3 }}>Per day after</div>
+              </div>
+            </div>
+          )}
         </div>
 
         {invoiceError && (
@@ -162,7 +215,8 @@ export default function SendInvoiceModal({ tenants, onClose, onSent }) {
 
         {tenantId && title && amount && (
           <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px", marginBottom: 16, fontSize: 13, color: "#1b3d2a" }}>
-            📤 <strong>{tenant?.name}</strong> will be charged <strong>${Number(amount).toLocaleString()}</strong> for "<strong>{title}</strong>" and receive an email and text notification immediately.
+            📤 <strong>{tenant?.name}</strong> will be charged <strong>${Number(amount).toLocaleString()}</strong> for "<strong>{title}</strong>"
+            {lateFeeEnabled && ` with late fees of $${dailyLateFee}/day after day ${lateFeeStartDay}.`}
           </div>
         )}
 
