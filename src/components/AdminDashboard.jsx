@@ -62,8 +62,8 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
             }}>
               <span style={{ fontSize: 16 }}>{n.icon}</span>
               {n.label}
-              {n.key === "tenants" && tenants.length > 0 && (
-                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.length}</span>
+              {n.key === "tenants" && tenants.filter(t => !t.archived).length > 0 && (
+                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{tenants.filter(t => !t.archived).length}</span>
               )}
               {n.key === "properties" && propertyCount > 0 && (
                 <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{propertyCount}</span>
@@ -113,3 +113,4 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
     </div>
   );
 }
+
