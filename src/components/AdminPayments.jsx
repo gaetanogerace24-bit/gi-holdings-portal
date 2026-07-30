@@ -761,11 +761,13 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const currentMonthName = getCurrentMonthName();
   const allActive = invoices.filter(i => !i.deleted);
   const activeTenants = tenants.filter(t => !t.archived);
+  const activeTenantIds = new Set(activeTenants.map(t => t.id));
+  const allActiveNonArchived = allActive.filter(i => !i.tenant_id || activeTenantIds.has(i.tenant_id));
 
-  const upcomingList   = allActive.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "upcoming");
-  const overdueList    = allActive.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue");
-  const completedList  = allActive.filter(i => i.paid);
-  const processingList = allActive.filter(i => !i.paid && i.payment_status === "processing");
+  const upcomingList   = allActiveNonArchived.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "upcoming");
+  const overdueList    = allActiveNonArchived.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue");
+  const completedList  = allActiveNonArchived.filter(i => i.paid);
+  const processingList = allActiveNonArchived.filter(i => !i.paid && i.payment_status === "processing");
 
   const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const upcomingNextMonth = upcomingList.filter(i => {
