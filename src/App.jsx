@@ -191,6 +191,21 @@ export default function App() {
     const { data } = await supabase.from("tickets").insert(newTicket).select().single();
     if (data) setTickets([normalizeTicket(data), ...tickets]);
     setShowModal(false);
+
+    // Notify owner via email + SMS
+    const tenantName = currentTenant?.name || "A tenant";
+    const tenantAddress = currentTenant?.address || "";
+    try {
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          tenantName,
+          tenantAddress,
+          title: ticket.title,
+          category: ticket.category,
+          description: ticket.description,
+        },
+      });
+    } catch (e) { console.error("Ticket notification failed:", e); }
   };
 
   if (screen === "loading" || loading || !dataReady) {
@@ -252,3 +267,4 @@ export default function App() {
     </div>
   );
 }
+
