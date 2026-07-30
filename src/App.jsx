@@ -196,7 +196,7 @@ export default function App() {
     const tenantName = currentTenant?.name || "A tenant";
     const tenantAddress = currentTenant?.address || "";
     try {
-      await supabase.functions.invoke("send-ticket-notification-ts", {
+      await supabase.functions.invoke("send-ticket-notification", {
         body: {
           tenantName,
           tenantAddress,
