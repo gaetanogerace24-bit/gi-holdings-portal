@@ -534,22 +534,45 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       {payableCustomInvoices.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <SL>Other charges</SL>
-          {payableCustomInvoices.map(inv => (
-            <div key={inv.id} style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 10, border: "1.5px solid #fca5a5" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{inv.title}</div>
-                  {inv.notes && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{inv.notes}</div>}
-                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Due immediately</div>
+          {payableCustomInvoices.map(inv => {
+            // Compute late fee start date for display
+            let lateFeeStartDate = null;
+            if (inv.late_fee_enabled && inv.due_date && inv.late_fee_start_day) {
+              const parts = inv.due_date.split("T")[0].split("-");
+              if (parts.length === 3) {
+                const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(inv.late_fee_start_day));
+                lateFeeStartDate = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+              }
+            }
+            return (
+              <div key={inv.id} style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 10, border: "1.5px solid #fca5a5" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{inv.title}</div>
+                    {inv.notes && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{inv.notes}</div>}
+                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Due immediately</div>
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>{fmt(inv.amount)}</div>
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>{fmt(inv.amount)}</div>
+                {inv.late_fee_enabled && (
+                  <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: "10px 14px", marginBottom: 10, fontSize: 12 }}>
+                    <div style={{ fontWeight: 700, color: "#92400e", marginBottom: 4 }}>⚠️ Late fees apply</div>
+                    <div style={{ color: "#78350f", lineHeight: 1.6 }}>
+                      {lateFeeStartDate
+                        ? <>A <strong>{fmt(inv.initial_late_fee)}</strong> fee is added on <strong>{lateFeeStartDate}</strong></>
+                        : <>A <strong>{fmt(inv.initial_late_fee)}</strong> fee is added on day <strong>{inv.late_fee_start_day}</strong></>
+                      }
+                      {inv.daily_late_fee > 0 && <>, plus <strong>{fmt(inv.daily_late_fee)}/day</strong> after that until paid.</>}
+                    </div>
+                  </div>
+                )}
+                <button onClick={() => { setPayingCustomInvoice(inv); setPayMode("custom"); setStep("summary"); }}
+                  style={{ width: "100%", background: "#dc2626", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                  Pay {fmt(inv.amount)} now →
+                </button>
               </div>
-              <button onClick={() => { setPayingCustomInvoice(inv); setPayMode("custom"); setStep("summary"); }}
-                style={{ width: "100%", background: "#dc2626", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                Pay {fmt(inv.amount)} now →
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
