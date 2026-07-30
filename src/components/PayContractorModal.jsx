@@ -43,24 +43,6 @@ export default function PayContractorModal({ onClose }) {
       const link = data.url;
       setPaymentLink(link);
 
-      await supabase.from("contractor_payments").insert({
-        name: name.trim(),
-        email: email.trim() || null,
-        phone: phone.trim() || null,
-        amount: Number(amount),
-        description: description.trim(),
-        date: invoiceDate,
-        completion_date: completionDate || null,
-        late_fee_enabled: lateFeeEnabled,
-        late_fee_start_day: lateFeeEnabled ? Number(lateFeeStartDay) || null : null,
-        initial_late_fee: lateFeeEnabled ? Number(initialLateFee) || null : null,
-        daily_late_fee: lateFeeEnabled ? Number(dailyLateFee) || null : null,
-        method: "stripe",
-        status: "pending",
-        stripe_payment_link: link,
-        created_at: new Date().toISOString(),
-      });
-
       if (email.trim()) {
         const firstName = name.trim().split(" ")[0];
         const subject = `📋 Invoice from G&I Holdings LLC — $${Number(amount).toLocaleString()}`;
