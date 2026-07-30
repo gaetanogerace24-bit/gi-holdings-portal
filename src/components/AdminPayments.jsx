@@ -789,7 +789,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   });
 
   const upcomingTotal   = upcomingNextMonth.reduce((s, i) => s + Number(i.rent || 0), 0);
-  const overdueTotal    = overdueList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0);
+  const overdueTotal    = overdueList.reduce((s, i) => s + Number(i.rent || 0) + (i.is_custom ? 0 : calcLateFee(i.due_date)), 0);
   const paidCustomThisMonth = paidCustomInvoices;
   const completedTotal = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0)
     + paidCustomThisMonth.reduce((s, i) => s + Number(i.amount || 0), 0)
@@ -1052,7 +1052,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
           <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
             {overdueList.map((inv, i) => {
               const tenant = tenants.find(t => t.id === inv.tenant_id);
-              const liveTotal = Number(inv.rent) + calcLateFee(inv.due_date);
+              const liveTotal = Number(inv.rent) + (inv.is_custom ? 0 : calcLateFee(inv.due_date));
               return (
                 <div key={inv.id} onClick={() => { setSelectedTenant(tenant); setSelectedInvoice(inv); setSheet("invoice"); }}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < overdueList.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer" }}>
