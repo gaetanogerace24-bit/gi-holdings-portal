@@ -31,7 +31,7 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
   const rent = Number(tenant?.rent) || 0;
 
   const invoicesWithLive = invoices.map(inv => {
-    const liveFee = calcLateFee(inv.due_date);
+    const liveFee = inv.is_custom ? 0 : calcLateFee(inv.due_date);
     const liveTotal = Number(inv.rent || 0) + liveFee;
     const parts = (inv.due_date || "").split("T")[0].split("-");
     const due = parts.length === 3
@@ -160,3 +160,4 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
     </div>
   );
 }
+
