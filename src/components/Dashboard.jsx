@@ -49,7 +49,7 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
 
   // Only overdue + current month shown
   const visibleInvoices = invoicesWithLive
-    .filter(inv => inv.isOverdue || inv.isCurrentMonth)
+    .filter(inv => (inv.isOverdue || inv.isCurrentMonth) && !inv.paid && inv.payment_status !== "processing")
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
   const displayTotal = visibleInvoices.reduce((sum, inv) => sum + inv.liveTotal, 0);
