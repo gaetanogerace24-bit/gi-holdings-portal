@@ -446,7 +446,7 @@ function ProcessingSheet({ invoices = [], customInvoices = [], tenants = [], onC
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{tenantName(inv.tenant_id)}</div>
                 <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{inv.month}</div>
               </div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(Number(inv.rent || 0) + calcLateFee(inv.due_date))}</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(Number(inv.rent || 0) + (inv.is_custom ? 0 : calcLateFee(inv.due_date)))}</div>
             </div>
           ))}
           {customInvoices.map(inv => (
@@ -804,7 +804,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         const d = new Date(i.updated_at);
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       }).length;
-  const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + calcLateFee(i.due_date), 0)
+  const processingTotal = processingList.reduce((s, i) => s + Number(i.rent || 0) + (i.is_custom ? 0 : calcLateFee(i.due_date)), 0)
     + processingCustomInvoices.reduce((s, i) => s + Number(i.amount || 0), 0);
   const processingCount = processingList.length + processingCustomInvoices.length;
 
@@ -1321,4 +1321,5 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     </div>
   );
 }
+
 
