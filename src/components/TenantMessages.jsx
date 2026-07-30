@@ -69,7 +69,19 @@ export default function TenantMessages({ tenant }) {
     setImageFile(null);
     setImagePreview(null);
     setSending(false);
-  }
+
+    // Notify owner
+    try {
+      await supabase.functions.invoke("send-ticket-notification", {
+        body: {
+          tenantName: tenant.name,
+          tenantAddress: tenant.address || "",
+          title: `New message from ${tenant.name}`,
+          category: "Message",
+          description: reply.trim() || "(image attached)",
+        },
+      });
+    } catch (e) { console.error("Message notification failed:", e); }
 
   const allSorted = [...messages].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
