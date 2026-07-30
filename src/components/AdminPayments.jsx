@@ -921,7 +921,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       )}
 
       {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="nextmonth" />}
-      {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={[...completedList, ...paidCustomInvoices.map(i => ({ ...i, paid: true, rent: i.amount, is_custom: true, month: i.title }))]} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
+      {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={[...completedList, ...paidCustomInvoices.map(i => ({ ...i, paid: true, rent: i.amount, is_custom: true, month: i.title })), ...paidClientInvoices.map(i => ({ ...i, paid: true, rent: i.amount, is_custom: true, month: i.description, due_date: i.updated_at, tenant_name: i.name, tenant_address: "Client invoice", paid_date: i.updated_at }))]} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
       {sheet === "processing" && <ProcessingSheet invoices={processingList} customInvoices={processingCustomInvoices} tenants={tenants} onClose={() => setSheet(null)} />}
       {sheet === "section8" && (
         <Sheet onClose={() => setSheet(null)}>
