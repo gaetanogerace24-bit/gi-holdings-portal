@@ -84,7 +84,7 @@ export default function App() {
     setLoading(true);
     try {
       const [{ data: tenantData }, { data: ticketData }, { data: invoiceData }, { data: customProcessingData }, { data: propertiesData }, { data: paidCustomData }, { data: paidClientData }] = await Promise.all([
-        supabase.from("tenants").select("*").order("created_at"),
+        supabase.from("tenants").select("*").eq("archived", false).order("created_at"),
         supabase.from("tickets").select("*").order("created_at", { ascending: false }),
         supabase.from("invoices").select("*").order("created_at", { ascending: false }),
         supabase.from("custom_invoices").select("*").eq("paid", false).eq("payment_status", "processing"),
