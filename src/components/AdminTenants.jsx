@@ -307,6 +307,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     setProratedMoveIn("");
     setSendingProrated(false);
   };
+
+  const handleRemove = async (id, name) => {
     if (window.confirm(`Remove ${name}? This cannot be undone.`)) {
       await supabase.from("properties").update({ tenant_id: null, status: "vacant", planner_stage: "vacant" }).eq("tenant_id", id);
       await supabase.from("tenants").delete().eq("id", id);
