@@ -1103,21 +1103,6 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
               )}
             </div>
 
-            {/* Status update for clients */}
-            {isClient && (
-              <div style={{ margin: "0 20px 16px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 12, padding: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#1f2937", marginBottom: 10 }}>Update status</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {["pending", "processing", "completed"].map(s => (
-                    <button key={s} onClick={() => { handleUpdateClientStatus(inv.id, s); setSelectedSentInvoice(prev => ({ ...prev, _clientStatus: s })); }}
-                      style={{ flex: 1, padding: "8px 4px", borderRadius: 8, border: `1.5px solid ${inv._clientStatus === s ? "#1b3d2a" : "#e5e7eb"}`, background: inv._clientStatus === s ? "#1b3d2a" : "#fff", color: inv._clientStatus === s ? "#fff" : "#1f2937", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", textTransform: "capitalize" }}>
-                      {s === "pending" ? "⏳ Pending" : s === "processing" ? "↻ Processing" : "✓ Completed"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Late fee rules */}
             {lateFeeOn ? (
               <div style={{ margin: "0 20px 16px", background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: 12, padding: 16 }}>
