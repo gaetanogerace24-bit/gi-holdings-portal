@@ -159,24 +159,15 @@ export default function App() {
     setLoginError(null);
   };
 
-  const handlePaymentSuccess = async (tenantId, invoiceId) => {
-    const paidDate = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const handlePaymentSuccess = async (tenantId, invoiceIds = []) => {
+    if (!invoiceIds.length) return;
+    // Mark as processing immediately — webhook marks as paid when it clears
     await supabase.from("invoices")
-      .update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() })
-      .eq("id", invoiceId);
-    const updatedInvoices = invoices.map(inv =>
-      inv.id === invoiceId ? { ...inv, paid: true, paid_date: paidDate } : inv
-    );
-    setInvoices(updatedInvoices);
-    const remaining = updatedInvoices.filter(inv =>
-      inv.tenant_id === tenantId && !inv.paid && !inv.deleted
-    );
-    if (remaining.length === 0) {
-      setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, paid: true, paidDate } : t));
-      await supabase.from("tenants")
-        .update({ paid: true, paid_date: paidDate, updated_at: new Date().toISOString() })
-        .eq("id", tenantId);
-    }
+      .update({ payment_status: "processing", updated_at: new Date().toISOString() })
+      .in("id", invoiceIds);
+    setInvoices(prev => prev.map(inv =>
+      invoiceIds.includes(inv.id) ? { ...inv, payment_status: "processing" } : inv
+    ));
   };
 
   const addTicket = async (ticket) => {
