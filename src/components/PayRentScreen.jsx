@@ -523,12 +523,31 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
 
       {processingCustomInvoices.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          {processingCustomInvoices.map(inv => (
+          {processingCustomInvoices.map(inv => {
+            const calcFee = () => {
+              if (!inv.late_fee_enabled) return 0;
+              const startDay = inv.late_fee_start_day;
+              const initialFee = Number(inv.initial_late_fee || 0);
+              const dailyFee = Number(inv.daily_late_fee || 0);
+              const dateStr = inv.due_date || inv.created_at;
+              if (!dateStr || !startDay) return 0;
+              const today = new Date(); today.setHours(0,0,0,0);
+              const parts = dateStr.split("T")[0].split("-");
+              const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+              const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+              if (today < feeStart) return 0;
+              const msPerDay = 1000*60*60*24;
+              const daysLate = Math.floor((today.getTime() - feeStart.getTime()) / msPerDay);
+              return initialFee + (daysLate * dailyFee);
+            };
+            const liveTotal = Number(inv.amount || 0) + calcFee();
+            return (
             <div key={inv.id} style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", borderRadius: 12, padding: "12px 16px", marginBottom: 8, fontSize: 13, color: "#1e40af", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>⏳ <strong>{inv.title}</strong> — payment processing (3–5 business days)</span>
-              <span style={{ fontWeight: 700 }}>{fmt(inv.amount)}</span>
+              <span style={{ fontWeight: 700 }}>{fmt(liveTotal)}</span>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
