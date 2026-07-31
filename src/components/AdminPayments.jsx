@@ -1090,7 +1090,23 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
               const displayName = isClient ? inv.name : tenant?.name;
               const displaySub = isClient ? "Client invoice" : tenant?.address;
               const displayTitle = isClient ? inv.description : inv.title;
-              const displayAmount = Number(inv.amount || 0);
+              const baseAmount = Number(inv.amount || 0);
+              const calcInvLateFee = () => {
+                if (!inv.late_fee_enabled || inv.paid || inv.status === "completed") return 0;
+                const startDay = inv.late_fee_start_day;
+                const initialFee = Number(inv.initial_late_fee || 0);
+                const dailyFee = Number(inv.daily_late_fee || 0);
+                if (!inv.due_date || !startDay) return 0;
+                const today = new Date(); today.setHours(0,0,0,0);
+                const parts = inv.due_date.split("T")[0].split("-");
+                const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+                const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+                if (today < feeStart) return 0;
+                const msPerDay = 1000*60*60*24;
+                const daysLate = Math.floor((today.getTime() - feeStart.getTime()) / msPerDay);
+                return initialFee + (daysLate * dailyFee);
+              };
+              const displayAmount = baseAmount + calcInvLateFee();
               return (
                 <div key={inv.id}
                   onClick={() => setSelectedSentInvoice(inv)}
@@ -1113,7 +1129,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                       </div>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>${displayAmount.toLocaleString()}</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{fmt(displayAmount)}</div>
                       <div style={{ fontSize: 11, color: "#9ca3af" }}>Tap to view ›</div>
                     </div>
                   </div>
