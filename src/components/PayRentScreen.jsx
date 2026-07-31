@@ -601,7 +601,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
           <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
             <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 2 }}>Paying charge</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#991b1b", marginBottom: 2 }}>{payingCustomInvoice.title}</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: "#dc2626" }}>{fmt(payingCustomInvoice.amount)}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#dc2626" }}>{fmt(payingCustomInvoice._liveTotal || payingCustomInvoice.amount)}</div>
             <button onClick={() => { setPayingCustomInvoice(null); setPayMode("current"); setStep("summary"); setPaymentData(null); }}
               style={{ marginTop: 8, fontSize: 12, color: "#9ca3af", background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
               ← Cancel
