@@ -1096,9 +1096,10 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                 const startDay = inv.late_fee_start_day;
                 const initialFee = Number(inv.initial_late_fee || 0);
                 const dailyFee = Number(inv.daily_late_fee || 0);
-                if (!inv.due_date || !startDay) return 0;
+                const dateStr = inv.due_date || inv.date;
+                if (!dateStr || !startDay) return 0;
                 const today = new Date(); today.setHours(0,0,0,0);
-                const parts = inv.due_date.split("T")[0].split("-");
+                const parts = dateStr.split("T")[0].split("-");
                 const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
                 const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
                 if (today < feeStart) return 0;
@@ -1150,7 +1151,24 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         const displayName = isClient ? inv.name : (tenant?.name || "—");
         const displaySub = isClient ? "Client invoice" : (tenant?.address || "—");
         const displayTitle = isClient ? inv.description : inv.title;
-        const displayAmount = Number(inv.amount || 0);
+        const baseDisplayAmount = Number(inv.amount || 0);
+        const calcDetailLateFee = () => {
+          if (!inv.late_fee_enabled || inv.paid || inv.status === "completed") return 0;
+          const startDay = inv.late_fee_start_day;
+          const initialFee = Number(inv.initial_late_fee || 0);
+          const dailyFee = Number(inv.daily_late_fee || 0);
+          const dateStr = inv.due_date || inv.date;
+          if (!dateStr || !startDay) return 0;
+          const today = new Date(); today.setHours(0,0,0,0);
+          const parts = dateStr.split("T")[0].split("-");
+          const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+          const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+          if (today < feeStart) return 0;
+          const msPerDay = 1000*60*60*24;
+          const daysLate = Math.floor((today.getTime() - feeStart.getTime()) / msPerDay);
+          return initialFee + (daysLate * dailyFee);
+        };
+        const displayAmount = baseDisplayAmount + calcDetailLateFee();
 
         // Late fee fields
         const lateFeeOn = inv.late_fee_enabled;
