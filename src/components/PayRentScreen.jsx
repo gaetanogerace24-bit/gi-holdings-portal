@@ -317,7 +317,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const isSelectedOverdue = selectedInvoice?._type === "overdue";
 
   const total = payingCustomInvoice
-    ? Number(payingCustomInvoice.amount)
+    ? Number(payingCustomInvoice._liveTotal || payingCustomInvoice.amount)
     : payMode === "prepay" ? prepayTotal : invoiceTotal;
 
   const currentRequest = () => ({
@@ -545,6 +545,25 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                 lateFeeStartDate = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
               }
             }
+            // Compute live late fee
+            const calcCustomLateFee = () => {
+              if (!inv.late_fee_enabled) return 0;
+              const startDay = inv.late_fee_start_day;
+              const initialFee = Number(inv.initial_late_fee || 0);
+              const dailyFee = Number(inv.daily_late_fee || 0);
+              const dateStr = inv.due_date || inv.created_at;
+              if (!dateStr || !startDay) return 0;
+              const today = new Date(); today.setHours(0,0,0,0);
+              const parts = dateStr.split("T")[0].split("-");
+              const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+              const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+              if (today < feeStart) return 0;
+              const msPerDay = 1000*60*60*24;
+              const daysLate = Math.floor((today.getTime() - feeStart.getTime()) / msPerDay);
+              return initialFee + (daysLate * dailyFee);
+            };
+            const liveCustomFee = calcCustomLateFee();
+            const liveCustomTotal = Number(inv.amount || 0) + liveCustomFee;
             return (
               <div key={inv.id} style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 10, border: "1.5px solid #fca5a5" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -553,7 +572,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                     {inv.notes && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{inv.notes}</div>}
                     <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Due immediately</div>
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>{fmt(inv.amount)}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>{fmt(liveCustomTotal)}</div>
                 </div>
                 {inv.late_fee_enabled && (
                   <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: "10px 14px", marginBottom: 10, fontSize: 12 }}>
@@ -567,9 +586,9 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                     </div>
                   </div>
                 )}
-                <button onClick={() => { setPayingCustomInvoice(inv); setPayMode("custom"); setStep("summary"); }}
+                <button onClick={() => { setPayingCustomInvoice({ ...inv, _liveTotal: liveCustomTotal }); setPayMode("custom"); setStep("summary"); }}
                   style={{ width: "100%", background: "#dc2626", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                  Pay {fmt(inv.amount)} now →
+                  Pay {fmt(liveCustomTotal)} now →
                 </button>
               </div>
             );
