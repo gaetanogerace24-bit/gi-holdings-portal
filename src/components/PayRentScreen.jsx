@@ -222,6 +222,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const [paymentData, setPaymentData] = useState(null);
   const [paying, setPaying] = useState(false);
   const [resultInfo, setResultInfo] = useState(null);
+  const [selectedChargeIds, setSelectedChargeIds] = useState(null); // null = not yet initialized
 
   const stripeRef = useRef(null);
   const elementsRef = useRef(null);
@@ -314,18 +315,61 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const daysLate = invoiceLateFee > 35 ? Math.round((invoiceLateFee - 35) / 10) : 0;
   const isSelectedOverdue = selectedInvoice?._type === "overdue";
 
+  // All payable charges combined (regular invoices + custom charges)
+  const calcCustomLateFeeFor = (inv) => {
+    if (!inv.late_fee_enabled) return 0;
+    const startDay = inv.late_fee_start_day;
+    const initialFee = Number(inv.initial_late_fee || 0);
+    const dailyFee = Number(inv.daily_late_fee || 0);
+    const dateStr = inv.due_date || inv.created_at;
+    if (!dateStr || !startDay) return 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const parts = dateStr.split("T")[0].split("-");
+    const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+    const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+    if (today < feeStart) return 0;
+    const msPerDay = 1000*60*60*24;
+    const daysLate = Math.floor((today.getTime() - feeStart.getTime()) / msPerDay);
+    return initialFee + (daysLate * dailyFee);
+  };
+
+  const payableCustomInvoicesWithFee = customInvoices
+    .filter(i => i.payment_status !== "processing" && !i.paid)
+    .map(inv => ({ ...inv, _liveTotal: Number(inv.amount || 0) + calcCustomLateFeeFor(inv), _isCustom: true }));
+
+  // Initialize selectedChargeIds to all charges selected by default
+  const allChargeIds = [
+    ...payableInvoices.map(i => `inv_${i.id}`),
+    ...payableCustomInvoicesWithFee.map(i => `cust_${i.id}`),
+  ];
+  const effectiveSelectedIds = selectedChargeIds ?? new Set(allChargeIds);
+
+  const toggleCharge = (chargeId) => {
+    const next = new Set(effectiveSelectedIds);
+    if (next.has(chargeId)) { next.delete(chargeId); } else { next.add(chargeId); }
+    setSelectedChargeIds(next);
+    setPaymentData(null);
+  };
+
+  const selectedRegularInvoices = payableInvoices.filter(i => effectiveSelectedIds.has(`inv_${i.id}`));
+  const selectedCustomInvoices = payableCustomInvoicesWithFee.filter(i => effectiveSelectedIds.has(`cust_${i.id}`));
+
+  const multiTotal = selectedRegularInvoices.reduce((s, i) => s + i.liveTotal, 0)
+    + selectedCustomInvoices.reduce((s, i) => s + i._liveTotal, 0);
+
   const total = payingCustomInvoice
     ? Number(payingCustomInvoice._liveTotal || payingCustomInvoice.amount)
-    : payMode === "prepay" ? prepayTotal : invoiceTotal;
+    : payMode === "prepay" ? prepayTotal
+    : payMode === "current" ? multiTotal
+    : invoiceTotal;
 
   const currentRequest = () => ({
     tenantId: tenant.id,
-    invoiceIds: payingCustomInvoice
-      ? []
-      : payMode === "prepay"
-        ? activePrepayInvoices.map(i => i.id)
-        : selectedInvoice ? [selectedInvoice.id] : [],
-    customInvoiceId: payingCustomInvoice ? payingCustomInvoice.id : null,
+    invoiceIds: payMode === "prepay"
+      ? activePrepayInvoices.map(i => i.id)
+      : selectedRegularInvoices.map(i => i.id),
+    customInvoiceIds: payMode === "current" ? selectedCustomInvoices.map(i => i.id) : [],
+    customInvoiceId: null,
   });
 
   const markCustomInvoiceProcessing = (invoiceId) => {
@@ -354,11 +398,16 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const handleSuccess = (refId, microdeposits, isCard) => {
     if (payingCustomInvoice) {
       markCustomInvoiceProcessing(payingCustomInvoice.id);
+    } else if (payMode === "current") {
+      selectedCustomInvoices.forEach(inv => markCustomInvoiceProcessing(inv.id));
     }
     setResultInfo({ refId, microdeposits, isCard });
     setStep("success");
-    const paidInvoiceIds = payingCustomInvoice ? [] : (payMode === "prepay" ? activePrepayInvoices.map(i => i.id) : selectedInvoice ? [selectedInvoice.id] : []);
-    if (onPaymentSuccess) onPaymentSuccess(tenant.id, paidInvoiceIds);
+    const paidInvoiceIds = payMode === "prepay"
+      ? activePrepayInvoices.map(i => i.id)
+      : selectedRegularInvoices.map(i => i.id);
+    const paidCustomIds = payMode === "current" ? selectedCustomInvoices.map(i => i.id) : [];
+    if (onPaymentSuccess) onPaymentSuccess(tenant.id, paidInvoiceIds, paidCustomIds);
   };
 
   const payWithNewBank = async () => {
@@ -487,7 +536,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
             ? <div>Months covered: <strong>{activePrepayInvoices.map(i => i.month).join(", ") || "—"}</strong></div>
             : payingCustomInvoice
               ? <div>Charge: <strong>{payingCustomInvoice.title}</strong></div>
-              : <div>Invoice: <strong>{selectedInvoice?.month || month}</strong></div>
+              : <div>Charges: <strong>{[...selectedRegularInvoices.map(i => i.month), ...selectedCustomInvoices.map(i => i.title)].join(", ") || "—"}</strong></div>
           }
           <div>Property: {tenant?.address}</div>
           <div>Method: {resultInfo?.isCard ? "💳 Debit/Credit Card" : "🏦 ACH Bank Transfer"}</div>
@@ -549,70 +598,6 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         </div>
       )}
 
-      {payableCustomInvoices.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <SL>Other charges</SL>
-          {payableCustomInvoices.map(inv => {
-            // Compute late fee start date for display
-            let lateFeeStartDate = null;
-            if (inv.late_fee_enabled && inv.due_date && inv.late_fee_start_day) {
-              const parts = inv.due_date.split("T")[0].split("-");
-              if (parts.length === 3) {
-                const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(inv.late_fee_start_day));
-                lateFeeStartDate = d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-              }
-            }
-            // Compute live late fee
-            const calcCustomLateFee = () => {
-              if (!inv.late_fee_enabled) return 0;
-              const startDay = inv.late_fee_start_day;
-              const initialFee = Number(inv.initial_late_fee || 0);
-              const dailyFee = Number(inv.daily_late_fee || 0);
-              const dateStr = inv.due_date || inv.created_at;
-              if (!dateStr || !startDay) return 0;
-              const today = new Date(); today.setHours(0,0,0,0);
-              const parts = dateStr.split("T")[0].split("-");
-              const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
-              const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
-              if (today < feeStart) return 0;
-              const msPerDay = 1000*60*60*24;
-              const daysLate = Math.floor((today.getTime() - feeStart.getTime()) / msPerDay);
-              return initialFee + (daysLate * dailyFee);
-            };
-            const liveCustomFee = calcCustomLateFee();
-            const liveCustomTotal = Number(inv.amount || 0) + liveCustomFee;
-            return (
-              <div key={inv.id} style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 10, border: "1.5px solid #fca5a5" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{inv.title}</div>
-                    {inv.notes && <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{inv.notes}</div>}
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>Due immediately</div>
-                  </div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#dc2626" }}>{fmt(liveCustomTotal)}</div>
-                </div>
-                {inv.late_fee_enabled && (
-                  <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: "10px 14px", marginBottom: 10, fontSize: 12 }}>
-                    <div style={{ fontWeight: 700, color: "#92400e", marginBottom: 4 }}>⚠️ Late fees apply</div>
-                    <div style={{ color: "#78350f", lineHeight: 1.6 }}>
-                      {lateFeeStartDate
-                        ? <>A <strong>{fmt(inv.initial_late_fee)}</strong> fee is added on <strong>{lateFeeStartDate}</strong></>
-                        : <>A <strong>{fmt(inv.initial_late_fee)}</strong> fee is added on day <strong>{inv.late_fee_start_day}</strong></>
-                      }
-                      {inv.daily_late_fee > 0 && <>, plus <strong>{fmt(inv.daily_late_fee)}/day</strong> after that until paid.</>}
-                    </div>
-                  </div>
-                )}
-                <button onClick={() => { setPayingCustomInvoice({ ...inv, _liveTotal: liveCustomTotal }); setPayMode("custom"); setStep("summary"); }}
-                  style={{ width: "100%", background: "#dc2626", color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                  Pay {fmt(liveCustomTotal)} now →
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {payingCustomInvoice && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
@@ -643,74 +628,79 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
 
       {payMode === "current" && !payingCustomInvoice && step === "summary" && (
         <>
-          {payableInvoices.length === 0 && processingInvoices.length > 0 && (
+          {payableInvoices.length === 0 && payableCustomInvoicesWithFee.length === 0 && processingInvoices.length > 0 && (
             <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "16px", marginBottom: 14, fontSize: 14, color: "#166534", textAlign: "center" }}>
               ✅ Nothing due — your payment is processing.
             </div>
           )}
-          {selectedInvoice && invoiceLateFee > 0 ? (
-            <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#991b1b" }}>
-              ⚠️ <strong>+{lateFeeRules.dailyFee != null ? `$${lateFeeRules.dailyFee}.00` : "$10.00"} every day until paid.</strong> You currently owe <strong>{fmt(invoiceLateFee)}</strong> in late fees on this invoice.
-            </div>
-          ) : selectedInvoice && day < 5 ? (
-            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "#166534" }}>
-              ✅ No late fees yet — <strong>{daysLeft} day{daysLeft !== 1 ? "s" : ""} left</strong> before the {effectiveStartDay}{effectiveStartDay === 1 ? "st" : effectiveStartDay === 2 ? "nd" : effectiveStartDay === 3 ? "rd" : "th"}.
-            </div>
-          ) : null}
 
-          {payableInvoices.length > 1 && (
-            <div style={{ marginBottom: 14 }}>
-              <SL>Select invoice to pay</SL>
+          {(payableInvoices.length > 0 || payableCustomInvoicesWithFee.length > 0) && (
+            <>
+              <SL>Select charges to pay</SL>
               {payableInvoices.map(inv => {
-                const fee = inv.is_custom ? 0 : calcLateFee(inv.due_date, lateFeeRules);
-                const t = Number(inv.rent || 0) + fee;
+                const chargeId = `inv_${inv.id}`;
+                const isSelected = effectiveSelectedIds.has(chargeId);
                 const isOverdue = inv._type === "overdue";
-                const isSelected = selectedInvoiceId === inv.id;
                 return (
-                  <button key={inv.id} onClick={() => { setSelectedInvoiceId(inv.id); setPaymentData(null); }} style={{
-                    width: "100%", marginBottom: 8, padding: "14px 16px", borderRadius: 10, cursor: "pointer", textAlign: "left",
-                    border: isSelected ? `2px solid ${isOverdue ? "#dc2626" : "#166534"}` : "1.5px solid #e5e7eb",
-                    background: isSelected ? (isOverdue ? "#fef2f2" : "#f0fdf4") : "#fff",
-                    fontFamily: "'DM Sans', sans-serif", display: "flex", justifyContent: "space-between", alignItems: "center",
+                  <div key={inv.id} onClick={() => toggleCharge(chargeId)} style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "12px 14px", borderRadius: 10, marginBottom: 8, cursor: "pointer",
+                    border: isSelected ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                    background: isSelected ? "#f0fdf4" : "#fff",
                   }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>
-                        {isOverdue ? "⚠️ " : ""}{inv.month} — {isOverdue ? "OVERDUE" : "CURRENT"}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 4, flexShrink: 0,
+                        background: isSelected ? "#1b3d2a" : "#fff",
+                        border: isSelected ? "none" : "1.5px solid #d1d5db",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {isSelected && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
                       </div>
-                      {fee > 0 && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 2 }}>{fmt(fee)} in late fees</div>}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{inv.month}</div>
+                        <div style={{ fontSize: 11, color: "#dc2626", marginTop: 1 }}>{isOverdue ? "Overdue" : "Due now"}</div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: isOverdue ? "#991b1b" : "#1b3d2a" }}>{fmt(t)}</div>
-                  </button>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(inv.liveTotal)}</div>
+                  </div>
                 );
               })}
-            </div>
-          )}
+              {payableCustomInvoicesWithFee.map(inv => {
+                const chargeId = `cust_${inv.id}`;
+                const isSelected = effectiveSelectedIds.has(chargeId);
+                return (
+                  <div key={inv.id} onClick={() => toggleCharge(chargeId)} style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "12px 14px", borderRadius: 10, marginBottom: 8, cursor: "pointer",
+                    border: isSelected ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                    background: isSelected ? "#f0fdf4" : "#fff",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 4, flexShrink: 0,
+                        background: isSelected ? "#1b3d2a" : "#fff",
+                        border: isSelected ? "none" : "1.5px solid #d1d5db",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {isSelected && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{inv.title}</div>
+                        <div style={{ fontSize: 11, color: "#dc2626", marginTop: 1 }}>Other charge · due immediately</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(inv._liveTotal)}</div>
+                  </div>
+                );
+              })}
 
-          {payableInvoices.length === 1 && selectedInvoice && (
-            <div style={{ background: isSelectedOverdue ? "#fef2f2" : "#f0fdf4", border: `2px solid ${isSelectedOverdue ? "#fca5a5" : "#86efac"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.8px", color: isSelectedOverdue ? "#991b1b" : "#166534", marginBottom: 4 }}>
-                {isSelectedOverdue ? "⚠️ Overdue" : "📅 Current invoice"}
-              </div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: "#1a1a1a", marginBottom: 2 }}>{selectedInvoice.month}</div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: isSelectedOverdue ? "#dc2626" : "#1b3d2a" }}>{fmt(invoiceTotal)}</div>
-            </div>
-          )}
-
-          {selectedInvoice && (
-            <>
-              <SL>Payment breakdown — {selectedInvoice.month}</SL>
-              <div style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,0,0,0.07)" }}>
-                <Row label="Monthly rent" value={fmt(invoiceRent)} />
-                {invoiceLateFee > 0 && <>
-                  <Row label="Initial fee" value="+ $35.00" danger />
-                  {daysLate > 0 && <Row label={`Daily fees ($10 × ${daysLate} days)`} value={`+ $${daysLate * 10}.00`} danger />}
-                </>}
-                {invoiceLateFee === 0 && <Row label="Late fee" value="$0.00" />}
-                <div style={{ borderTop: "1px solid #f3f4f6", marginTop: 10, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 15, fontWeight: 700 }}>Total due</span>
-                  <span style={{ fontSize: 24, fontWeight: 800, color: "#1b3d2a" }}>{fmt(invoiceTotal)}</span>
+              {(selectedRegularInvoices.length > 0 || selectedCustomInvoices.length > 0) && (
+                <div style={{ background: "#f9fafb", borderRadius: 10, padding: "10px 14px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: 13, color: "#6b7280" }}>{selectedRegularInvoices.length + selectedCustomInvoices.length} charge{selectedRegularInvoices.length + selectedCustomInvoices.length !== 1 ? "s" : ""} selected</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#1b3d2a" }}>{fmt(multiTotal)}</div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </>
@@ -784,7 +774,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       {step === "summary" && (
         <>
           {error && <ErrBox msg={error} />}
-          {total > 0 && (payingCustomInvoice || (payMode === "current" && selectedInvoice) || (payMode === "prepay" && activePrepayInvoices.length > 0)) && (
+          {total > 0 && (payingCustomInvoice || (payMode === "current" && (selectedRegularInvoices.length > 0 || selectedCustomInvoices.length > 0)) || (payMode === "prepay" && activePrepayInvoices.length > 0)) && (
             <>
               <SL>How would you like to pay?</SL>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
@@ -884,4 +874,5 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
