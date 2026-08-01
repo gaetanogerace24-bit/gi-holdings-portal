@@ -43,7 +43,7 @@ function getStatus(inv) {
   const parts = (inv.due_date || "").split("T")[0].split("-");
   if (parts.length !== 3) return "upcoming";
   const due = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  return today > due ? "overdue" : "upcoming";
+  return today >= due ? "overdue" : "upcoming";
 }
 
 function invoiceNum(id) {
@@ -1339,5 +1339,6 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     </div>
   );
 }
+
 
 
