@@ -1025,14 +1025,9 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
               const tp = Number(t.tenant_portion || t.tenantPortion || 0);
               return (
                 <div key={t.id} style={{ padding: "14px 16px", borderBottom: i < section8Tenants.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700 }}>{t.name}</div>
-                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{t.address}</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: "#0d9488" }}>{fmt(s8)}</div>
-                    </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>{t.name}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{t.address}</div>
                   </div>
                   <div style={{ marginTop: 8, background: "#f0fdfa", borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                     <span>🏛 Housing: <strong>{fmt(s8)}</strong></span>
@@ -1342,6 +1337,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     </div>
   );
 }
+
 
 
 
