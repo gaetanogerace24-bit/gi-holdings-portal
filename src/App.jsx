@@ -39,6 +39,7 @@ export default function App() {
   const [tenants, setTenants] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [processingCustomInvoices, setProcessingCustomInvoices] = useState([]);
+  const [unpaidCustomInvoices, setUnpaidCustomInvoices] = useState([]);
   const [paidCustomInvoices, setPaidCustomInvoices] = useState([]);
   const [paidClientInvoices, setPaidClientInvoices] = useState([]);
   const [initialPropertyCount, setInitialPropertyCount] = useState(0);
@@ -49,6 +50,9 @@ export default function App() {
   const [loginError, setLoginError] = useState(null);
 
   const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
+
+  const currentTenantCustomInvoices = unpaidCustomInvoices
+    .filter(inv => inv.tenant_id === currentTenant?.id && !inv.paid && inv.payment_status !== "processing" && inv.payment_status !== "completed");
 
   const currentTenantInvoices = invoices
     .filter(inv => inv.tenant_id === currentTenant?.id && !inv.paid && !inv.deleted)
@@ -83,7 +87,7 @@ export default function App() {
   async function loadData() {
     setLoading(true);
     try {
-      const [{ data: tenantData }, { data: ticketData }, { data: invoiceData }, { data: customProcessingData }, { data: propertiesData }, { data: paidCustomData }, { data: paidClientData }] = await Promise.all([
+      const [{ data: tenantData }, { data: ticketData }, { data: invoiceData }, { data: customProcessingData }, { data: propertiesData }, { data: paidCustomData }, { data: paidClientData }, { data: unpaidCustomData }] = await Promise.all([
         supabase.from("tenants").select("*").eq("archived", false).order("created_at"),
         supabase.from("tickets").select("*").order("created_at", { ascending: false }),
         supabase.from("invoices").select("*").order("created_at", { ascending: false }),
@@ -91,6 +95,7 @@ export default function App() {
         supabase.from("properties").select("id, status").neq("status", "archived"),
         supabase.from("custom_invoices").select("*").eq("paid", true),
         supabase.from("contractor_payments").select("*").eq("status", "completed"),
+        supabase.from("custom_invoices").select("*").eq("paid", false).neq("payment_status", "processing").neq("payment_status", "completed"),
       ]);
       if (tenantData) setTenants(tenantData.map(normalizeTenant));
       if (ticketData) setTickets(ticketData.map(normalizeTicket));
@@ -98,6 +103,7 @@ export default function App() {
       if (customProcessingData) setProcessingCustomInvoices(customProcessingData);
       if (propertiesData) setInitialPropertyCount(propertiesData.length);
       if (paidCustomData) setPaidCustomInvoices(paidCustomData);
+      if (unpaidCustomData) setUnpaidCustomInvoices(unpaidCustomData);
       if (paidClientData) setPaidClientInvoices(paidClientData);
     } catch (e) { console.error("Failed to load:", e); }
     setLoading(false);
@@ -107,6 +113,11 @@ export default function App() {
   async function reloadInvoices() {
     const { data } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
     if (data) setInvoices(data);
+  }
+
+  async function reloadCustomInvoices() {
+    const { data } = await supabase.from("custom_invoices").select("*").eq("paid", false).neq("payment_status", "processing").neq("payment_status", "completed");
+    if (data) setUnpaidCustomInvoices(data);
   }
 
   function normalizeTenant(t) {
@@ -159,15 +170,21 @@ export default function App() {
     setLoginError(null);
   };
 
-  const handlePaymentSuccess = async (tenantId, invoiceIds = []) => {
-    if (!invoiceIds.length) return;
-    // Mark as processing immediately — webhook marks as paid when it clears
-    await supabase.from("invoices")
-      .update({ payment_status: "processing", updated_at: new Date().toISOString() })
-      .in("id", invoiceIds);
-    setInvoices(prev => prev.map(inv =>
-      invoiceIds.includes(inv.id) ? { ...inv, payment_status: "processing" } : inv
-    ));
+  const handlePaymentSuccess = async (tenantId, invoiceIds = [], customInvoiceIds = []) => {
+    if (invoiceIds.length) {
+      await supabase.from("invoices")
+        .update({ payment_status: "processing", updated_at: new Date().toISOString() })
+        .in("id", invoiceIds);
+      setInvoices(prev => prev.map(inv =>
+        invoiceIds.includes(inv.id) ? { ...inv, payment_status: "processing" } : inv
+      ));
+    }
+    if (customInvoiceIds.length) {
+      await supabase.from("custom_invoices")
+        .update({ payment_status: "processing" })
+        .in("id", customInvoiceIds);
+      setUnpaidCustomInvoices(prev => prev.filter(inv => !customInvoiceIds.includes(inv.id)));
+    }
   };
 
   const addTicket = async (ticket) => {
@@ -228,7 +245,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f0f2f0", minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
       <div className="tenant-portal" style={{ position: "relative" }}>
-        <Dashboard tenant={currentTenant} invoices={currentTenantInvoices} onTabClick={(tab) => {
+        <Dashboard tenant={currentTenant} invoices={currentTenantInvoices} customInvoices={currentTenantCustomInvoices} onTabClick={(tab) => {
           if (tab === "pay-prepay") { setActiveTab("pay"); setDefaultPayMode("prepay"); }
           else { setActiveTab(tab); setDefaultPayMode("current"); }
         }} onLogout={handleLogout} />
@@ -248,7 +265,7 @@ export default function App() {
         </nav>
         <div style={{ flex: 1, overflowY: "auto" }}>
           {activeTab === "tickets" && <TicketsScreen tickets={tickets.filter(t => t.tenantId === currentTenant?.id || t.tenant_id === currentTenant?.id)} onNewTicket={() => setShowModal(true)} />}
-          {activeTab === "pay" && <PayRentScreen tenant={currentTenant} invoices={currentTenantInvoices} onPaymentSuccess={handlePaymentSuccess} defaultPayMode={defaultPayMode} />}
+          {activeTab === "pay" && <PayRentScreen tenant={currentTenant} invoices={currentTenantInvoices} customInvoices={currentTenantCustomInvoices} onPaymentSuccess={handlePaymentSuccess} defaultPayMode={defaultPayMode} />}
           {activeTab === "info" && <UnitInfoScreen tenant={currentTenant} />}
           {activeTab === "messages" && <TenantMessages tenant={currentTenant} />}
         </div>
@@ -257,5 +274,6 @@ export default function App() {
     </div>
   );
 }
+
 
 
