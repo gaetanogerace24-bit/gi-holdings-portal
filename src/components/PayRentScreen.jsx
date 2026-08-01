@@ -48,11 +48,9 @@ function classifyInvoice(inv, now) {
   const parts = (inv.due_date || "").split("T")[0].split("-");
   if (parts.length !== 3) return "future";
   const due = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const isOverdue = due <= today;
   const isCurrentMonth = due.getMonth() === now.getMonth() && due.getFullYear() === now.getFullYear();
-  const isOverdue = !isCurrentMonth && (
-    due.getFullYear() < now.getFullYear() ||
-    (due.getFullYear() === now.getFullYear() && due.getMonth() < now.getMonth())
-  );
   return isOverdue ? "overdue" : isCurrentMonth ? "current" : "future";
 }
 
