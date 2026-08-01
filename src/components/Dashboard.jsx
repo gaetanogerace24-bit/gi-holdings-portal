@@ -132,8 +132,8 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
             ))}
             {customInvoices.map(inv => (
               <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
-                <span style={{ color: "#fbbf24" }}>🧾 {inv.title || "Custom Charge"}</span>
-                <span style={{ fontWeight: 700, color: "#fbbf24" }}>{fmt(inv.amount || inv.total || 0)}</span>
+                <span style={{ color: "#ff8a80" }}>⚠️ {inv.title || "Custom Charge"}</span>
+                <span style={{ fontWeight: 700, color: "#ff8a80" }}>{fmt(inv.amount || inv.total || 0)}</span>
               </div>
             ))}
           </div>
@@ -165,5 +165,6 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
     </div>
   );
 }
+
 
 
