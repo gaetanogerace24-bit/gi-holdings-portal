@@ -37,13 +37,11 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
     const due = parts.length === 3
       ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
       : null;
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const isOverdue = due && due <= today;
     const isCurrentMonth = due &&
       due.getMonth() === now.getMonth() &&
       due.getFullYear() === now.getFullYear();
-    const isOverdue = due && !isCurrentMonth && (
-      due.getFullYear() < now.getFullYear() ||
-      (due.getFullYear() === now.getFullYear() && due.getMonth() < now.getMonth())
-    );
     return { ...inv, liveFee, liveTotal, isOverdue, isCurrentMonth };
   });
 
