@@ -25,7 +25,7 @@ function isLastDayOfMonth() {
   return today.getDate() === lastDay;
 }
 
-export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout }) {
+export default function Dashboard({ tenant, invoices = [], customInvoices = [], onTabClick, onLogout }) {
   const now = new Date();
   const day = now.getDate();
   const rent = Number(tenant?.rent) || 0;
@@ -52,15 +52,16 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
 
   const displayTotal = visibleInvoices.reduce((sum, inv) => sum + inv.liveTotal, 0);
   const displayLateFees = visibleInvoices.reduce((sum, inv) => sum + inv.liveFee, 0);
+  const customTotal = customInvoices.reduce((sum, inv) => sum + Number(inv.amount || inv.total || 0), 0);
 
   const autoFee = day < 5 ? 0 : 35 + Math.max(0, (day - 4) - 1) * 10;
   const fallbackTotal = tenant?.paid ? 0 : (rent + (tenant?.section8 ? 0 : autoFee));
-  const finalTotal = invoices.length > 0 ? displayTotal : fallbackTotal;
+  const finalTotal = (invoices.length > 0 ? displayTotal : fallbackTotal) + customTotal;
 
   const overdueCount = visibleInvoices.filter(i => i.isOverdue).length;
 
-  // All caught up = no unpaid invoices at all
-  const allCaughtUp = visibleInvoices.length === 0;
+  // All caught up = no unpaid invoices and no unpaid custom charges
+  const allCaughtUp = visibleInvoices.length === 0 && customInvoices.length === 0;
 
   // On the last day of month, switch back to "Pay now" to prep for new invoice
   const lastDayOfMonth = isLastDayOfMonth();
@@ -119,7 +120,7 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
           )}
         </div>
 
-        {visibleInvoices.length > 0 && (
+        {(visibleInvoices.length > 0 || customInvoices.length > 0) && (
           <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10 }}>
             {visibleInvoices.map(inv => (
               <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
@@ -127,6 +128,12 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
                   {inv.isOverdue ? "⚠️ " : ""}{inv.month}{inv.liveFee > 0 ? ` (incl. ${fmt(inv.liveFee)} late fees)` : ""}
                 </span>
                 <span style={{ fontWeight: 700, color: inv.isOverdue ? "#ff8a80" : "#fff" }}>{fmt(inv.liveTotal)}</span>
+              </div>
+            ))}
+            {customInvoices.map(inv => (
+              <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
+                <span style={{ color: "#fbbf24" }}>🧾 {inv.title || "Custom Charge"}</span>
+                <span style={{ fontWeight: 700, color: "#fbbf24" }}>{fmt(inv.amount || inv.total || 0)}</span>
               </div>
             ))}
           </div>
@@ -158,4 +165,5 @@ export default function Dashboard({ tenant, invoices = [], onTabClick, onLogout 
     </div>
   );
 }
+
 
