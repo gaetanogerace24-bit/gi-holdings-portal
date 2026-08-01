@@ -95,7 +95,7 @@ export default function App() {
         supabase.from("properties").select("id, status").neq("status", "archived"),
         supabase.from("custom_invoices").select("*").eq("paid", true),
         supabase.from("contractor_payments").select("*").eq("status", "completed"),
-        supabase.from("custom_invoices").select("*").eq("paid", false).neq("payment_status", "processing").neq("payment_status", "completed"),
+        supabase.from("custom_invoices").select("*").eq("paid", false).or("payment_status.is.null,and(payment_status.neq.processing,payment_status.neq.completed)"),
       ]);
       if (tenantData) setTenants(tenantData.map(normalizeTenant));
       if (ticketData) setTickets(ticketData.map(normalizeTicket));
@@ -274,6 +274,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
