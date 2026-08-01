@@ -43,7 +43,7 @@ function getStatus(inv) {
   const parts = (inv.due_date || "").split("T")[0].split("-");
   if (parts.length !== 3) return "upcoming";
   const due = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  return today >= due ? "overdue" : "upcoming";
+  return today > due ? "overdue" : "upcoming";
 }
 
 function invoiceNum(id) {
@@ -920,19 +920,16 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", margin: 0 }}>Rent Collection</h1>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
         <SummaryCard badgeColor="#16a34a" badgeLabel="✓ Completed" badgeBorder={true} sub="This month" amount={fmt(completedTotal)} amountColor="#16a34a" count={`${completedCount} invoice${completedCount !== 1 ? "s" : ""}`} onClick={() => setSheet("allCompleted")} />
         <div onClick={() => overdueList.length > 0 && setSheet("allOverdue")} style={{ cursor: overdueList.length > 0 ? "pointer" : "default" }}>
           <SummaryCard badgeColor="#dc2626" badgeLabel="⏱ Overdue" badgeBorder={true} sub="All time" amount={fmt(overdueTotal)} amountColor={overdueTotal > 0 ? "#dc2626" : undefined} count={`${overdueList.length} invoice${overdueList.length !== 1 ? "s" : ""}`} />
         </div>
-        <SummaryCard badgeColor="#2563eb" badgeLabel="$ Unpaid" badgeBorder={true} sub="This month" amount={fmt(unpaidTotal)} amountColor={unpaidTotal > 0 ? "#2563eb" : undefined} count={`${unpaidList.length} invoice${unpaidList.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUnpaid")} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
         <SummaryCard badgeColor="#2563eb" badgeLabel="↻ Processing" badgeBorder={true} sub="All time" amount={fmt(processingTotal)} amountColor={processingTotal > 0 ? "#2563eb" : undefined} count={`${processingCount} invoice${processingCount !== 1 ? "s" : ""}`} onClick={() => setSheet("processing")} />
         <SummaryCard badgeColor="#000" badgeLabel="📅 Upcoming" badgeBorder={false} sub="Next month" amount={fmt(upcomingTotal)} count={`${upcomingNextMonth.length} invoice${upcomingNextMonth.length !== 1 ? "s" : ""}`} onClick={() => setSheet("allUpcoming")} />
-      </div>
-      <div style={{ marginBottom: 20 }}>
-        <SummaryCard badgeColor="#0d9488" badgeLabel="🏛 Section 8" badgeBorder={true} sub="Expected this month" amount={fmt(section8Total)} amountColor="#0d9488" count={`${section8Tenants.length} tenant${section8Tenants.length !== 1 ? "s" : ""}`} onClick={() => setSheet("section8")} />
+        <div style={{ gridColumn: "1 / -1" }}>
+          <SummaryCard badgeColor="#0d9488" badgeLabel="🏛 Section 8" badgeBorder={true} sub="Expected this month" amount={fmt(section8Total)} amountColor="#0d9488" count={`${section8Tenants.length} tenant${section8Tenants.length !== 1 ? "s" : ""}`} onClick={() => setSheet("section8")} />
+        </div>
       </div>
 
       <button onClick={() => setShowSendInvoice(true)} style={{ width: "100%", padding: 16, background: "#0f1a14", border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8, fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -984,13 +981,9 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                       <button onClick={() => { setSelectedTenant(tenant); setSheet("invoices"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                         <span style={{ fontSize: 12, color: "#dc2626", border: "1.5px solid #dc2626", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>⏱ {overdueCount}</span>
                       </button>
-                    ) : (() => { const hasUnpaid = unpaidList.some(i => i.tenant_id === tenant.id); return hasUnpaid ? (
-                      <button onClick={() => { setSelectedTenant(tenant); setSheet("invoices"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                        <span style={{ fontSize: 12, color: "#2563eb", border: "1.5px solid #2563eb", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>$ Unpaid</span>
-                      </button>
                     ) : (
                       <span style={{ fontSize: 12, color: "#16a34a", border: "1.5px solid #16a34a", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>✓ Current</span>
-                    ); })()}
+                    )}
                   </div>
                 </div>
               </div>
@@ -1349,6 +1342,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     </div>
   );
 }
+
 
 
 
