@@ -766,6 +766,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
   const unpaidList = allActiveNonArchived.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "upcoming" && (() => { const parts = (i.due_date || "").split("T")[0].split("-"); if (parts.length !== 3) return false; const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2])); return due.getMonth() === now.getMonth() && due.getFullYear() === now.getFullYear(); })());
   const unpaidTotal = unpaidList.reduce((s, i) => s + Number(i.rent || 0), 0);
+  const upcomingList   = allActiveNonArchived.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "upcoming");
   const overdueList    = allActiveNonArchived.filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue");
   const completedList  = allActiveNonArchived.filter(i => i.paid);
   const processingList = allActiveNonArchived.filter(i => !i.paid && i.payment_status === "processing");
