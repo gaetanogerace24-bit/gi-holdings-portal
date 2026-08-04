@@ -3,16 +3,38 @@ import { supabase } from "../supabase";
 import SendInvoiceModal from "./SendInvoiceModal";
 import PayContractorModal from "./PayContractorModal";
 
+// Get today's date in EST (UTC-4 EDT / UTC-5 EST)
+function todayEST() {
+  const now = new Date();
+  const estOffset = now.getTimezoneOffset() === 300 ? -5 : -4; // EST vs EDT
+  const est = new Date(now.getTime() + (now.getTimezoneOffset() + estOffset * -1 * -1) * 60000);
+  return new Date(Date.UTC(est.getUTCFullYear(), est.getUTCMonth(), est.getUTCDate()));
+}
+
+// Count calendar days between two UTC midnight dates
+function daysBetween(a, b) {
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+// Convert a timestamp string to EST date (UTC midnight)
+function toESTDate(str) {
+  if (!str) return todayEST();
+  const d = new Date(str);
+  // EST is UTC-5, EDT is UTC-4; use UTC-4 for summer (May-Nov)
+  const month = d.getUTCMonth();
+  const offsetHours = (month >= 2 && month <= 10) ? 4 : 5;
+  const est = new Date(d.getTime() - offsetHours * 3600000);
+  return new Date(Date.UTC(est.getUTCFullYear(), est.getUTCMonth(), est.getUTCDate()));
+}
+
 function calcLateFee(dueDateStr) {
   if (!dueDateStr) return 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   const [year, month, day] = dueDateStr.split("T")[0].split("-");
-  const due = new Date(Number(year), Number(month) - 1, Number(day));
-  const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
+  const due = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), 5));
+  const today = todayEST();
   if (today < feeStart) return 0;
-  const msPerDay = 1000 * 60 * 60 * 24;
-  const daysAfterFeeStart = Math.floor((today - feeStart) / msPerDay);
+  const daysAfterFeeStart = daysBetween(feeStart, today);
   return 35 + daysAfterFeeStart * 10;
 }
 
@@ -147,9 +169,10 @@ function PaymentTimeline({ inv }) {
   const createdAt = new Date(inv.created_at || inv.due_date);
   events.push({ date: createdAt, label: "Invoice created", color: "#2563eb" });
   const parts = (inv.due_date || "").split("T")[0].split("-");
-  const due = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(inv.due_date);
-  const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
-  const overdueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate() + 1);
+  const due = parts.length === 3 ? new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))) : new Date(inv.due_date);
+  const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), 5));
+  const overdueDay = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate() + 1));
+  const today = todayEST();
   if (inv.paid) {
     if (Number(inv.late_fee) > 0) {
       events.push({ date: overdueDay, label: "Payment overdue", color: "#dc2626", expand: true });
@@ -165,29 +188,19 @@ function PaymentTimeline({ inv }) {
       events.push({ date: pd, label: "Payment complete", color: "#2563eb", expand: true, bold: true });
     }
   } else if (inv.payment_status === "processing") {
-    const addDays = (date, n) => { const d = new Date(date); d.setDate(d.getDate() + n); return d; };
-    const diffDays = (a, b) => { const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()); const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()); return Math.floor((utcB - utcA) / 86400000); };
+    const addDays = (date, n) => { const d = new Date(date); d.setUTCDate(d.getUTCDate() + n); return d; };
     const overdueDay = addDays(due, 1);
-    const submittedAt = (() => {
-      const raw = inv.updated_at || inv.stripe_payment_intent_id ? inv.updated_at : null;
-      if (!raw) return new Date();
-      const d = new Date(raw);
-      // Convert UTC to EST (UTC-5 standard, UTC-4 daylight) — use Eastern time date
-      const estOffset = -4 * 60; // EDT in summer
-      const estMs = d.getTime() + (d.getTimezoneOffset() + estOffset) * 60000;
-      const estDate = new Date(estMs);
-      return new Date(Date.UTC(estDate.getFullYear(), estDate.getMonth(), estDate.getDate()));
-    })();
+    const submittedAt = toESTDate(inv.updated_at);
 
     if (!inv.is_custom && overdueDay <= submittedAt) {
       const stopBeforeFee = feeStart <= submittedAt ? feeStart : submittedAt;
-      const daysOverdueBeforeFee = diffDays(overdueDay, stopBeforeFee);
+      const daysOverdueBeforeFee = daysBetween(overdueDay, stopBeforeFee);
       for (let d = 0; d <= daysOverdueBeforeFee; d++) {
         events.push({ date: addDays(overdueDay, d), label: "Payment overdue", color: "#dc2626", expand: true });
       }
       if (feeStart <= submittedAt) {
         events.push({ date: new Date(feeStart), label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
-        const days = diffDays(feeStart, submittedAt);
+        const days = daysBetween(feeStart, submittedAt);
         for (let d = 1; d <= days; d++) {
           events.push({ date: addDays(feeStart, d), label: "$10.00 daily late fee added", color: "#dc2626", expand: true });
         }
@@ -197,16 +210,15 @@ function PaymentTimeline({ inv }) {
     events.push({ date: null, label: "Waiting for bank transfer to clear", color: "ghost" });
   } else {
     if (!inv.is_custom && overdueDay <= today) {
-      const addDays = (date, n) => { const d = new Date(date); d.setDate(d.getDate() + n); return d; };
-      const diffDays = (a, b) => { const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()); const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()); return Math.floor((utcB - utcA) / 86400000); };
+      const addDays = (date, n) => { const d = new Date(date); d.setUTCDate(d.getUTCDate() + n); return d; };
       const stopBeforeFee = feeStart <= today ? feeStart : today;
-      const daysOverdueBeforeFee = diffDays(overdueDay, stopBeforeFee);
+      const daysOverdueBeforeFee = daysBetween(overdueDay, stopBeforeFee);
       for (let d = 0; d <= daysOverdueBeforeFee; d++) {
         events.push({ date: addDays(overdueDay, d), label: "Payment overdue", color: "#dc2626", expand: true });
       }
       if (feeStart <= today) {
         events.push({ date: new Date(feeStart), label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
-        const days = diffDays(feeStart, today);
+        const days = daysBetween(feeStart, today);
         for (let d = 1; d <= days; d++) {
           events.push({ date: addDays(feeStart, d), label: "$10.00 daily late fee added", color: "#dc2626", expand: true });
         }
@@ -1393,6 +1405,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     </div>
   );
 }
+
 
 
 
