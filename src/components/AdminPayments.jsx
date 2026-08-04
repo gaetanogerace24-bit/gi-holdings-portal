@@ -168,8 +168,11 @@ function PaymentTimeline({ inv }) {
     const addDays = (date, n) => { const d = new Date(date); d.setDate(d.getDate() + n); return d; };
     const diffDays = (a, b) => { const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()); const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()); return Math.floor((utcB - utcA) / 86400000); };
     const overdueDay = addDays(due, 1);
-    const submittedAt = inv.updated_at ? new Date(inv.updated_at.split("T")[0]) : new Date();
-    submittedAt.setHours(0, 0, 0, 0);
+    const submittedAt = (() => {
+      if (!inv.updated_at) return new Date();
+      const d = new Date(inv.updated_at);
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    })();
 
     if (!inv.is_custom && overdueDay <= submittedAt) {
       const stopBeforeFee = feeStart <= submittedAt ? feeStart : submittedAt;
