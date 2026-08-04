@@ -21,7 +21,6 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
   const [uploadError, setUploadError] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Load properties from Supabase directly
   useEffect(() => {
     supabase.from("properties").select("*").neq("status", "archived").order("created_at", { ascending: true })
       .then(({ data }) => { if (data) setProperties(data); });
@@ -82,7 +81,7 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
       const { data: urlData } = supabase.storage.from("Documents").getPublicUrl(path);
       const url = urlData.publicUrl;
       const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      const newDoc = { id: Date.now(), name: form.name, url, date: today };
+      const newDoc = { id: Date.now(), name: form.name, url, date: today, tenant_visible: false };
       const updatedDocs = [...(tenant.documents || []), newDoc];
       await supabase.from("tenants").update({ documents: updatedDocs, updated_at: new Date().toISOString() }).eq("id", form.tenantId);
       setTenants(tenants.map(t => String(t.id) === String(form.tenantId) ? { ...t, documents: updatedDocs } : t));
@@ -104,6 +103,16 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
     if (!window.confirm("Remove this document?")) return;
     const tenant = tenants.find(t => String(t.id) === String(tenantId));
     const updatedDocs = (tenant.documents || []).filter(d => d.id !== docId);
+    await supabase.from("tenants").update({ documents: updatedDocs, updated_at: new Date().toISOString() }).eq("id", tenantId);
+    setTenants(tenants.map(t => String(t.id) === String(tenantId) ? { ...t, documents: updatedDocs } : t));
+  };
+
+  // Toggle tenant_visible on a single doc
+  const handleToggleVisible = async (tenantId, docId) => {
+    const tenant = tenants.find(t => String(t.id) === String(tenantId));
+    const updatedDocs = (tenant.documents || []).map(d =>
+      d.id === docId ? { ...d, tenant_visible: !d.tenant_visible } : d
+    );
     await supabase.from("tenants").update({ documents: updatedDocs, updated_at: new Date().toISOString() }).eq("id", tenantId);
     setTenants(tenants.map(t => String(t.id) === String(tenantId) ? { ...t, documents: updatedDocs } : t));
   };
@@ -183,7 +192,7 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
           </div>
           {saved ? (
             <div style={{ background: "#dcfce7", border: "1px solid #4ade80", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: "#166534", fontWeight: 600 }}>
-              ✅ Document uploaded! Tenant can now view it in their portal.
+              ✅ Document uploaded! Toggle it visible when you're ready to share with the tenant.
             </div>
           ) : (
             <div style={{ display: "flex", gap: 10 }}>
@@ -258,6 +267,17 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
                                       <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>📄 {doc.name}</div>
                                       <div style={{ fontSize: 11, color: "#1a1a1a", marginTop: 2 }}>Added {doc.date}</div>
                                     </div>
+                                    {/* Tenant visible toggle */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                                      <span style={{ fontSize: 11, color: doc.tenant_visible ? "#1b3d2a" : "#9ca3af", fontWeight: 500 }}>
+                                        {doc.tenant_visible ? "Visible to tenant" : "Hidden"}
+                                      </span>
+                                      <div
+                                        onClick={e => { e.stopPropagation(); handleToggleVisible(tenant.id, doc.id); }}
+                                        style={{ width: 36, height: 20, borderRadius: 99, background: doc.tenant_visible ? "#1b3d2a" : "#d1d5db", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+                                        <div style={{ width: 16, height: 16, background: "#fff", borderRadius: "50%", position: "absolute", top: 2, left: doc.tenant_visible ? 18 : 2, transition: "left 0.2s" }} />
+                                      </div>
+                                    </div>
                                     {doc.url && (
                                       <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ padding: "6px 12px", borderRadius: 8, border: "1.5px solid #4caf7d", background: "#fff", fontSize: 12, color: "#1b3d2a", fontWeight: 600, textDecoration: "none" }}>View →</a>
                                     )}
@@ -314,6 +334,16 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
                                   <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: 13, fontWeight: 600 }}>{doc.name}</div>
                                     <div style={{ fontSize: 11, color: "#1a1a1a", marginTop: 2 }}>Added {doc.date}</div>
+                                  </div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                                    <span style={{ fontSize: 11, color: doc.tenant_visible ? "#1b3d2a" : "#9ca3af", fontWeight: 500 }}>
+                                      {doc.tenant_visible ? "Visible to tenant" : "Hidden"}
+                                    </span>
+                                    <div
+                                      onClick={e => { e.stopPropagation(); handleToggleVisible(tenant.id, doc.id); }}
+                                      style={{ width: 36, height: 20, borderRadius: 99, background: doc.tenant_visible ? "#1b3d2a" : "#d1d5db", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+                                      <div style={{ width: 16, height: 16, background: "#fff", borderRadius: "50%", position: "absolute", top: 2, left: doc.tenant_visible ? 18 : 2, transition: "left 0.2s" }} />
+                                    </div>
                                   </div>
                                   {doc.url && <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ padding: "6px 12px", borderRadius: 8, border: "1.5px solid #4caf7d", background: "#fff", fontSize: 12, color: "#1b3d2a", fontWeight: 600, textDecoration: "none" }}>View →</a>}
                                   <button onClick={() => handleRemove(tenant.id, doc.id)} style={{ padding: "6px 10px", borderRadius: 8, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 12, color: "#dc2626", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
