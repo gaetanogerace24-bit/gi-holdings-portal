@@ -125,15 +125,22 @@ export default async function handler(req, res) {
 
     // Notify tenant
     if (tenantPhone) {
-      await sendSMS(tenantPhone, `G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} was declined ❌ Please log in to try again: ${PORTAL_URL}`);
+      await sendSMS(tenantPhone, `G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} was declined ❌ Please check your card details or try a different payment method. Log in to retry: ${PORTAL_URL}`);
     }
     if (tenantEmail) {
-      await sendEmail(tenantEmail, `❌ Payment failed — ${monthLabel}`, emailWrapper(
+      await sendEmail(tenantEmail, `❌ Payment failed — ${monthLabel} ❌`, emailWrapper(
         "Payment failed", "#dc2626",
         `<p style="font-size:15px;color:#1a1a1a;">Hi ${firstName},</p>
-        <p style="font-size:14px;color:#4b5563;">Your payment of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} was declined ❌</p>
-        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:16px;font-size:13px;color:#991b1b;">
-          <strong>Reason:</strong> ${failReason}<br/>Please log in and try a different card or payment method.
+        <p style="font-size:14px;color:#4b5563;">❌ Your payment of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} was declined ❌</p>
+        <p style="font-size:13px;color:#4b5563;">Please check your card details or try a different payment method.</p>
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:16px;font-size:13px;color:#991b1b;margin-top:8px;">
+          <div style="font-weight:600;margin-bottom:8px;">What to do</div>
+          <ul style="margin:0;padding-left:16px;line-height:2.2;">
+            <li>Check your card number, expiration date, and CVV</li>
+            <li>Make sure your billing address matches your card</li>
+            <li>Try a different card or use bank transfer instead</li>
+            <li>Contact your bank if the issue continues</li>
+          </ul>
         </div>`
       ));
     }
@@ -176,15 +183,22 @@ export default async function handler(req, res) {
       await sendSMS(OWNER_PHONE, `G&I Holdings: ⚠️ ${tenantName} bank transfer of ${amount} for ${monthLabel} was RETURNED. Invoice reset.`);
 
       if (tenantPhone) {
-        await sendSMS(tenantPhone, `G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} was returned by your bank ⚠️ Please log in to retry: ${PORTAL_URL}`);
+        await sendSMS(tenantPhone, `G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} was returned ⚠️ Please contact your bank to resolve the issue, then log in to retry: ${PORTAL_URL}`);
       }
       if (tenantEmail) {
-        await sendEmail(tenantEmail, `⚠️ Bank transfer returned — ${monthLabel}`, emailWrapper(
-          "Transfer returned", "#b45309",
+        await sendEmail(tenantEmail, `⚠️ Bank transfer returned — ${monthLabel} ⚠️`, emailWrapper(
+          "Bank transfer returned", "#b45309",
           `<p style="font-size:15px;color:#1a1a1a;">Hi ${firstName},</p>
-          <p style="font-size:14px;color:#4b5563;">Your bank transfer of <strong>${amount}</strong> for <strong>${monthLabel}</strong> was returned by your bank ⚠️</p>
-          <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:16px;font-size:13px;color:#92400e;">
-            Please check your account balance or contact your bank, then log in to retry your payment.
+          <p style="font-size:14px;color:#4b5563;">⚠️ Your bank transfer of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} was returned ⚠️</p>
+          <p style="font-size:13px;color:#4b5563;">Please contact your bank to resolve the issue, then log in to retry.</p>
+          <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:16px;font-size:13px;color:#92400e;margin-top:8px;">
+            <div style="font-weight:600;margin-bottom:8px;">What to do</div>
+            <ul style="margin:0;padding-left:16px;line-height:2.2;">
+              <li>Check that your bank account has sufficient funds</li>
+              <li>Confirm your bank account number is correct</li>
+              <li>Contact your bank to ask why the transfer was returned</li>
+              <li>Log in to retry with a different account or card</li>
+            </ul>
           </div>`
         ));
       }
