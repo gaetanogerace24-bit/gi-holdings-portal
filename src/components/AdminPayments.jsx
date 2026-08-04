@@ -241,7 +241,7 @@ function PaymentTimeline({ inv }) {
       {events.map((ev, i) => (
         <div key={i} style={{ display: "flex", alignItems: "flex-start" }}>
           <div style={{ width: 95, flexShrink: 0, fontSize: 11, color: "#000", paddingTop: 1, textAlign: "right", paddingRight: 10 }}>
-            {ev.date ? ev.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+            {ev.date ? new Date(ev.date.getTime() + ev.date.getTimezoneOffset() * 60000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 16, flexShrink: 0 }}>
             {ev.color === "ghost" ? <div style={{ width: 11, height: 11, borderRadius: "50%", border: "2px dashed #d1d5db", background: "#fff" }} /> : <div style={{ width: 11, height: 11, borderRadius: "50%", background: ev.color }} />}
