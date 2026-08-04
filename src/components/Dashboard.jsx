@@ -122,14 +122,51 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
 
         {(visibleInvoices.length > 0 || customInvoices.length > 0) && (
           <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 10 }}>
-            {visibleInvoices.map(inv => (
-              <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
-                <span style={{ color: inv.isOverdue ? "#ff8a80" : "rgba(255,255,255,0.6)" }}>
-                  {inv.isOverdue ? "⚠️ " : ""}{inv.month}{inv.liveFee > 0 ? ` (incl. ${fmt(inv.liveFee)} late fees)` : ""}
-                </span>
-                <span style={{ fontWeight: 700, color: inv.isOverdue ? "#ff8a80" : "#fff" }}>{fmt(inv.liveTotal)}</span>
-              </div>
-            ))}
+            {visibleInvoices.map(inv => {
+              const rent = Number(inv.rent || 0);
+              const fee = inv.liveFee || 0;
+              const startDay = tenant?.late_fee_start_day || 5;
+              const initialFee = tenant?.initial_late_fee != null ? Number(tenant.initial_late_fee) : 35;
+              const dailyFee = tenant?.daily_late_fee != null ? Number(tenant.daily_late_fee) : 10;
+              const daysOfDaily = fee > initialFee ? Math.round((fee - initialFee) / dailyFee) : 0;
+              const feeStartDate = (() => {
+                if (!inv.due_date) return null;
+                const parts = inv.due_date.split("T")[0].split("-");
+                const d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, startDay));
+                return new Date(d.getTime() + d.getTimezoneOffset() * 60000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              })();
+              return (
+                <div key={inv.id} style={{ marginBottom: fee > 0 ? 8 : 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: fee > 0 ? 5 : 0, fontSize: 12 }}>
+                    <span style={{ color: inv.isOverdue ? "#ff8a80" : "rgba(255,255,255,0.6)" }}>
+                      {inv.isOverdue ? "⚠️ " : ""}{inv.month}
+                    </span>
+                    <span style={{ fontWeight: 700, color: inv.isOverdue ? "#ff8a80" : "#fff" }}>{fmt(inv.liveTotal)}</span>
+                  </div>
+                  {fee > 0 && (
+                    <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: "8px 10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
+                        <span style={{ color: "rgba(255,255,255,0.5)" }}>Rent</span>
+                        <span style={{ color: "rgba(255,255,255,0.7)" }}>{fmt(rent)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: daysOfDaily > 0 ? 3 : 6 }}>
+                        <span style={{ color: "#ff8a80" }}>One-time late fee{feeStartDate ? ` (${feeStartDate})` : ""}</span>
+                        <span style={{ color: "#ff8a80" }}>+{fmt(initialFee)}</span>
+                      </div>
+                      {daysOfDaily > 0 && (
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6 }}>
+                          <span style={{ color: "#ff8a80" }}>Daily fee ({daysOfDaily} day{daysOfDaily !== 1 ? "s" : ""} × {fmt(dailyFee)})</span>
+                          <span style={{ color: "#ff8a80" }}>+{fmt(daysOfDaily * dailyFee)}</span>
+                        </div>
+                      )}
+                      <div style={{ fontSize: 10, color: "rgba(255,120,120,0.8)", borderTop: "0.5px solid rgba(255,255,255,0.1)", paddingTop: 5 }}>
+                        ⚠ {fmt(dailyFee)} added each day until paid
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {customInvoices.map(inv => (
               <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
                 <span style={{ color: "#ff8a80" }}>⚠️ {inv.title || "Custom Charge"}</span>
@@ -165,6 +202,7 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
     </div>
   );
 }
+
 
 
 
