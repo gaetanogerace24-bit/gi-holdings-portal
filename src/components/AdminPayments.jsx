@@ -164,8 +164,6 @@ function SummaryCard({ badgeColor, badgeLabel, badgeBorder, sub, amount, amountC
 function PaymentTimeline({ inv }) {
   if (!inv) return null;
   const events = [];
-  const today = new Date();
-  today.setHours(23, 59, 0, 0);
   const createdAt = new Date(inv.created_at || inv.due_date);
   events.push({ date: createdAt, label: "Invoice created", color: "#2563eb" });
   const parts = (inv.due_date || "").split("T")[0].split("-");
