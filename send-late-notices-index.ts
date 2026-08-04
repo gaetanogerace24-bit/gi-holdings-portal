@@ -82,6 +82,9 @@ serve(async (_req) => {
       const tenant = inv.tenants;
       if (!tenant) continue;
 
+      // Skip if fee has been waived for this invoice
+      if (inv.fee_waived === true) continue;
+
       // Skip tenants with NULL late fee settings (e.g. Jannelle Underwood)
       if (
         tenant.late_fee_start_day == null &&
