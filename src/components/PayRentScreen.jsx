@@ -275,8 +275,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const classified = invoices.map(inv => ({
     ...inv,
     _type: classifyInvoice(inv, now),
-    liveFee: inv.is_custom ? 0 : calcLateFee(inv.due_date, lateFeeRules),
-    liveTotal: inv.is_custom ? Number(inv.rent || 0) : Number(inv.rent || 0) + calcLateFee(inv.due_date, lateFeeRules),
+    liveFee: inv.is_custom || inv.payment_status === "processing" ? 0 : calcLateFee(inv.due_date, lateFeeRules),
+    liveTotal: inv.payment_status === "processing" ? Number(inv.total || inv.rent || 0) : inv.is_custom ? Number(inv.rent || 0) : Number(inv.rent || 0) + calcLateFee(inv.due_date, lateFeeRules),
   }));
 
   const processingInvoices = classified.filter(inv => inv.payment_status === "processing" && !inv.paid);
@@ -587,7 +587,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               const daysLate = Math.floor((today.getTime() - feeStart.getTime()) / msPerDay);
               return initialFee + (daysLate * dailyFee);
             };
-            const liveTotal = Number(inv.amount || 0) + calcFee();
+            const liveTotal = Number(inv.amount || 0); // frozen — no late fees while processing
             return (
             <div key={inv.id} style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", borderRadius: 12, padding: "12px 16px", marginBottom: 8, fontSize: 13, color: "#1e40af", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>⏳ <strong>{inv.title}</strong> — payment processing (3–5 business days)</span>
@@ -874,5 +874,6 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
