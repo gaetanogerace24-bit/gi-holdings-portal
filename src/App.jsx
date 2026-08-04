@@ -74,6 +74,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const sub = supabase
+      .channel("tenants-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tenants" }, async () => {
+        const { data } = await supabase.from("tenants").select("*").eq("archived", false).order("created_at");
+        if (data) setTenants(data.map(normalizeTenant));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, []);
+
+  useEffect(() => {
     if (loading) return;
     const session = loadSession();
     if (session?.screen === "admin") { setScreen("admin"); return; }
