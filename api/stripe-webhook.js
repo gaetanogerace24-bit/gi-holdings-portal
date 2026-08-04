@@ -28,12 +28,12 @@ async function sendEmail(to, subject, html) {
   });
 }
 
-function emailWrapper(title, color, body) {
+function emailWrapper(headerColor, subtitle, body) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;">
-      <div style="background:${color};padding:24px;border-radius:12px 12px 0 0;">
+      <div style="background:${headerColor};padding:24px;border-radius:12px 12px 0 0;">
         <div style="font-size:18px;font-weight:700;color:#fff;">G&I Holdings LLC</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.7);">${title}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;">${subtitle}</div>
       </div>
       <div style="padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
         ${body}
@@ -62,7 +62,6 @@ export default async function handler(req, res) {
   const amount = `$${(pi.amount / 100).toFixed(2)}`;
   const firstName = tenantName?.split(" ")[0] || "there";
 
-  // Look up tenant for phone/email
   let tenant = null;
   if (tenantId) {
     const { data } = await supabase.from("tenants").select("email, phone, contact_email").eq("id", tenantId).single();
@@ -73,134 +72,179 @@ export default async function handler(req, res) {
   const monthLabel = month || "your invoice";
 
   // ─────────────────────────────────────────────────────────
-  // PAYMENT SUCCEEDED
+  // ✅ PAYMENT SUCCEEDED
   // ─────────────────────────────────────────────────────────
   if (event.type === "payment_intent.succeeded") {
-    console.log(`✅ Payment confirmed for ${tenantName}`);
+    const isCard = !pi.payment_method_types?.includes("us_bank_account");
+    const method = isCard ? "💳 Card" : "🏦 ACH Bank Transfer";
 
-    // Mark invoice paid in DB
     if (invoiceId) {
       await supabase.from("invoices").update({
         paid: true, payment_status: "completed", paid_date: new Date().toISOString(),
       }).eq("id", invoiceId);
     }
 
-    // Notify owner
-    await sendSMS(OWNER_PHONE, `G&I Holdings: ✅ ${tenantName} payment of ${amount} for ${monthLabel} confirmed.`);
+    // Owner SMS
+    await sendSMS(OWNER_PHONE, `✅ G&I Holdings: ${tenantName} payment of ${amount} for ${monthLabel} confirmed ✅`);
 
-    // Notify tenant
-    if (tenantPhone) {
-      await sendSMS(tenantPhone, `G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} went through ✅ Thank you! Log in to view your receipt: ${PORTAL_URL}`);
-    }
-    if (tenantEmail) {
-      await sendEmail(tenantEmail, `✅ Payment confirmed — ${monthLabel}`, emailWrapper(
-        "Payment confirmed", "#166534",
-        `<p style="font-size:15px;color:#1a1a1a;">Hi ${firstName},</p>
-        <p style="font-size:14px;color:#4b5563;">Your payment of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} went through successfully ✅</p>
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;font-size:13px;color:#166534;">
+    // Owner email
+    await sendEmail(OWNER_EMAIL, `✅ Payment confirmed — ${tenantName} ${monthLabel}`,
+      emailWrapper("#166534", "Payment confirmed",
+        `<p style="font-size:14px;color:#1a1a1a;margin:0 0 12px;">✅ ${tenantName}'s payment of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} has been confirmed ✅</p>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;font-size:13px;color:#166534;line-height:2.2;">
+          <div>Tenant: <strong>${tenantName}</strong></div>
           <div>Amount: <strong>${amount}</strong></div>
-          <div>Property: ${address}</div>
+          <div>Method: ${method}</div>
           <div>Date: ${new Date().toLocaleDateString()}</div>
         </div>`
-      ));
+      )
+    );
+
+    // Tenant SMS
+    if (tenantPhone) {
+      await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} went through. Thank you! Log in to view your receipt: ${PORTAL_URL} ✅`);
+    }
+
+    // Tenant email
+    if (tenantEmail) {
+      await sendEmail(tenantEmail, `✅ Payment confirmed — ${monthLabel}`,
+        emailWrapper("#166534", "Payment confirmed",
+          `<p style="font-size:15px;color:#1a1a1a;margin:0 0 10px;">Hi ${firstName},</p>
+          <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 14px;">✅ Your payment of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} went through successfully ✅</p>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 16px;font-size:13px;color:#166534;line-height:2.2;">
+            <div>Amount: <strong>${amount}</strong></div>
+            <div>Property: ${address}</div>
+            <div>Method: ${method}</div>
+            <div>Date: ${new Date().toLocaleDateString()}</div>
+          </div>
+          <p style="font-size:12px;color:#9ca3af;margin-top:14px;">A receipt has been sent to your email and phone.</p>`
+        )
+      );
     }
   }
 
   // ─────────────────────────────────────────────────────────
-  // PAYMENT FAILED (card declined)
+  // ❌ PAYMENT FAILED (card declined)
   // ─────────────────────────────────────────────────────────
   if (event.type === "payment_intent.payment_failed") {
     const failReason = pi.last_payment_error?.message || "Card declined";
-    console.log(`❌ Payment failed for ${tenantName}: ${failReason}`);
 
-    // Reset invoice back to unpaid so they can retry
     if (invoiceId) {
-      await supabase.from("invoices").update({
-        payment_status: null,
-      }).eq("id", invoiceId);
+      await supabase.from("invoices").update({ payment_status: null }).eq("id", invoiceId);
     }
 
-    // Notify owner
-    await sendSMS(OWNER_PHONE, `G&I Holdings: ❌ ${tenantName} payment of ${amount} for ${monthLabel} FAILED. Invoice reset, they can retry.`);
+    // Owner SMS
+    await sendSMS(OWNER_PHONE, `❌ G&I Holdings: ${tenantName} payment of ${amount} for ${monthLabel} FAILED. Invoice reset, they can retry. ❌`);
 
-    // Notify tenant
-    if (tenantPhone) {
-      await sendSMS(tenantPhone, `G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} was declined ❌ Please check your card details or try a different payment method. Log in to retry: ${PORTAL_URL}`);
-    }
-    if (tenantEmail) {
-      await sendEmail(tenantEmail, `❌ Payment failed — ${monthLabel} ❌`, emailWrapper(
-        "Payment failed", "#dc2626",
-        `<p style="font-size:15px;color:#1a1a1a;">Hi ${firstName},</p>
-        <p style="font-size:14px;color:#4b5563;">❌ Your payment of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} was declined ❌</p>
-        <p style="font-size:13px;color:#4b5563;">Please check your card details or try a different payment method.</p>
-        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:16px;font-size:13px;color:#991b1b;margin-top:8px;">
-          <div style="font-weight:600;margin-bottom:8px;">What to do</div>
-          <ul style="margin:0;padding-left:16px;line-height:2.2;">
-            <li>Check your card number, expiration date, and CVV</li>
-            <li>Make sure your billing address matches your card</li>
-            <li>Try a different card or use bank transfer instead</li>
-            <li>Contact your bank if the issue continues</li>
-          </ul>
+    // Owner email
+    await sendEmail(OWNER_EMAIL, `❌ Payment failed — ${tenantName} ${monthLabel}`,
+      emailWrapper("#dc2626", "Payment failed",
+        `<p style="font-size:14px;color:#1a1a1a;margin:0 0 12px;">❌ ${tenantName}'s payment of <strong>${amount}</strong> for <strong>${monthLabel}</strong> was declined ❌ Invoice has been reset so they can retry.</p>
+        <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px 16px;font-size:13px;color:#991b1b;line-height:2.2;">
+          <div>Tenant: <strong>${tenantName}</strong></div>
+          <div>Amount attempted: <strong>${amount}</strong></div>
+          <div>Reason: ${failReason}</div>
+          <div>Date: ${new Date().toLocaleDateString()}</div>
         </div>`
-      ));
+      )
+    );
+
+    // Tenant SMS
+    if (tenantPhone) {
+      await sendSMS(tenantPhone, `❌ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} was declined. Please check your card details or try a different payment method. Contact your bank if the issue continues. Log in to retry: ${PORTAL_URL} ❌`);
+    }
+
+    // Tenant email
+    if (tenantEmail) {
+      await sendEmail(tenantEmail, `❌ Payment failed — ${monthLabel} ❌`,
+        emailWrapper("#dc2626", "Payment failed",
+          `<p style="font-size:15px;color:#1a1a1a;margin:0 0 10px;">Hi ${firstName},</p>
+          <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 14px;">❌ Your payment of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} was declined ❌</p>
+          <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px 16px;font-size:13px;color:#991b1b;">
+            <div style="font-weight:600;margin-bottom:8px;">What to do</div>
+            <ul style="margin:0;padding-left:16px;line-height:2.2;">
+              <li>Check your card number, expiration date, and CVV</li>
+              <li>Make sure your billing address matches your card</li>
+              <li>Try a different card or use bank transfer instead</li>
+              <li>Contact your bank if the issue continues</li>
+            </ul>
+          </div>`
+        )
+      );
     }
   }
 
   // ─────────────────────────────────────────────────────────
-  // ACH PROCESSING
+  // ⏳ ACH PROCESSING
   // ─────────────────────────────────────────────────────────
   if (event.type === "payment_intent.processing") {
-    console.log(`⏳ ACH processing for ${tenantName}`);
-
-    // Notify tenant
+    // Tenant SMS
     if (tenantPhone) {
-      await sendSMS(tenantPhone, `G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} is processing ⏳ It takes 3–5 business days to clear. We'll notify you when confirmed.`);
+      await sendSMS(tenantPhone, `⏳ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} is processing. It takes 3–5 business days to clear. We'll notify you when confirmed. ⏳`);
     }
+
+    // Tenant email
     if (tenantEmail) {
-      await sendEmail(tenantEmail, `⏳ Bank transfer processing — ${monthLabel}`, emailWrapper(
-        "Transfer in progress", "#b45309",
-        `<p style="font-size:15px;color:#1a1a1a;">Hi ${firstName},</p>
-        <p style="font-size:14px;color:#4b5563;">Your bank transfer of <strong>${amount}</strong> for <strong>${monthLabel}</strong> is being processed ⏳</p>
-        <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:16px;font-size:13px;color:#92400e;">
-          ACH bank transfers take 3–5 business days to clear. You'll receive a confirmation once the payment is confirmed.
-        </div>`
-      ));
+      await sendEmail(tenantEmail, `⏳ Bank transfer processing — ${monthLabel}`,
+        emailWrapper("#b45309", "Transfer in progress",
+          `<p style="font-size:15px;color:#1a1a1a;margin:0 0 10px;">Hi ${firstName},</p>
+          <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 14px;">⏳ Your bank transfer of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} is being processed ⏳</p>
+          <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;font-size:13px;color:#92400e;">
+            ACH bank transfers take 3–5 business days to clear. You'll receive a confirmation by email and text once the payment is confirmed.
+          </div>`
+        )
+      );
     }
   }
 
   // ─────────────────────────────────────────────────────────
-  // ACH RETURNED / FAILED
+  // ⚠️ ACH RETURNED
   // ─────────────────────────────────────────────────────────
   if (event.type === "payment_intent.canceled" || event.type === "charge.failed") {
     const isACH = pi.payment_method_types?.includes("us_bank_account");
     if (isACH) {
-      console.log(`⚠️ ACH returned for ${tenantName}`);
-
+      // Reset invoice to unpaid — late fees will continue to accrue
       if (invoiceId) {
-        await supabase.from("invoices").update({ payment_status: null }).eq("id", invoiceId);
+        await supabase.from("invoices").update({ payment_status: null, paid: false }).eq("id", invoiceId);
       }
 
-      await sendSMS(OWNER_PHONE, `G&I Holdings: ⚠️ ${tenantName} bank transfer of ${amount} for ${monthLabel} was RETURNED. Invoice reset.`);
+      // Owner SMS
+      await sendSMS(OWNER_PHONE, `⚠️ G&I Holdings: ${tenantName} bank transfer of ${amount} for ${monthLabel} was RETURNED. Invoice reset — late fees continue to accrue. ⚠️`);
 
-      if (tenantPhone) {
-        await sendSMS(tenantPhone, `G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} was returned ⚠️ Please contact your bank to resolve the issue, then log in to retry: ${PORTAL_URL}`);
-      }
-      if (tenantEmail) {
-        await sendEmail(tenantEmail, `⚠️ Bank transfer returned — ${monthLabel} ⚠️`, emailWrapper(
-          "Bank transfer returned", "#b45309",
-          `<p style="font-size:15px;color:#1a1a1a;">Hi ${firstName},</p>
-          <p style="font-size:14px;color:#4b5563;">⚠️ Your bank transfer of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} was returned ⚠️</p>
-          <p style="font-size:13px;color:#4b5563;">Please contact your bank to resolve the issue, then log in to retry.</p>
-          <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:16px;font-size:13px;color:#92400e;margin-top:8px;">
-            <div style="font-weight:600;margin-bottom:8px;">What to do</div>
-            <ul style="margin:0;padding-left:16px;line-height:2.2;">
-              <li>Check that your bank account has sufficient funds</li>
-              <li>Confirm your bank account number is correct</li>
-              <li>Contact your bank to ask why the transfer was returned</li>
-              <li>Log in to retry with a different account or card</li>
-            </ul>
+      // Owner email
+      await sendEmail(OWNER_EMAIL, `⚠️ ACH returned — ${tenantName} ${monthLabel}`,
+        emailWrapper("#b45309", "Bank transfer returned",
+          `<p style="font-size:14px;color:#1a1a1a;margin:0 0 12px;">⚠️ ${tenantName}'s bank transfer of <strong>${amount}</strong> for <strong>${monthLabel}</strong> was returned ⚠️ Invoice reset to unpaid — late fees will continue to accrue.</p>
+          <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;font-size:13px;color:#92400e;line-height:2.2;">
+            <div>Tenant: <strong>${tenantName}</strong></div>
+            <div>Amount: <strong>${amount}</strong></div>
+            <div>Date: ${new Date().toLocaleDateString()}</div>
           </div>`
-        ));
+        )
+      );
+
+      // Tenant SMS
+      if (tenantPhone) {
+        await sendSMS(tenantPhone, `⚠️ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} was returned. Please contact your bank to resolve the issue, then log in to retry: ${PORTAL_URL} ⚠️`);
+      }
+
+      // Tenant email
+      if (tenantEmail) {
+        await sendEmail(tenantEmail, `⚠️ Bank transfer returned — ${monthLabel} ⚠️`,
+          emailWrapper("#b45309", "Bank transfer returned",
+            `<p style="font-size:15px;color:#1a1a1a;margin:0 0 10px;">Hi ${firstName},</p>
+            <p style="font-size:13px;color:#4b5563;line-height:1.6;margin:0 0 14px;">⚠️ Your bank transfer of <strong>${amount}</strong> for <strong>${monthLabel}</strong> at ${address} was returned by your bank ⚠️</p>
+            <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;font-size:13px;color:#92400e;">
+              <div style="font-weight:600;margin-bottom:8px;">Contact your bank</div>
+              <ul style="margin:0;padding-left:16px;line-height:2.2;">
+                <li>Check that your bank account has sufficient funds</li>
+                <li>Confirm your bank account number is correct</li>
+                <li>Contact your bank to ask why the transfer was returned</li>
+                <li>Log in to retry with a different account or card</li>
+              </ul>
+            </div>`
+          )
+        );
       }
     }
   }
