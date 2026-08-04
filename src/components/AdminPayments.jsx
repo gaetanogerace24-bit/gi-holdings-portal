@@ -207,7 +207,12 @@ function PaymentTimeline({ inv }) {
 
 function InvoiceBreakdown({ inv }) {
   const rent = Number(inv?.rent || 0);
-  const lateFee = inv?.paid ? Number(inv?.late_fee || 0) : (inv?.is_custom || inv?.payment_status === "processing" ? 0 : calcLateFee(inv?.due_date));
+  // For processing: show the late fee that was saved at time of payment (inv.late_fee)
+  // For paid: show saved late fee
+  // For unpaid/overdue: calculate live late fee
+  const lateFee = (inv?.paid || inv?.payment_status === "processing")
+    ? Number(inv?.late_fee || 0)
+    : (inv?.is_custom ? 0 : calcLateFee(inv?.due_date));
   const total = rent + lateFee;
   const daysLate = lateFee > 35 ? Math.round((lateFee - 35) / 10) : 0;
   return (
