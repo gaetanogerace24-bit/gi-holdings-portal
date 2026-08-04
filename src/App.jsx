@@ -172,11 +172,12 @@ export default function App() {
 
   const handlePaymentSuccess = async (tenantId, invoiceIds = [], customInvoiceIds = []) => {
     if (invoiceIds.length) {
+      const now = new Date().toISOString();
       await supabase.from("invoices")
-        .update({ payment_status: "processing", updated_at: new Date().toISOString() })
+        .update({ payment_status: "processing", updated_at: now })
         .in("id", invoiceIds);
       setInvoices(prev => prev.map(inv =>
-        invoiceIds.includes(inv.id) ? { ...inv, payment_status: "processing" } : inv
+        invoiceIds.includes(inv.id) ? { ...inv, payment_status: "processing", updated_at: now } : inv
       ));
     }
     if (customInvoiceIds.length) {
@@ -274,6 +275,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
