@@ -3,12 +3,12 @@ import { supabase } from "../supabase";
 import SendInvoiceModal from "./SendInvoiceModal";
 import PayContractorModal from "./PayContractorModal";
 
-// Get today's date in EST (UTC-4 EDT / UTC-5 EST)
+// Get today's date in EST/EDT using Intl API — always correct regardless of server/browser timezone
 function todayEST() {
   const now = new Date();
-  const estOffset = now.getTimezoneOffset() === 300 ? -5 : -4; // EST vs EDT
-  const est = new Date(now.getTime() + (now.getTimezoneOffset() + estOffset * -1 * -1) * 60000);
-  return new Date(Date.UTC(est.getUTCFullYear(), est.getUTCMonth(), est.getUTCDate()));
+  const estDateStr = now.toLocaleDateString("en-CA", { timeZone: "America/New_York" }); // returns YYYY-MM-DD
+  const [y, m, d] = estDateStr.split("-");
+  return new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
 }
 
 // Count calendar days between two UTC midnight dates
@@ -20,23 +20,9 @@ function daysBetween(a, b) {
 function toESTDate(str) {
   if (!str) return todayEST();
   const d = new Date(str);
-  const month = d.getUTCMonth();
-  const offsetHours = (month >= 2 && month <= 10) ? 4 : 5;
-  const estTime = d.getUTCHours() - offsetHours;
-  let estDay = d.getUTCDate();
-  let estMonth = d.getUTCMonth();
-  let estYear = d.getUTCFullYear();
-  console.log("toESTDate input:", str, "UTC hour:", d.getUTCHours(), "offset:", offsetHours, "estTime:", estTime, "estDay:", estDay);
-  if (estTime < 0) {
-    estDay -= 1;
-    const temp = new Date(Date.UTC(estYear, estMonth, estDay));
-    estYear = temp.getUTCFullYear();
-    estMonth = temp.getUTCMonth();
-    estDay = temp.getUTCDate();
-  }
-  const result = new Date(Date.UTC(estYear, estMonth, estDay));
-  console.log("toESTDate result:", result.toISOString());
-  return result;
+  const estDateStr = d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+  const [y, m, day] = estDateStr.split("-");
+  return new Date(Date.UTC(Number(y), Number(m) - 1, Number(day)));
 }
 
 function calcLateFee(dueDateStr, rules = {}) {
@@ -49,8 +35,9 @@ function calcLateFee(dueDateStr, rules = {}) {
   const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), startDay));
   const today = todayEST();
   if (today < feeStart) return 0;
+  // Day 0 = fee start day (initial fee only), Day 1+ = daily fees kick in
   const daysAfterFeeStart = daysBetween(feeStart, today);
-  return initialFee + daysAfterFeeStart * dailyFee;
+  return initialFee + (daysAfterFeeStart * dailyFee);
 }
 
 function getTenantLateFeeRules(tenant) {
