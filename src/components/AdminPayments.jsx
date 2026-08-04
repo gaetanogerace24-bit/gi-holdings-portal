@@ -20,23 +20,23 @@ function daysBetween(a, b) {
 function toESTDate(str) {
   if (!str) return todayEST();
   const d = new Date(str);
-  // EDT = UTC-4 (Mar-Nov), EST = UTC-5 (Nov-Mar)
-  const month = d.getUTCMonth(); // 0=Jan
-  const offsetHours = (month >= 2 && month <= 10) ? 4 : 5; // EDT or EST
-  // Subtract offset to get EST time, then extract date
+  const month = d.getUTCMonth();
+  const offsetHours = (month >= 2 && month <= 10) ? 4 : 5;
   const estTime = d.getUTCHours() - offsetHours;
   let estDay = d.getUTCDate();
   let estMonth = d.getUTCMonth();
   let estYear = d.getUTCFullYear();
+  console.log("toESTDate input:", str, "UTC hour:", d.getUTCHours(), "offset:", offsetHours, "estTime:", estTime, "estDay:", estDay);
   if (estTime < 0) {
-    // Crossed midnight going backward — previous day
     estDay -= 1;
     const temp = new Date(Date.UTC(estYear, estMonth, estDay));
     estYear = temp.getUTCFullYear();
     estMonth = temp.getUTCMonth();
     estDay = temp.getUTCDate();
   }
-  return new Date(Date.UTC(estYear, estMonth, estDay));
+  const result = new Date(Date.UTC(estYear, estMonth, estDay));
+  console.log("toESTDate result:", result.toISOString());
+  return result;
 }
 
 function calcLateFee(dueDateStr) {
