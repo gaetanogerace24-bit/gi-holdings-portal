@@ -641,28 +641,70 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                 const chargeId = `inv_${inv.id}`;
                 const isSelected = effectiveSelectedIds.has(chargeId);
                 const isOverdue = inv._type === "overdue";
+                const rent = Number(inv.rent || 0);
+                const fee = inv.liveFee || 0;
+                const startDay = lateFeeRules.startDay || 5;
+                const initialFee = lateFeeRules.initialFee ?? 35;
+                const dailyFee = lateFeeRules.dailyFee ?? 10;
+                const daysOfDaily = fee > initialFee ? Math.round((fee - initialFee) / dailyFee) : 0;
+                const feeStartDate = (() => {
+                  if (!inv.due_date) return null;
+                  const parts = inv.due_date.split("T")[0].split("-");
+                  const d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, startDay));
+                  return new Date(d.getTime() + d.getTimezoneOffset() * 60000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                })();
                 return (
-                  <div key={inv.id} onClick={() => toggleCharge(chargeId)} style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "12px 14px", borderRadius: 10, marginBottom: 8, cursor: "pointer",
-                    border: isSelected ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
-                    background: isSelected ? "#f0fdf4" : "#fff",
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{
-                        width: 20, height: 20, borderRadius: 4, flexShrink: 0,
-                        background: isSelected ? "#1b3d2a" : "#fff",
-                        border: isSelected ? "none" : "1.5px solid #d1d5db",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>
-                        {isSelected && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
+                  <div key={inv.id} style={{ marginBottom: 8 }}>
+                    <div onClick={() => toggleCharge(chargeId)} style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "12px 14px", borderRadius: fee > 0 ? "10px 10px 0 0" : 10, cursor: "pointer",
+                      border: isSelected ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                      borderBottom: fee > 0 ? "none" : undefined,
+                      background: isSelected ? "#f0fdf4" : "#fff",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{
+                          width: 20, height: 20, borderRadius: 4, flexShrink: 0,
+                          background: isSelected ? "#1b3d2a" : "#fff",
+                          border: isSelected ? "none" : "1.5px solid #d1d5db",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          {isSelected && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{inv.month}</div>
+                          <div style={{ fontSize: 11, color: "#dc2626", marginTop: 1 }}>{isOverdue ? "Overdue" : "Due now"}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{inv.month}</div>
-                        <div style={{ fontSize: 11, color: "#dc2626", marginTop: 1 }}>{isOverdue ? "Overdue" : "Due now"}</div>
-                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(inv.liveTotal)}</div>
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(inv.liveTotal)}</div>
+                    {fee > 0 && (
+                      <div style={{
+                        background: "#fef2f2",
+                        border: isSelected ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                        borderTop: "0.5px solid #fca5a5",
+                        borderRadius: "0 0 10px 10px",
+                        padding: "10px 14px",
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                          <span style={{ color: "#6b7280" }}>Rent</span>
+                          <span style={{ color: "#1a1a1a", fontWeight: 500 }}>{fmt(rent)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: daysOfDaily > 0 ? 4 : 6 }}>
+                          <span style={{ color: "#dc2626" }}>One-time late fee{feeStartDate ? ` (added ${feeStartDate})` : ""}</span>
+                          <span style={{ color: "#dc2626", fontWeight: 500 }}>+{fmt(initialFee)}</span>
+                        </div>
+                        {daysOfDaily > 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                            <span style={{ color: "#dc2626" }}>{fmt(dailyFee)}/day × {daysOfDaily} day{daysOfDaily !== 1 ? "s" : ""}</span>
+                            <span style={{ color: "#dc2626", fontWeight: 500 }}>+{fmt(daysOfDaily * dailyFee)}</span>
+                          </div>
+                        )}
+                        <div style={{ fontSize: 11, color: "#dc2626", paddingTop: 6, borderTop: "0.5px solid #fca5a5" }}>
+                          {fmt(dailyFee)} added each day until paid
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -874,6 +916,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
