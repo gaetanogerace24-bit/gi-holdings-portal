@@ -435,7 +435,7 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
   );
 }
 
-function ProcessingSheet({ invoices = [], customInvoices = [], tenants = [], onClose }) {
+function ProcessingSheet({ invoices = [], customInvoices = [], tenants = [], onClose, onSelect }) {
   const tenantName = (id) => tenants.find(t => t.id === id)?.name || "Tenant";
   const total = invoices.length + customInvoices.length;
   return (
@@ -450,12 +450,15 @@ function ProcessingSheet({ invoices = [], customInvoices = [], tenants = [], onC
       ) : (
         <div style={{ padding: "8px 20px" }}>
           {invoices.map(inv => (
-            <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: "1px solid #f3f4f6" }}>
+            <div key={inv.id} onClick={() => onSelect && onSelect(inv)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: "1px solid #f3f4f6", cursor: "pointer" }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{tenantName(inv.tenant_id)}</div>
                 <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{inv.month}</div>
               </div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(calcLiveTotal(inv))}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(calcLiveTotal(inv))}</div>
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>›</span>
+              </div>
             </div>
           ))}
           {customInvoices.map(inv => (
@@ -1019,7 +1022,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       {sheet === "allUnpaid" && <FilteredInvoiceSheet title="Unpaid Invoices" invoices={unpaidList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
       {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="nextmonth" />}
       {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={[...completedList, ...paidCustomInvoices.map(i => ({ ...i, paid: true, rent: i.amount, is_custom: true, month: i.title })), ...paidClientInvoices.map(i => ({ ...i, paid: true, rent: i.amount, is_custom: true, month: i.description, due_date: i.updated_at, tenant_name: i.name, tenant_address: "Client invoice", paid_date: i.updated_at }))]} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
-      {sheet === "processing" && <ProcessingSheet invoices={processingList} customInvoices={processingCustomInvoices} tenants={tenants} onClose={() => setSheet(null)} />}
+      {sheet === "processing" && <ProcessingSheet invoices={processingList} customInvoices={processingCustomInvoices} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv) => { setSelectedInvoice(inv); setSheet(null); }} />}
       {sheet === "section8" && (
         <Sheet onClose={() => setSheet(null)}>
           <SheetHeader title="Section 8 / Housing Authority" onClose={() => setSheet(null)} />
