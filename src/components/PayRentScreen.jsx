@@ -654,12 +654,10 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                   return new Date(d.getTime() + d.getTimezoneOffset() * 60000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
                 })();
                 return (
-                  <div key={inv.id} style={{ marginBottom: 8 }}>
+                  <div key={inv.id} style={{ marginBottom: 8, border: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"), borderRadius: 10, overflow: "hidden" }}>
                     <div onClick={() => toggleCharge(chargeId)} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: "12px 14px", borderRadius: fee > 0 ? "10px 10px 0 0" : 10, cursor: "pointer",
-                      border: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"),
-                      borderBottom: fee > 0 ? "none" : undefined,
+                      padding: "12px 14px", cursor: "pointer",
                       background: isSelected ? "#f0fdf4" : "#fff",
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -681,9 +679,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                     {fee > 0 && (
                       <div style={{
                         background: "#fef2f2",
-                        border: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"),
-                        borderTop: "0.5px solid #fca5a5",
-                        borderRadius: "0 0 10px 10px",
+                        borderTop: "1px solid #fca5a5",
                         padding: "10px 14px",
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
