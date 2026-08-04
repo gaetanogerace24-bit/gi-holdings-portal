@@ -31,8 +31,8 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
   const rent = Number(tenant?.rent) || 0;
 
   const invoicesWithLive = invoices.map(inv => {
-    const liveFee = inv.is_custom ? 0 : calcLateFee(inv.due_date);
-    const liveTotal = Number(inv.rent || 0) + liveFee;
+    const liveFee = inv.is_custom || inv.payment_status === "processing" ? 0 : calcLateFee(inv.due_date);
+    const liveTotal = inv.payment_status === "processing" ? Number(inv.total || inv.rent || 0) : Number(inv.rent || 0) + liveFee;
     const parts = (inv.due_date || "").split("T")[0].split("-");
     const due = parts.length === 3
       ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
@@ -165,6 +165,7 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
     </div>
   );
 }
+
 
 
 
