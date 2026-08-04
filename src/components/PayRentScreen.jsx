@@ -658,7 +658,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                     <div onClick={() => toggleCharge(chargeId)} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: "12px 14px", borderRadius: fee > 0 ? "10px 10px 0 0" : 10, cursor: "pointer",
-                      border: isSelected ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                      border: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"),
                       borderBottom: fee > 0 ? "none" : undefined,
                       background: isSelected ? "#f0fdf4" : "#fff",
                     }}>
@@ -681,7 +681,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                     {fee > 0 && (
                       <div style={{
                         background: "#fef2f2",
-                        border: isSelected ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                        border: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"),
                         borderTop: "0.5px solid #fca5a5",
                         borderRadius: "0 0 10px 10px",
                         padding: "10px 14px",
@@ -715,7 +715,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                   <div key={inv.id} onClick={() => toggleCharge(chargeId)} style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                     padding: "12px 14px", borderRadius: 10, marginBottom: 8, cursor: "pointer",
-                    border: isSelected ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                    border: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"),
                     background: isSelected ? "#f0fdf4" : "#fff",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
