@@ -39,24 +39,37 @@ function toESTDate(str) {
   return result;
 }
 
-function calcLateFee(dueDateStr) {
+function calcLateFee(dueDateStr, rules = {}) {
   if (!dueDateStr) return 0;
+  const startDay = rules.late_fee_start_day || 5;
+  const initialFee = Number(rules.initial_late_fee ?? 35);
+  const dailyFee = Number(rules.daily_late_fee ?? 10);
   const [year, month, day] = dueDateStr.split("T")[0].split("-");
   const due = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
-  const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), 5));
+  const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), startDay));
   const today = todayEST();
   if (today < feeStart) return 0;
   const daysAfterFeeStart = daysBetween(feeStart, today);
-  return 35 + daysAfterFeeStart * 10;
+  return initialFee + daysAfterFeeStart * dailyFee;
+}
+
+function getTenantLateFeeRules(tenant) {
+  if (!tenant || !tenant.custom_late_fee) return {};
+  return {
+    late_fee_start_day: tenant.late_fee_start_day || 5,
+    initial_late_fee: tenant.initial_late_fee ?? 35,
+    daily_late_fee: tenant.daily_late_fee ?? 10,
+  };
 }
 
 // Returns the live total for an invoice — skips late fees if payment is processing
-function calcLiveTotal(inv) {
+function calcLiveTotal(inv, tenant = null) {
   if (!inv) return 0;
   if (inv.paid) return Number(inv.total || inv.rent || 0);
   if (inv.payment_status === "processing") return Number(inv.total || inv.rent || 0);
   if (inv.is_custom) return Number(inv.rent || 0);
-  return Number(inv.rent || 0) + calcLateFee(inv.due_date);
+  const rules = getTenantLateFeeRules(tenant);
+  return Number(inv.rent || 0) + calcLateFee(inv.due_date, rules);
 }
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -257,16 +270,17 @@ function PaymentTimeline({ inv }) {
   );
 }
 
-function InvoiceBreakdown({ inv }) {
+function InvoiceBreakdown({ inv, tenant }) {
   const rent = Number(inv?.rent || 0);
-  // For processing: show the late fee that was saved at time of payment (inv.late_fee)
-  // For paid: show saved late fee
-  // For unpaid/overdue: calculate live late fee
+  const rules = getTenantLateFeeRules(tenant);
+  const startDay = rules.late_fee_start_day || 5;
+  const initialFee = Number(rules.initial_late_fee ?? 35);
+  const dailyFee = Number(rules.daily_late_fee ?? 10);
   const lateFee = (inv?.paid || inv?.payment_status === "processing")
     ? Number(inv?.late_fee || 0)
-    : (inv?.is_custom ? 0 : calcLateFee(inv?.due_date));
+    : (inv?.is_custom ? 0 : calcLateFee(inv?.due_date, rules));
   const total = rent + lateFee;
-  const daysLate = lateFee > 35 ? Math.round((lateFee - 35) / 10) : 0;
+  const daysLate = lateFee > initialFee ? Math.round((lateFee - initialFee) / dailyFee) : 0;
   return (
     <div style={{ padding: "16px 0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
@@ -275,13 +289,13 @@ function InvoiceBreakdown({ inv }) {
       </div>
       {!inv?.is_custom && lateFee > 0 && <>
         <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
-          <span style={{ fontSize: 14, color: "#dc2626" }}>One-time late fee (day 5)</span>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#dc2626" }}>$35.00</span>
+          <span style={{ fontSize: 14, color: "#dc2626" }}>One-time late fee (day {startDay})</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#dc2626" }}>{fmt(initialFee)}</span>
         </div>
         {daysLate > 0 && (
           <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
-            <span style={{ fontSize: 14, color: "#dc2626" }}>Daily fees ({daysLate} day{daysLate !== 1 ? "s" : ""} × $10)</span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#dc2626" }}>{fmt(daysLate * 10)}</span>
+            <span style={{ fontSize: 14, color: "#dc2626" }}>Daily fees ({daysLate} day{daysLate !== 1 ? "s" : ""} × {fmt(dailyFee)})</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#dc2626" }}>{fmt(daysLate * dailyFee)}</span>
           </div>
         )}
       </>}
@@ -298,7 +312,8 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmUnpaid, setConfirmUnpaid] = useState(false);
   const status = inv?.payment_status === "processing" ? "processing" : getStatus(inv);
-  const liveFee = inv?.paid ? Number(inv?.late_fee || 0) : (inv?.is_custom || inv?.payment_status === "processing" ? 0 : calcLateFee(inv?.due_date));
+  const rules = getTenantLateFeeRules(tenant);
+  const liveFee = inv?.paid ? Number(inv?.late_fee || 0) : (inv?.is_custom || inv?.payment_status === "processing" ? 0 : calcLateFee(inv?.due_date, rules));
   const liveTotal = inv?.payment_status === "processing" ? Number(inv?.total || inv?.rent || 0) : Number(inv?.rent || 0) + liveFee;
   return (
     <Sheet onClose={onClose}>
@@ -358,7 +373,7 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
       <TabBar tab={tab} setTab={setTab} tabs={[{ key: "timeline", label: "Payment timeline" }, { key: "breakdown", label: "Invoice breakdown" }]} />
       <div style={{ padding: "0 20px" }}>
         {tab === "timeline" && <PaymentTimeline inv={inv} />}
-        {tab === "breakdown" && <InvoiceBreakdown inv={inv} />}
+        {tab === "breakdown" && <InvoiceBreakdown inv={inv} tenant={tenant} />}
       </div>
     </Sheet>
   );
@@ -377,7 +392,7 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
       <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid #f3f4f6" }}>
         <div>
           <div style={{ fontSize: 12, color: "#000" }}>Total amount</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(active.reduce((s, i) => s + calcLiveTotal(i), 0))}</div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(active.reduce((s, i) => s + calcLiveTotal(i, tenant), 0))}</div>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 12, color: "#000" }}>Invoices</div>
@@ -389,7 +404,7 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
         {sorted.map((inv, i) => {
           const status = inv.payment_status === "processing" ? "processing" : getStatus(inv);
           const isDeleted = inv.deleted;
-          const liveTotal = calcLiveTotal(inv);
+          const liveTotal = calcLiveTotal(inv, tenant || tenants?.find(t => t.id === inv.tenant_id));
           const label = inv.is_custom ? (inv.month?.split(" —")[0] || "Custom charge") : "Rent & Fees";
           return (
             <div key={inv.id} onClick={() => !isDeleted && onSelect(inv)}
@@ -443,7 +458,7 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
     return true;
   });
   const sorted = [...filtered].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
-  const totalAmt = filtered.reduce((s, inv) => s + (calcLiveTotal(inv)), 0);
+  const totalAmt = filtered.reduce((s, inv) => s + calcLiveTotal(inv, tenants?.find(t => t.id === inv.tenant_id)), 0);
   const filterBtns = defaultFilter === "nextmonth"
     ? [{ key: "nextmonth", label: "Next month" }, { key: "all", label: "All time" }]
     : [{ key: "thismonth", label: "This month" }, { key: "all", label: "All time" }];
@@ -464,7 +479,7 @@ function FilteredInvoiceSheet({ title, invoices, tenants, onClose, onSelect, def
         {sorted.map((inv, i) => {
           const tenant = tenants.find(t => t.id === inv.tenant_id);
           const status = inv.payment_status === "processing" ? "processing" : getStatus(inv);
-          const liveTotal = calcLiveTotal(inv);
+          const liveTotal = calcLiveTotal(inv, tenant || tenants?.find(t => t.id === inv.tenant_id));
           const label = inv.is_custom ? (inv.month?.split(" —")[0] || "Custom charge") : "Rent & Fees";
           return (
             <div key={inv.id} onClick={() => onSelect(inv, tenant || { name: inv.tenant_name || "Deleted tenant", address: inv.tenant_address || "—" })}
@@ -513,7 +528,7 @@ function ProcessingSheet({ invoices = [], customInvoices = [], tenants = [], onC
                 <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{inv.month}</div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(calcLiveTotal(inv))}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(calcLiveTotal(inv, tenants.find(t => t.id === inv.tenant_id)))}</div>
                 <span style={{ fontSize: 12, color: "#9ca3af" }}>›</span>
               </div>
             </div>
@@ -721,7 +736,7 @@ function ArchivedTenantCard({ tenant, invoices, onSelect, onDelete }) {
               {sorted.length === 0 && <div style={{ padding: 16, textAlign: "center", fontSize: 13, color: "#9ca3af" }}>No invoices</div>}
               {sorted.map((inv, i) => {
                 const status = getStatus(inv);
-                const liveTotal = calcLiveTotal(inv);
+                const liveTotal = calcLiveTotal(inv, tenant || tenants?.find(t => t.id === inv.tenant_id));
                 return (
                   <div key={inv.id} onClick={() => onSelect(inv, tenant)}
                     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer", background: "#fff" }}>
@@ -860,7 +875,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   });
 
   const upcomingTotal   = upcomingNextMonth.reduce((s, i) => s + Number(i.rent || 0), 0);
-  const overdueTotal    = overdueList.reduce((s, i) => s + calcLiveTotal(i), 0);
+  const overdueTotal    = overdueList.reduce((s, i) => s + calcLiveTotal(i, tenants.find(t => t.id === i.tenant_id)), 0);
   const paidCustomThisMonth = paidCustomInvoices;
   const completedTotal = completedThisMonth.reduce((s, i) => s + Number(i.total || i.rent || 0), 0)
     + paidCustomThisMonth.reduce((s, i) => s + Number(i.amount || 0), 0)
@@ -875,7 +890,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         const d = new Date(i.updated_at);
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       }).length;
-  const processingTotal = processingList.reduce((s, i) => s + calcLiveTotal(i), 0)
+  const processingTotal = processingList.reduce((s, i) => s + calcLiveTotal(i, tenants.find(t => t.id === i.tenant_id)), 0)
     + processingCustomInvoices.reduce((s, i) => s + Number(i.amount || 0), 0);
   const processingCount = processingList.length + processingCustomInvoices.length;
 
@@ -891,7 +906,9 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
 
   const handleMarkPaid = async (inv) => {
     const paidDate = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const liveFee = inv.is_custom ? 0 : calcLateFee(inv.due_date);
+    const tenant = tenants.find(t => t.id === inv.tenant_id);
+    const rules = getTenantLateFeeRules(tenant);
+    const liveFee = inv.is_custom ? 0 : calcLateFee(inv.due_date, rules);
     const liveTotal = Number(inv.rent) + liveFee;
     await supabase.from("invoices").update({ paid: true, paid_date: paidDate, late_fee: liveFee, total: liveTotal, updated_at: now.toISOString() }).eq("id", inv.id);
     setInvoices(invoices.map(i => i.id === inv.id ? { ...i, paid: true, paid_date: paidDate, late_fee: liveFee, total: liveTotal } : i));
@@ -1124,7 +1141,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
           <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
             {overdueList.map((inv, i) => {
               const tenant = tenants.find(t => t.id === inv.tenant_id);
-              const liveTotal = calcLiveTotal(inv);
+              const liveTotal = calcLiveTotal(inv, tenant || tenants?.find(t => t.id === inv.tenant_id));
               return (
                 <div key={inv.id} onClick={() => { setSelectedTenant(tenant); setSelectedInvoice(inv); setSheet("invoice"); }}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < overdueList.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer" }}>
