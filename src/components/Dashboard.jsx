@@ -4,18 +4,27 @@ function fmt(n) {
     ? "$" + num.toLocaleString()
     : "$" + num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function calcLateFee(dueDateStr) {
+
+function todayEST() {
+  const now = new Date();
+  const estDateStr = now.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+  const [y, m, d] = estDateStr.split("-");
+  return new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+}
+
+function calcLateFee(dueDateStr, rules = {}) {
   if (!dueDateStr) return 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const startDay = Number(rules.startDay) || 5;
+  const initialFee = rules.initialFee != null ? Number(rules.initialFee) : 35;
+  const dailyFee = rules.dailyFee != null ? Number(rules.dailyFee) : 10;
   const parts = dueDateStr.split("T")[0].split("-");
   if (parts.length !== 3) return 0;
-  const due = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  const feeStart = new Date(due.getFullYear(), due.getMonth(), 5);
+  const due = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+  const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), startDay));
+  const today = todayEST();
   if (today < feeStart) return 0;
-  const msPerDay = 1000 * 60 * 60 * 24;
-  const daysAfterFeeStart = Math.floor((today - feeStart) / msPerDay);
-  return 35 + daysAfterFeeStart * 10;
+  const days = Math.round((today.getTime() - feeStart.getTime()) / 86400000);
+  return initialFee + days * dailyFee;
 }
 
 // Last day of current month
@@ -30,8 +39,14 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
   const day = now.getDate();
   const rent = Number(tenant?.rent) || 0;
 
+  const lateFeeRules = tenant?.custom_late_fee ? {
+    startDay: Number(tenant.late_fee_start_day) || 5,
+    initialFee: tenant.initial_late_fee != null ? Number(tenant.initial_late_fee) : 35,
+    dailyFee: tenant.daily_late_fee != null ? Number(tenant.daily_late_fee) : 10,
+  } : {};
+
   const invoicesWithLive = invoices.map(inv => {
-    const liveFee = inv.is_custom || inv.payment_status === "processing" ? 0 : calcLateFee(inv.due_date);
+    const liveFee = inv.is_custom || inv.payment_status === "processing" ? 0 : calcLateFee(inv.due_date, lateFeeRules);
     const liveTotal = inv.payment_status === "processing" ? Number(inv.total || inv.rent || 0) : Number(inv.rent || 0) + liveFee;
     const parts = (inv.due_date || "").split("T")[0].split("-");
     const due = parts.length === 3
