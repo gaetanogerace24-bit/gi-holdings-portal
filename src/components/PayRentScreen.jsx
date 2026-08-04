@@ -485,7 +485,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       if (confirmError) throw new Error(confirmError.message);
       handleSuccess(paymentData.paymentIntentId, false, true);
     } catch (err) {
-      setError(err.message || "Card payment failed. Please try again.");
+      setResultInfo({ failReason: err.message || "Your bank declined this payment. Please try a different card." });
+      setStep("failed");
     } finally {
       setPaying(false);
     }
@@ -514,40 +515,66 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     </div>
   );
 
-  if (step === "success") return (
+  if (step === "success") {
+    const isCard = resultInfo?.isCard;
+    const isPending = !isCard;
+    return (
+      <div style={{ padding: 24, fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ background: "#fff", borderRadius: 16, padding: "40px 28px", textAlign: "center", border: "1px solid rgba(0,0,0,0.07)" }}>
+          <div style={{ fontSize: 64, marginBottom: 14 }}>{isCard ? "✅" : "⏳"}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: isCard ? "#166534" : "#92400e", marginBottom: 6 }}>
+            {isCard ? "Payment confirmed!" : "Transfer submitted!"}
+          </div>
+          <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20 }}>
+            {fmt(isCard ? cardTotal(total) : total)} — {isCard ? "card payments clear in 1–2 business days." : "bank transfers take 3–5 business days to clear."}
+          </div>
+          {resultInfo?.microdeposits && (
+            <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: "14px 16px", textAlign: "left", fontSize: 13, color: "#92400e", marginBottom: 14 }}>
+              <strong>One more step:</strong> your bank couldn't be verified instantly. Stripe will send a small
+              deposit to your account in 1–2 days with a 6-character code — follow the emailed link to confirm it,
+              and your payment will complete automatically.
+            </div>
+          )}
+          <div style={{ background: isCard ? "#f0fdf4" : "#fffbeb", border: `1px solid ${isCard ? "#bbf7d0" : "#fcd34d"}`, borderRadius: 12, padding: "16px 20px", textAlign: "left", fontSize: 13, lineHeight: 2 }}>
+            <div style={{ fontWeight: 700, color: isCard ? "#166534" : "#92400e", marginBottom: 4 }}>
+              {isCard ? "Payment confirmation" : "Transfer in progress"}
+            </div>
+            <div>Amount: <strong>{fmt(total)}</strong></div>
+            {payMode === "prepay" && !payingCustomInvoice
+              ? <div>Months covered: <strong>{activePrepayInvoices.map(i => i.month).join(", ") || "—"}</strong></div>
+              : payingCustomInvoice
+                ? <div>Charge: <strong>{payingCustomInvoice.title}</strong></div>
+                : <div>Charges: <strong>{[...selectedRegularInvoices.map(i => i.month), ...selectedCustomInvoices.map(i => i.title)].join(", ") || "—"}</strong></div>
+            }
+            <div>Property: {tenant?.address}</div>
+            <div>Method: {isCard ? "💳 Debit/Credit Card" : "🏦 ACH Bank Transfer"}</div>
+            <div>Ref: {resultInfo?.refId || "—"}</div>
+            <div>Date: {new Date().toLocaleDateString()}</div>
+          </div>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 14 }}>
+            {isCard ? "A receipt has been sent to your email and phone." : "You'll be notified by email and text when the transfer clears."}
+          </div>
+        </div>
+        <AutopaySection tenant={tenant} />
+      </div>
+    );
+  }
+
+  if (step === "failed") return (
     <div style={{ padding: 24, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ background: "#fff", borderRadius: 16, padding: "40px 28px", textAlign: "center", border: "1px solid rgba(0,0,0,0.07)" }}>
-        <div style={{ fontSize: 56, marginBottom: 14 }}>✅</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#166534", marginBottom: 6 }}>Payment submitted!</div>
+        <div style={{ fontSize: 64, marginBottom: 14 }}>❌</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>Payment failed</div>
         <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20 }}>
-          {fmt(resultInfo?.isCard ? cardTotal(total) : total)} — {resultInfo?.isCard ? "card payments clear in 1–2 business days." : "bank transfers take 3–5 business days to clear."}
+          Your card was declined. Please try a different card or payment method.
         </div>
-        {resultInfo?.microdeposits && (
-          <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: "14px 16px", textAlign: "left", fontSize: 13, color: "#92400e", marginBottom: 14 }}>
-            <strong>One more step:</strong> your bank couldn't be verified instantly. Stripe will send a small
-            deposit to your account in 1–2 days with a 6-character code — follow the emailed link to confirm it,
-            and your payment will complete automatically.
-          </div>
-        )}
-        <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "16px 20px", textAlign: "left", fontSize: 13, lineHeight: 2 }}>
-          <div style={{ fontWeight: 700, color: "#166534", marginBottom: 4 }}>Payment confirmation</div>
-          <div>Amount: <strong>{fmt(total)}</strong></div>
-          {payMode === "prepay" && !payingCustomInvoice
-            ? <div>Months covered: <strong>{activePrepayInvoices.map(i => i.month).join(", ") || "—"}</strong></div>
-            : payingCustomInvoice
-              ? <div>Charge: <strong>{payingCustomInvoice.title}</strong></div>
-              : <div>Charges: <strong>{[...selectedRegularInvoices.map(i => i.month), ...selectedCustomInvoices.map(i => i.title)].join(", ") || "—"}</strong></div>
-          }
-          <div>Property: {tenant?.address}</div>
-          <div>Method: {resultInfo?.isCard ? "💳 Debit/Credit Card" : "🏦 ACH Bank Transfer"}</div>
-          <div>Ref: {resultInfo?.refId || "—"}</div>
-          <div>Date: {new Date().toLocaleDateString()}</div>
+        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "16px 20px", textAlign: "left", fontSize: 13, color: "#991b1b", marginBottom: 20 }}>
+          {resultInfo?.failReason || "Your bank declined this payment. Check your card details or try a different payment method."}
         </div>
-        <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 14 }}>
-          Your invoice will show as paid once the transfer clears.
-        </div>
+        <button onClick={() => setStep("checkout")} style={{ width: "100%", padding: "13px", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+          Try again
+        </button>
       </div>
-      <AutopaySection tenant={tenant} />
     </div>
   );
 
