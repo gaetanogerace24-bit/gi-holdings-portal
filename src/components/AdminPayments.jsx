@@ -1022,7 +1022,12 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       {sheet === "allUnpaid" && <FilteredInvoiceSheet title="Unpaid Invoices" invoices={unpaidList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
       {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="nextmonth" />}
       {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={[...completedList, ...paidCustomInvoices.map(i => ({ ...i, paid: true, rent: i.amount, is_custom: true, month: i.title })), ...paidClientInvoices.map(i => ({ ...i, paid: true, rent: i.amount, is_custom: true, month: i.description, due_date: i.updated_at, tenant_name: i.name, tenant_address: "Client invoice", paid_date: i.updated_at }))]} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
-      {sheet === "processing" && <ProcessingSheet invoices={processingList} customInvoices={processingCustomInvoices} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv) => { setSelectedInvoice(inv); setSheet(null); }} />}
+      {sheet === "processing" && <ProcessingSheet invoices={processingList} customInvoices={processingCustomInvoices} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv) => { 
+        const tenant = tenants.find(t => t.id === inv.tenant_id);
+        setSelectedInvoice(inv); 
+        setSelectedTenant(tenant || { name: inv.tenant_name || "Unknown", address: inv.tenant_address || "—" });
+        setSheet("invoice"); 
+      }} />}
       {sheet === "section8" && (
         <Sheet onClose={() => setSheet(null)}>
           <SheetHeader title="Section 8 / Housing Authority" onClose={() => setSheet(null)} />
@@ -1084,7 +1089,11 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       )}
       {sheet === "detail" && selectedTenant && <CollectionDetailSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => { setSheet(null); setSelectedTenant(null); }} onViewInvoices={() => setSheet("invoices")} onArchive={handleArchive} />}
       {sheet === "invoices" && selectedTenant && <InvoiceListSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => setSheet(null)} onSelect={inv => { setSelectedInvoice(inv); setSheet("invoice"); }} />}
-      {sheet === "invoice" && selectedInvoice && selectedTenant && <InvoiceDetailSheet inv={selectedInvoice} tenant={selectedTenant} onClose={() => { setSheet("invoices"); setSelectedInvoice(null); }} onMarkPaid={handleMarkPaid} onMarkUnpaid={handleMarkUnpaid} onEdit={inv => setEditingInvoice(inv)} onDelete={handleDelete} />}
+      {sheet === "invoice" && selectedInvoice && selectedTenant && <InvoiceDetailSheet inv={selectedInvoice} tenant={selectedTenant} onClose={() => { 
+        if (selectedInvoice.payment_status === "processing") { setSheet("processing"); } 
+        else { setSheet("invoices"); } 
+        setSelectedInvoice(null); 
+      }} onMarkPaid={handleMarkPaid} onMarkUnpaid={handleMarkUnpaid} onEdit={inv => setEditingInvoice(inv)} onDelete={handleDelete} />}
 
       {showSentInvoices && !selectedSentInvoice && (
         <Sheet onClose={() => { setShowSentInvoices(false); setSelectedSentInvoice(null); }}>
