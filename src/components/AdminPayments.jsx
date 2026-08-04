@@ -165,7 +165,27 @@ function PaymentTimeline({ inv }) {
       events.push({ date: pd, label: "Payment complete", color: "#2563eb", expand: true, bold: true });
     }
   } else if (inv.payment_status === "processing") {
-    events.push({ date: new Date(), label: "Payment submitted — processing (3–5 business days)", color: "#2563eb" });
+    // Show full overdue + late fee history up to when payment was submitted
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const overdueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate() + 1);
+    // Use stripe_payment_intent_id updated_at or fall back to today as the payment submission date
+    const submittedAt = inv.updated_at ? new Date(inv.updated_at.split("T")[0]) : new Date();
+    submittedAt.setHours(0, 0, 0, 0);
+
+    if (!inv.is_custom && overdueDay <= submittedAt) {
+      const daysOverdueBeforeFee = Math.floor((Math.min(feeStart, submittedAt) - overdueDay) / msPerDay);
+      for (let d = 0; d <= daysOverdueBeforeFee; d++) {
+        events.push({ date: new Date(overdueDay.getTime() + d * msPerDay), label: "Payment overdue", color: "#dc2626", expand: true });
+      }
+      if (feeStart <= submittedAt) {
+        events.push({ date: new Date(feeStart), label: `$35.00 one-time late fee added`, color: "#dc2626", expand: true });
+        const days = Math.floor((submittedAt - feeStart) / msPerDay);
+        for (let d = 1; d <= days; d++) {
+          events.push({ date: new Date(feeStart.getTime() + d * msPerDay), label: "$10.00 daily late fee added", color: "#dc2626", expand: true });
+        }
+      }
+    }
+    events.push({ date: submittedAt, label: "Payment submitted — processing (3–5 business days)", color: "#2563eb" });
     events.push({ date: null, label: "Waiting for bank transfer to clear", color: "ghost" });
   } else {
     if (!inv.is_custom && overdueDay <= today) {
