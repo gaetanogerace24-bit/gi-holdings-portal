@@ -58,7 +58,12 @@ export default async function handler(req, res) {
   }
 
   const pi = event.data.object;
-  const { tenantId, tenantName, address, month, invoiceId } = pi.metadata || {};
+  const tenantId = pi.metadata?.tenantId || pi.metadata?.tenant_id;
+  const tenantName = pi.metadata?.tenantName || pi.metadata?.tenant_name || "";
+  const address = pi.metadata?.address || "";
+  const month = pi.metadata?.month || pi.metadata?.months || "";
+  const invoiceId = pi.metadata?.invoiceId || pi.metadata?.invoice_id || "";
+  const invoiceIds = pi.metadata?.invoice_ids ? JSON.parse(pi.metadata.invoice_ids) : (invoiceId ? [invoiceId] : []);
   const amount = `$${(pi.amount / 100).toFixed(2)}`;
   const firstName = tenantName?.split(" ")[0] || "there";
 
@@ -78,10 +83,10 @@ export default async function handler(req, res) {
     const isCard = !pi.payment_method_types?.includes("us_bank_account");
     const method = isCard ? "💳 Card" : "🏦 ACH Bank Transfer";
 
-    if (invoiceId) {
+    if (invoiceIds.length > 0) {
       await supabase.from("invoices").update({
         paid: true, payment_status: "completed", paid_date: new Date().toISOString(),
-      }).eq("id", invoiceId);
+      }).in("id", invoiceIds);
     }
 
     // Owner SMS
@@ -129,8 +134,8 @@ export default async function handler(req, res) {
   if (event.type === "payment_intent.payment_failed") {
     const failReason = pi.last_payment_error?.message || "Card declined";
 
-    if (invoiceId) {
-      await supabase.from("invoices").update({ payment_status: null }).eq("id", invoiceId);
+    if (invoiceIds.length > 0) {
+      await supabase.from("invoices").update({ payment_status: null }).in("id", invoiceIds);
     }
 
     // Owner SMS
@@ -204,8 +209,8 @@ export default async function handler(req, res) {
     const isACH = pi.payment_method_types?.includes("us_bank_account");
     if (isACH) {
       // Reset invoice to unpaid — late fees will continue to accrue
-      if (invoiceId) {
-        await supabase.from("invoices").update({ payment_status: null, paid: false }).eq("id", invoiceId);
+      if (invoiceIds.length > 0) {
+        await supabase.from("invoices").update({ payment_status: null, paid: false }).in("id", invoiceIds);
       }
 
       // Owner SMS
