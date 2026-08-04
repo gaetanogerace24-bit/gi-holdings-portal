@@ -396,12 +396,21 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   };
 
   const handleSuccess = (refId, microdeposits, isCard) => {
+    // Save amount BEFORE marking processing (which zeros out _liveTotal)
+    const paidAmount = payingCustomInvoice
+      ? Number(payingCustomInvoice._liveTotal || payingCustomInvoice.amount || 0)
+      : total;
+    const paidCharges = payingCustomInvoice
+      ? payingCustomInvoice.title
+      : payMode === "prepay"
+        ? activePrepayInvoices.map(i => i.month).join(", ")
+        : [...selectedRegularInvoices.map(i => i.month), ...selectedCustomInvoices.map(i => i.title)].join(", ");
     if (payingCustomInvoice) {
       markCustomInvoiceProcessing(payingCustomInvoice.id);
     } else if (payMode === "current") {
       selectedCustomInvoices.forEach(inv => markCustomInvoiceProcessing(inv.id));
     }
-    setResultInfo({ refId, microdeposits, isCard });
+    setResultInfo({ refId, microdeposits, isCard, paidAmount, paidCharges });
     setStep("success");
     const paidInvoiceIds = payMode === "prepay"
       ? activePrepayInvoices.map(i => i.id)
@@ -526,7 +535,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
             {isCard ? "Payment confirmed!" : "Transfer submitted!"}
           </div>
           <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20 }}>
-            {fmt(isCard ? cardTotal(total) : total)} — {isCard ? "card payments clear in 1–2 business days." : "bank transfers take 3–5 business days to clear."}
+            {fmt(isCard ? cardTotal(resultInfo?.paidAmount ?? total) : (resultInfo?.paidAmount ?? total))} — {isCard ? "card payments clear in 1–2 business days." : "bank transfers take 3–5 business days to clear."}
           </div>
           {resultInfo?.microdeposits && (
             <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 12, padding: "14px 16px", textAlign: "left", fontSize: 13, color: "#92400e", marginBottom: 14 }}>
@@ -539,13 +548,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
             <div style={{ fontWeight: 700, color: isCard ? "#166534" : "#92400e", marginBottom: 4 }}>
               {isCard ? "Payment confirmation" : "Transfer in progress"}
             </div>
-            <div>Amount: <strong>{fmt(total)}</strong></div>
-            {payMode === "prepay" && !payingCustomInvoice
-              ? <div>Months covered: <strong>{activePrepayInvoices.map(i => i.month).join(", ") || "—"}</strong></div>
-              : payingCustomInvoice
-                ? <div>Charge: <strong>{payingCustomInvoice.title}</strong></div>
-                : <div>Charges: <strong>{[...selectedRegularInvoices.map(i => i.month), ...selectedCustomInvoices.map(i => i.title)].join(", ") || "—"}</strong></div>
-            }
+            <div>Amount: <strong>{fmt(resultInfo?.paidAmount ?? total)}</strong></div>
+              <div>Charges: <strong>{resultInfo?.paidCharges || "—"}</strong></div>
             <div>Property: {tenant?.address}</div>
             <div>Method: {isCard ? "💳 Debit/Credit Card" : "🏦 ACH Bank Transfer"}</div>
             <div>Ref: {resultInfo?.refId || "—"}</div>
