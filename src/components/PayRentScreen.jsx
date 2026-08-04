@@ -654,7 +654,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                   return new Date(d.getTime() + d.getTimezoneOffset() * 60000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
                 })();
                 return (
-                  <div key={inv.id} style={{ marginBottom: 8, border: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"), borderRadius: 10, overflow: "hidden" }}>
+                  <div key={inv.id} style={{ marginBottom: 8, outline: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"), borderRadius: 10, overflow: "hidden" }}>
                     <div onClick={() => toggleCharge(chargeId)} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: "12px 14px", cursor: "pointer",
@@ -680,6 +680,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                       <div style={{
                         background: "#fef2f2",
                         borderTop: "1px solid #fca5a5",
+                        borderRadius: "0 0 8px 8px",
                         padding: "10px 14px",
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
@@ -711,7 +712,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                   <div key={inv.id} onClick={() => toggleCharge(chargeId)} style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                     padding: "12px 14px", borderRadius: 10, marginBottom: 8, cursor: "pointer",
-                    border: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"),
+                    outline: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"),
                     background: isSelected ? "#f0fdf4" : "#fff",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
