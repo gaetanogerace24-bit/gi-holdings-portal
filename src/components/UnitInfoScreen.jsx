@@ -76,60 +76,43 @@ function LeaseTab({ tenant }) {
 }
 
 function DocumentsTab({ tenant }) {
-  const docs = (tenant.documents || []).filter(d => !d.archived);
-  const categories = ["Lease agreement", "Move-in inspection", "Community rules", "Notice", "Other"];
+  // Only show docs that the owner has toggled visible
+  const docs = (tenant.documents || []).filter(d => d.tenant_visible === true);
 
   if (docs.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
         <div style={{ fontSize: 16, fontWeight: 600, color: "#1a1a1a", marginBottom: 6 }}>No documents yet</div>
-        <div style={{ fontSize: 13, color: "#6b7280" }}>Your landlord will upload your lease and other documents here.</div>
+        <div style={{ fontSize: 13, color: "#6b7280" }}>Your landlord will share your lease and other documents here.</div>
       </div>
     );
   }
 
   return (
     <div style={{ padding: 16 }}>
-      {categories.map(cat => {
-        const catDocs = docs.filter(d => (d.type || d.category) === cat);
-        if (catDocs.length === 0) return null;
-        return (
-          <div key={cat} style={{ marginBottom: 16 }}>
-            <SL>{cat}</SL>
-            <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
-              {catDocs.map((doc, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < catDocs.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                  <div style={{ fontSize: 20 }}>{docIcon(doc.type || doc.category)}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{doc.name}</div>
-                    <div style={{ fontSize: 11, color: "#9ca3af" }}>Added {doc.date}</div>
-                  </div>
-                  {doc.url ? (
-                    <a href={doc.url} target="_blank" rel="noreferrer" style={{
-                      fontSize: 13, color: "#fff", fontWeight: 600, textDecoration: "none",
-                      background: "#1b3d2a", padding: "6px 14px", borderRadius: 8,
-                    }}>View →</a>
-                  ) : (
-                    <span style={{ fontSize: 11, color: "#d1d5db" }}>No file</span>
-                  )}
-                </div>
-              ))}
+      <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
+        {docs.map((doc, i) => (
+          <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < docs.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+            <div style={{ fontSize: 20 }}>📄</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>{doc.name}</div>
+              <div style={{ fontSize: 11, color: "#9ca3af" }}>Added {doc.date}</div>
             </div>
+            {doc.url ? (
+              <a href={doc.url} target="_blank" rel="noreferrer" style={{
+                fontSize: 13, color: "#fff", fontWeight: 600, textDecoration: "none",
+                background: "#1b3d2a", padding: "6px 14px", borderRadius: 8,
+              }}>View →</a>
+            ) : (
+              <span style={{ fontSize: 11, color: "#d1d5db" }}>No file</span>
+            )}
           </div>
-        );
-      })}
+        ))}
+      </div>
       <div style={{ height: 24 }} />
     </div>
   );
-}
-
-function docIcon(cat) {
-  if (cat === "Lease agreement") return "📄";
-  if (cat === "Move-in inspection") return "🔑";
-  if (cat === "Community rules") return "📜";
-  if (cat === "Notice") return "📋";
-  return "📁";
 }
 
 function InfoCard({ rows }) {
