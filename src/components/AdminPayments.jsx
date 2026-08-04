@@ -169,9 +169,14 @@ function PaymentTimeline({ inv }) {
     const diffDays = (a, b) => { const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()); const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()); return Math.floor((utcB - utcA) / 86400000); };
     const overdueDay = addDays(due, 1);
     const submittedAt = (() => {
-      if (!inv.updated_at) return new Date();
-      const d = new Date(inv.updated_at);
-      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const raw = inv.updated_at || inv.stripe_payment_intent_id ? inv.updated_at : null;
+      if (!raw) return new Date();
+      const d = new Date(raw);
+      // Convert UTC to EST (UTC-5 standard, UTC-4 daylight) — use Eastern time date
+      const estOffset = -4 * 60; // EDT in summer
+      const estMs = d.getTime() + (d.getTimezoneOffset() + estOffset) * 60000;
+      const estDate = new Date(estMs);
+      return new Date(Date.UTC(estDate.getFullYear(), estDate.getMonth(), estDate.getDate()));
     })();
 
     if (!inv.is_custom && overdueDay <= submittedAt) {
