@@ -64,6 +64,7 @@ export default async function handler(req, res) {
   const month = pi.metadata?.month || pi.metadata?.months || "";
   const invoiceId = pi.metadata?.invoiceId || pi.metadata?.invoice_id || "";
   const invoiceIds = pi.metadata?.invoice_ids ? JSON.parse(pi.metadata.invoice_ids) : (invoiceId ? [invoiceId] : []);
+  const customInvoiceIds = pi.metadata?.custom_invoice_ids ? JSON.parse(pi.metadata.custom_invoice_ids) : (pi.metadata?.custom_invoice_id ? [pi.metadata.custom_invoice_id] : []);
   const amount = `$${(pi.amount / 100).toFixed(2)}`;
   const firstName = tenantName?.split(" ")[0] || "there";
 
@@ -87,6 +88,11 @@ export default async function handler(req, res) {
       await supabase.from("invoices").update({
         paid: true, payment_status: "completed", paid_date: new Date().toISOString(),
       }).in("id", invoiceIds);
+    }
+    if (customInvoiceIds.length > 0) {
+      await supabase.from("custom_invoices").update({
+        paid: true, payment_status: "completed", paid_date: new Date().toISOString(),
+      }).in("id", customInvoiceIds);
     }
 
     // Owner SMS
@@ -146,6 +152,9 @@ export default async function handler(req, res) {
     if (invoiceIds.length > 0) {
       await supabase.from("invoices").update({ payment_status: null }).in("id", invoiceIds);
     }
+    if (customInvoiceIds.length > 0) {
+      await supabase.from("custom_invoices").update({ payment_status: null }).in("id", customInvoiceIds);
+    }
 
     // Owner SMS
     await sendSMS(OWNER_PHONE, `❌ G&I Holdings: ${tenantName} payment of ${amount} for ${monthLabel} FAILED. Invoice reset, they can retry. ❌`);
@@ -192,6 +201,14 @@ export default async function handler(req, res) {
   // ⏳ ACH PROCESSING
   // ─────────────────────────────────────────────────────────
   if (event.type === "payment_intent.processing") {
+    // Mark regular invoices as processing
+    if (invoiceIds.length > 0) {
+      await supabase.from("invoices").update({ payment_status: "processing" }).in("id", invoiceIds);
+    }
+    // Mark custom invoices as processing
+    if (customInvoiceIds.length > 0) {
+      await supabase.from("custom_invoices").update({ payment_status: "processing" }).in("id", customInvoiceIds);
+    }
     // Tenant SMS
     if (tenantPhone) {
       await sendSMS(tenantPhone, `⏳ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} is processing. It takes 3–5 business days to clear. We'll notify you when confirmed. ⏳`);
@@ -220,6 +237,9 @@ export default async function handler(req, res) {
       // Reset invoice to unpaid — late fees will continue to accrue
       if (invoiceIds.length > 0) {
         await supabase.from("invoices").update({ payment_status: null, paid: false }).in("id", invoiceIds);
+      }
+      if (customInvoiceIds.length > 0) {
+        await supabase.from("custom_invoices").update({ payment_status: null, paid: false }).in("id", customInvoiceIds);
       }
 
       // Owner SMS
