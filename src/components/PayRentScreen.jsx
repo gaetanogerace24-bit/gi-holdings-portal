@@ -215,15 +215,18 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
         <div style={{ marginTop: 12, borderTop: "0.5px solid #e5e7eb", paddingTop: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Autopay method</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label onClick={() => { setSelectedAutopayMethod("ach"); supabase.from("tenants").update({ autopay_method: "ach" }).eq("id", tenant.id); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedAutopayMethod === "ach" ? "2px solid #1b3d2a" : "0.5px solid #e5e7eb", borderRadius: 8, background: selectedAutopayMethod === "ach" ? "#f0faf5" : "#fff", cursor: "pointer" }}>
-              <input type="radio" name="autopay_method" checked={selectedAutopayMethod === "ach"} onChange={() => {}} style={{ accentColor: "#1b3d2a" }} />
+            {selectedAutopayMethod === "ach" && (
+            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "2px solid #1b3d2a", borderRadius: 8, background: "#f0faf5", cursor: "default" }}>
+              <input type="radio" name="autopay_method" checked readOnly style={{ accentColor: "#1b3d2a" }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>🏦 Bank transfer (ACH)</div>
                 <div style={{ fontSize: 11, color: "#6b7280" }}>No extra fee · 3–5 business days</div>
               </div>
             </label>
-            <label onClick={() => { setSelectedAutopayMethod("card"); supabase.from("tenants").update({ autopay_method: "card" }).eq("id", tenant.id); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedAutopayMethod === "card" ? "2px solid #2563eb" : "0.5px solid #e5e7eb", borderRadius: 8, background: selectedAutopayMethod === "card" ? "#eff6ff" : "#fff", cursor: "pointer" }}>
-              <input type="radio" name="autopay_method" checked={selectedAutopayMethod === "card"} onChange={() => {}} style={{ accentColor: "#2563eb" }} />
+            )}
+            {selectedAutopayMethod === "card" && (
+            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "2px solid #2563eb", borderRadius: 8, background: "#eff6ff", cursor: "default" }}>
+              <input type="radio" name="autopay_method" checked readOnly style={{ accentColor: "#2563eb" }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>💳 Debit / Credit card</div>
                 {savedCardLast4 ? (
@@ -233,6 +236,7 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
                 )}
               </div>
             </label>
+            )}
           </div>
         </div>
       )}
