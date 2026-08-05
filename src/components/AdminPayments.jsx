@@ -944,7 +944,11 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     acc[inv.tenant_id].push(inv);
     return acc;
   }, {});
-  const getOverdueCount = (t) => tenantInvoices(t.id).filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue").length;
+  const getOverdueCount = (t) => {
+    const invOverdue = tenantInvoices(t.id).filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue").length;
+    const custOverdue = (customInvoicesByTenant[t.id] || []).filter(i => !i.paid && i.payment_status !== "processing").length;
+    return invOverdue + custOverdue;
+  };
   const getTenantProcessingCount = (t) => {
     const invProcessing = tenantInvoices(t.id).filter(i => !i.paid && i.payment_status === "processing").length;
     const custProcessing = (customInvoicesByTenant[t.id] || []).filter(i => !i.paid && i.payment_status === "processing").length;
