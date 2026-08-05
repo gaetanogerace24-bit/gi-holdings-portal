@@ -180,13 +180,16 @@ function PaymentTimeline({ inv }) {
   events.push({ date: createdAt, label: "Invoice created", color: "#2563eb" });
   const parts = (inv.due_date || "").split("T")[0].split("-");
   const due = parts.length === 3 ? new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))) : new Date(inv.due_date);
-  const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), 5));
+  const feeStartDay = Number(inv.late_fee_start_day) || 5;
+  const initialFee = inv.initial_late_fee != null ? Number(inv.initial_late_fee) : 35;
+  const dailyFee = inv.daily_late_fee != null ? Number(inv.daily_late_fee) : 10;
+  const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), feeStartDay));
   const overdueDay = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate() + 1));
   const today = todayEST();
   if (inv.paid) {
     if (Number(inv.late_fee) > 0) {
       events.push({ date: overdueDay, label: "Payment overdue", color: "#dc2626", expand: true });
-      events.push({ date: feeStart, label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
+      events.push({ date: new Date(feeStart), label: `$${initialFee.toFixed(2)} one-time late fee added`, color: "#dc2626", expand: true });
     }
     if (inv.paid_date) {
       const pdStr = inv.paid_date.split("T")[0];
@@ -209,10 +212,10 @@ function PaymentTimeline({ inv }) {
         events.push({ date: addDays(overdueDay, d), label: "Payment overdue", color: "#dc2626", expand: true });
       }
       if (feeStart <= submittedAt) {
-        events.push({ date: new Date(feeStart), label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
+        events.push({ date: new Date(feeStart), label: `$${initialFee.toFixed(2)} one-time late fee added`, color: "#dc2626", expand: true });
         const days = daysBetween(feeStart, submittedAt);
         for (let d = 1; d <= days; d++) {
-          events.push({ date: addDays(feeStart, d), label: "$10.00 daily late fee added", color: "#dc2626", expand: true });
+          events.push({ date: addDays(feeStart, d), label: `$${dailyFee.toFixed(2)} daily late fee added`, color: "#dc2626", expand: true });
         }
       }
     }
@@ -227,10 +230,10 @@ function PaymentTimeline({ inv }) {
         events.push({ date: addDays(overdueDay, d), label: "Payment overdue", color: "#dc2626", expand: true });
       }
       if (feeStart <= today) {
-        events.push({ date: new Date(feeStart), label: "$35.00 one-time late fee added", color: "#dc2626", expand: true });
+        events.push({ date: new Date(feeStart), label: `$${initialFee.toFixed(2)} one-time late fee added`, color: "#dc2626", expand: true });
         const days = daysBetween(feeStart, today);
         for (let d = 1; d <= days; d++) {
-          events.push({ date: addDays(feeStart, d), label: "$10.00 daily late fee added", color: "#dc2626", expand: true });
+          events.push({ date: addDays(feeStart, d), label: `$${dailyFee.toFixed(2)} daily late fee added`, color: "#dc2626", expand: true });
         }
       }
     }
