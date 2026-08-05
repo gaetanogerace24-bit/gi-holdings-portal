@@ -958,8 +958,12 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               </button>
             </>
           )}
-          {/* Autopay section — only show for ACH on pay screen; card shows it after payment */}
-          {payMethod === "ach" && <AutopaySection tenant={tenant} payMethod={payMethod} />}
+          {/* Autopay section:
+               - ACH: always show
+               - Card: only show if they already have card autopay enabled from a previous session */}
+          {(payMethod === "ach" || (payMethod === "card" && tenant?.autopay_enabled && tenant?.autopay_method === "card")) && (
+            <AutopaySection tenant={tenant} payMethod={payMethod} />
+          )}
         </>
       )}
 
