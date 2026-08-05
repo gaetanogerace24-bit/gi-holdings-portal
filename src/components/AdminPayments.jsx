@@ -893,13 +893,32 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const section8Total = section8Tenants.reduce((s, t) => s + Number(t.section8_amount || t.section8Amount || 0), 0);
 
   const tenantInvoices = (id) => allActive.filter(i => i.tenant_id === id);
+
+  // Group custom invoices by tenant_id for quick lookup
+  const [allCustomInvoices, setAllCustomInvoices] = useState([]);
+  useEffect(() => {
+    supabase.from("custom_invoices").select("*").eq("paid", false)
+      .then(({ data }) => { if (data) setAllCustomInvoices(data); });
+  }, []);
+  const customInvoicesByTenant = allCustomInvoices.reduce((acc, inv) => {
+    if (!acc[inv.tenant_id]) acc[inv.tenant_id] = [];
+    acc[inv.tenant_id].push(inv);
+    return acc;
+  }, {});
   const getOverdueCount = (t) => tenantInvoices(t.id).filter(i => !i.paid && getStatus(i) === "overdue").length;
   const getDisplayAmount = (t) => {
     const overdue = tenantInvoices(t.id).filter(
       i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue"
     );
-    if (overdue.length > 0) {
-      return overdue.reduce((sum, i) => sum + calcLiveTotal(i, t), 0);
+    const overdueTotal = overdue.reduce((sum, i) => sum + calcLiveTotal(i, t), 0);
+
+    // Also sum unpaid custom invoices (not processing)
+    const customTotal = (customInvoicesByTenant[t.id] || [])
+      .filter(i => !i.paid && i.payment_status !== "processing")
+      .reduce((sum, i) => sum + Number(i.amount || 0), 0);
+
+    if (overdue.length > 0 || customTotal > 0) {
+      return overdueTotal + customTotal;
     }
     const thisMonth = tenantInvoices(t.id).find(i => i.month === currentMonthName);
     return thisMonth ? calcLiveTotal(thisMonth, t) : Number(t.rent || 0);
