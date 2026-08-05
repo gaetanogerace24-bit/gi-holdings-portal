@@ -116,7 +116,12 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
 
         if (result.error) throw new Error(result.error.message);
         if (result.setupIntent?.status === "requires_payment_method") {
-          // User cancelled bank picker — reset everything
+          // User cancelled bank picker — reset everything including DB
+          await supabase.from("tenants").update({
+            autopay_enabled: false,
+            autopay_method: null,
+            stripe_payment_method_id: null,
+          }).eq("id", tenant.id);
           setAutopayStep("idle");
           setAutopayEnabled(false);
           setSelectedAutopayMethod(payMethod);
