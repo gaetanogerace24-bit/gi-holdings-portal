@@ -445,6 +445,10 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       const confirm = await stripe.confirmUsBankAccountPayment(paymentData.clientSecret);
       if (confirm.error) throw new Error(confirm.error.message);
       const status = confirm.paymentIntent?.status;
+      if (!status || status === "requires_payment_method" || status === "canceled") {
+        setPaying(false);
+        return;
+      }
       handleSuccess(paymentData.paymentIntentId, status === "requires_action", false);
     } catch (err) {
       setError(err.message || "Payment failed. Please try again.");
@@ -944,6 +948,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
