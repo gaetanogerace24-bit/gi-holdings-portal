@@ -279,7 +279,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
 
   const [step, setStep] = useState("summary");
   const [payMode, setPayMode] = useState(defaultPayMode);
-  const [payMethod, setPayMethod] = useState("ach");
+  const [payMethod, setPayMethod] = useState(tenant?.card_last4 ? "card" : "ach");
   const [prepayMonths, setPrepayMonths] = useState(1);
   const [prepayAll, setPrepayAll] = useState(false);
   const [error, setError] = useState(null);
