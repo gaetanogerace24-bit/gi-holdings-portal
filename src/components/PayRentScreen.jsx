@@ -116,7 +116,10 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
 
         if (result.error) throw new Error(result.error.message);
         if (result.setupIntent?.status === "requires_payment_method") {
+          // User cancelled bank picker — reset everything
           setAutopayStep("idle");
+          setAutopayEnabled(false);
+          setSelectedAutopayMethod(payMethod);
           return;
         }
 
