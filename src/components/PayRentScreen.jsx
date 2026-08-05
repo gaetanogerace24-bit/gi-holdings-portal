@@ -958,8 +958,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               </button>
             </>
           )}
-          {/* Autopay section always visible at bottom */}
-          <AutopaySection tenant={tenant} payMethod={payMethod} />
+          {/* Autopay section — only show for ACH on pay screen; card shows it after payment */}
+          {payMethod === "ach" && <AutopaySection tenant={tenant} payMethod={payMethod} />}
         </>
       )}
 
