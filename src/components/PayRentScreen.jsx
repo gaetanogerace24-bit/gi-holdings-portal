@@ -138,7 +138,7 @@ function AutopaySection({ tenant }) {
           <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
             {autopayEnabled
               ? "Your rent is automatically paid on the 1st of each month."
-              : "Automatically pay rent on the 1st of each month."}
+              : "Automatically pays any outstanding balance every day at 12:30 AM, including rent due on the 1st and any open charges."}
           </div>
         </div>
         <div style={{
@@ -171,8 +171,30 @@ function AutopaySection({ tenant }) {
 
       {autopayStep === "success" && (
         <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#166534" }}>
-          ✅ Autopay enabled! Your rent will be automatically paid on the 1st of each month.
+          ✅ Autopay enabled! Any unpaid balance will be charged automatically every day at 12:30 AM.
         </div>
+
+      {autopayEnabled && autopayStep !== "disabling" && (
+        <div style={{ marginTop: 12, borderTop: "0.5px solid #e5e7eb", paddingTop: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Autopay method</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "2px solid #1b3d2a", borderRadius: 8, background: "#f0faf5", cursor: "pointer" }}>
+              <input type="radio" name="autopay_method" defaultChecked style={{ accentColor: "#1b3d2a" }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>🏦 Bank transfer (ACH)</div>
+                <div style={{ fontSize: 11, color: "#6b7280" }}>No extra fee · 3–5 business days</div>
+              </div>
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "0.5px solid #e5e7eb", borderRadius: 8, cursor: "pointer" }}>
+              <input type="radio" name="autopay_method" style={{ accentColor: "#1b3d2a" }} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>💳 Debit / Credit card</div>
+                <div style={{ fontSize: 11, color: "#6b7280" }}>Processing fee applies · Instant</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      )}
       )}
 
       {autopayStep === "disabling" && (
@@ -187,7 +209,7 @@ function AutopaySection({ tenant }) {
 
       {!autopayEnabled && autopayStep === "idle" && (
         <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8, lineHeight: 1.5 }}>
-          By enabling autopay, you authorize G&I Holdings LLC to debit your rent amount via ACH on the 1st of each month. You can disable at any time.
+          By enabling autopay, you authorize G&I Holdings LLC to automatically charge your selected payment method every day at 12:30 AM for any outstanding balance. You can disable at any time.
         </div>
       )}
     </div>
