@@ -95,15 +95,23 @@ export default async function handler(req, res) {
       }).in("id", customInvoiceIds);
     }
 
-    // If card payment with setup_future_usage, save the pm_ ID back to tenant DB
+    // If card payment, save pm_ ID + last4 + brand to tenant DB for future autopay use
     const isCardPayment = !pi.payment_method_types?.includes("us_bank_account");
-    if (isCardPayment && pi.payment_method && pi.setup_future_usage === "off_session") {
+    if (isCardPayment && pi.payment_method && tenantId) {
       const pmId = typeof pi.payment_method === "string" ? pi.payment_method : pi.payment_method?.id;
-      if (pmId && tenantId) {
+      if (pmId) {
+        let card_last4 = null, card_brand = null;
+        try {
+          const pm = await stripe.paymentMethods.retrieve(pmId);
+          card_last4 = pm.card?.last4 || null;
+          card_brand = pm.card?.brand || null;
+        } catch(e) { console.error("Could not fetch pm details:", e); }
         await supabase.from("tenants").update({
           stripe_payment_method_id: pmId,
+          card_last4,
+          card_brand,
         }).eq("id", tenantId);
-        console.log(`Saved card pm ${pmId} to tenant ${tenantId}`);
+        console.log(`Saved card pm ${pmId} last4=${card_last4} brand=${card_brand} to tenant ${tenantId}`);
       }
     }
 
