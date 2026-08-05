@@ -442,17 +442,29 @@ function InvoiceListSheet({ tenant, invoices, customInvoices = [], onClose, onSe
         {activeCustom.map((inv, i) => {
           const isProcessing = inv.payment_status === "processing";
           const liveTotal = calcCustomLiveTotal(inv);
+          const asInvoice = {
+            ...inv,
+            is_custom: true,
+            rent: inv.amount,
+            month: inv.title,
+            due_date: inv.due_date || inv.created_at,
+            paid_date: inv.paid_date,
+            payment_status: inv.payment_status,
+            paid: inv.paid,
+            late_fee: inv.late_fee || 0,
+            total: liveTotal,
+          };
           return (
-            <div key={`cust_${inv.id}`} onClick={() => onSelect({ ...inv, is_custom: true, rent: inv.amount, month: inv.title }, tenant)}
+            <div key={`cust_${inv.id}`} onClick={() => onSelect(asInvoice, tenant)}
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < activeCustom.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer" }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#1f2937" }}>{inv.title || "Custom charge"}</div>
-                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>Custom charge</div>
+                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>Custom charge · Due {fmtDate(inv.due_date || inv.created_at)}</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{fmt(liveTotal)}</div>
                 <div style={{ fontSize: 12, marginTop: 3 }}>
-                  {inv.paid ? <span style={{ color: "#16a34a" }}>✓ Completed</span>
+                  {inv.paid ? <span style={{ color: "#16a34a" }}>✓ Completed {inv.paid_date ? fmtDate(inv.paid_date) : ""}</span>
                     : isProcessing ? <span style={{ color: "#2563eb", fontWeight: 600 }}>↻ Processing</span>
                     : <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>}
                 </div>
