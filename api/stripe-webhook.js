@@ -95,8 +95,19 @@ export default async function handler(req, res) {
       }).in("id", customInvoiceIds);
     }
 
-    // Owner SMS
+    // If card payment with setup_future_usage, save the pm_ ID back to tenant DB
     const isCardPayment = !pi.payment_method_types?.includes("us_bank_account");
+    if (isCardPayment && pi.payment_method && pi.setup_future_usage === "off_session") {
+      const pmId = typeof pi.payment_method === "string" ? pi.payment_method : pi.payment_method?.id;
+      if (pmId && tenantId) {
+        await supabase.from("tenants").update({
+          stripe_payment_method_id: pmId,
+        }).eq("id", tenantId);
+        console.log(`Saved card pm ${pmId} to tenant ${tenantId}`);
+      }
+    }
+
+    // Owner SMS
     if (isCardPayment) {
       await sendSMS(OWNER_PHONE, `✅💳 G&I Holdings: ${tenantName} paid ${amount} for ${monthLabel} by card — payment cleared 💳✅`);
     } else {
