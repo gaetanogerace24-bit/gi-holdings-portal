@@ -174,7 +174,7 @@ function AutopaySection({ tenant }) {
           ✅ Autopay enabled! Any unpaid balance will be charged automatically every day at 12:30 AM.
         </div>
 
-      {autopayEnabled && autopayStep !== "disabling" && (
+        {autopayEnabled && autopayStep !== "disabling" && (
         <div style={{ marginTop: 12, borderTop: "0.5px solid #e5e7eb", paddingTop: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Autopay method</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -194,7 +194,6 @@ function AutopaySection({ tenant }) {
             </label>
           </div>
         </div>
-      )}
       )}
 
       {autopayStep === "disabling" && (
