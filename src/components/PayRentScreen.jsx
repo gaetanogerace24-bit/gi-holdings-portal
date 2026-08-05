@@ -55,7 +55,7 @@ function classifyInvoice(inv, now) {
 }
 
 // ── Autopay Section Component ─────────────────────────────────────────────
-function AutopaySection({ tenant }) {
+function AutopaySection({ tenant, payMethod = "ach" }) {
   const [autopayEnabled, setAutopayEnabled] = useState(tenant?.autopay_enabled || false);
   const [autopayStep, setAutopayStep] = useState("idle"); // idle | connecting | success | disabling
   const [autopayError, setAutopayError] = useState(null);
@@ -65,47 +65,59 @@ function AutopaySection({ tenant }) {
     setAutopayStep("connecting");
     setAutopayError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("setup-autopay", {
-        body: { tenantId: tenant.id },
-      });
-      if (error || data?.error) throw new Error(error?.message || data?.error || "Could not set up autopay");
-
       const stripe = await getStripe();
 
-      // Collect bank account for setup (saves for future use)
-      const result = await stripe.collectBankAccountForSetup({
-        clientSecret: data.clientSecret,
-        params: {
-          payment_method_type: "us_bank_account",
-          payment_method_data: {
-            billing_details: {
-              name: tenant?.name || "Tenant",
-              email: tenant?.login_email || tenant?.email || undefined,
+      if (payMethod === "card") {
+        // Card autopay — card gets saved when tenant pays by card with setup_future_usage.
+        // Just save the preference; run-autopay will use the saved card.
+        await supabase.from("tenants").update({
+          autopay_enabled: true,
+          autopay_method: "card",
+        }).eq("id", tenant.id);
+
+        setAutopayEnabled(true);
+        setAutopayStep("success");
+
+      } else {
+        // ACH bank transfer flow (existing)
+        const { data, error } = await supabase.functions.invoke("setup-autopay", {
+          body: { tenantId: tenant.id, method: "ach" },
+        });
+        if (error || data?.error) throw new Error(error?.message || data?.error || "Could not set up autopay");
+
+        const result = await stripe.collectBankAccountForSetup({
+          clientSecret: data.clientSecret,
+          params: {
+            payment_method_type: "us_bank_account",
+            payment_method_data: {
+              billing_details: {
+                name: tenant?.name || "Tenant",
+                email: tenant?.login_email || tenant?.email || undefined,
+              },
             },
           },
-        },
-      });
+        });
 
-      if (result.error) throw new Error(result.error.message);
-      if (result.setupIntent?.status === "requires_payment_method") {
-        setAutopayStep("idle");
-        return;
+        if (result.error) throw new Error(result.error.message);
+        if (result.setupIntent?.status === "requires_payment_method") {
+          setAutopayStep("idle");
+          return;
+        }
+
+        const confirm = await stripe.confirmUsBankAccountSetup(data.clientSecret);
+        if (confirm.error) throw new Error(confirm.error.message);
+
+        const paymentMethodId = confirm.setupIntent?.payment_method;
+
+        await supabase.from("tenants").update({
+          autopay_enabled: true,
+          autopay_method: "ach",
+          stripe_payment_method_id: typeof paymentMethodId === "string" ? paymentMethodId : paymentMethodId?.id,
+        }).eq("id", tenant.id);
+
+        setAutopayEnabled(true);
+        setAutopayStep("success");
       }
-
-      // Confirm the setup intent
-      const confirm = await stripe.confirmUsBankAccountSetup(data.clientSecret);
-      if (confirm.error) throw new Error(confirm.error.message);
-
-      const paymentMethodId = confirm.setupIntent?.payment_method;
-
-      // Save to Supabase
-      await supabase.from("tenants").update({
-        autopay_enabled: true,
-        stripe_payment_method_id: typeof paymentMethodId === "string" ? paymentMethodId : paymentMethodId?.id,
-      }).eq("id", tenant.id);
-
-      setAutopayEnabled(true);
-      setAutopayStep("success");
     } catch (err) {
       setAutopayError(err.message || "Could not set up autopay. Please try again.");
       setAutopayStep("idle");
@@ -159,13 +171,13 @@ function AutopaySection({ tenant }) {
 
       {autopayEnabled && autopayStep !== "success" && (
         <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#166534" }}>
-          ✅ Autopay is active — your rent will be automatically charged on the 1st of each month via ACH bank transfer.
+          ✅ Autopay enabled! Any unpaid balance will be charged automatically every day at 12:30 AM.
         </div>
       )}
 
       {autopayStep === "connecting" && (
         <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#1e40af" }}>
-          ⏳ Connecting your bank account... please follow the prompts.
+          {payMethod === "card" ? "⏳ Saving card autopay preference..." : "⏳ Connecting your bank account... please follow the prompts."}
         </div>
       )}
 
@@ -544,7 +556,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
           <div style={{ fontSize: 22, fontWeight: 700, color: "#166534", marginBottom: 8 }}>You're all paid up!</div>
           <div style={{ fontSize: 14, color: "#6b7280" }}>Your {month} rent has been received. Thank you!</div>
         </div>
-        <AutopaySection tenant={tenant} />
+        <AutopaySection tenant={tenant} payMethod={payMethod} />
       </div>
     );
   }
@@ -592,7 +604,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
             {isCard ? "A receipt has been sent to your email and phone." : "You'll be notified by email and text when the transfer clears."}
           </div>
         </div>
-        <AutopaySection tenant={tenant} />
+        <AutopaySection tenant={tenant} payMethod={payMethod} />
       </div>
     );
   }
@@ -915,7 +927,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
             </>
           )}
           {/* Autopay section always visible at bottom */}
-          <AutopaySection tenant={tenant} />
+          <AutopaySection tenant={tenant} payMethod={payMethod} />
         </>
       )}
 
