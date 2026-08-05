@@ -896,7 +896,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const getOverdueCount = (t) => tenantInvoices(t.id).filter(i => !i.paid && getStatus(i) === "overdue").length;
   const getDisplayAmount = (t) => {
     const thisMonth = tenantInvoices(t.id).find(i => i.month === currentMonthName);
-    return thisMonth ? calcLiveTotal(thisMonth) : Number(t.rent || 0);
+    return thisMonth ? calcLiveTotal(thisMonth, t) : Number(t.rent || 0);
   };
 
   const handleMarkPaid = async (inv) => {
