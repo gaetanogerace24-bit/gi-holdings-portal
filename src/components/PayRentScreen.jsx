@@ -66,8 +66,6 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
     setAutopayStep("connecting");
     setAutopayError(null);
     try {
-      const stripe = await getStripe();
-
       if (selectedAutopayMethod === "card") {
         // Card autopay — card gets saved when tenant pays by card with setup_future_usage.
         // Just save the preference; run-autopay will use the saved card.
@@ -78,8 +76,12 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
 
         setAutopayEnabled(true);
         setAutopayStep("success");
+        return;
+      }
 
-      } else {
+      // ACH bank transfer flow
+      {
+        const stripe = await getStripe();
         // ACH bank transfer flow (existing)
         const { data, error } = await supabase.functions.invoke("setup-autopay", {
           body: { tenantId: tenant.id, method: "ach" },
