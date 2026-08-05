@@ -363,14 +363,21 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     : payMode === "current" ? multiTotal
     : invoiceTotal;
 
-  const currentRequest = () => ({
-    tenantId: tenant.id,
-    invoiceIds: payMode === "prepay"
+  const currentRequest = () => {
+    const regularIds = payMode === "prepay"
       ? activePrepayInvoices.map(i => i.id)
-      : selectedRegularInvoices.map(i => i.id),
-    customInvoiceIds: payMode === "current" ? selectedCustomInvoices.map(i => i.id) : [],
-    customInvoiceId: null,
-  });
+      : selectedRegularInvoices.map(i => i.id);
+    const customIds = payMode === "current" ? selectedCustomInvoices.map(i => i.id) : [];
+    // If only custom charges selected (no regular invoices), use customInvoiceId singular
+    // pointing to first custom charge, rest handled separately
+    // Better: pass both and let edge function handle array
+    return {
+      tenantId: tenant.id,
+      invoiceIds: regularIds,
+      customInvoiceIds: customIds,
+      customInvoiceId: regularIds.length === 0 && customIds.length === 1 ? customIds[0] : null,
+    };
+  };
 
   const markCustomInvoiceProcessing = (invoiceId) => {
     setCustomInvoices(prev => prev.map(inv =>
