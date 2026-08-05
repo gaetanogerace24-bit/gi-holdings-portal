@@ -62,6 +62,11 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
   const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(payMethod);
   const autopayMountedRef = useRef(false);
 
+  // Sync selectedAutopayMethod when parent payMethod prop changes
+  useEffect(() => {
+    setSelectedAutopayMethod(payMethod);
+  }, [payMethod]);
+
   const handleEnableAutopay = async () => {
     setAutopayStep("connecting");
     setAutopayError(null);
