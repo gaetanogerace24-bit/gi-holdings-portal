@@ -905,7 +905,17 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     acc[inv.tenant_id].push(inv);
     return acc;
   }, {});
-  const getOverdueCount = (t) => tenantInvoices(t.id).filter(i => !i.paid && getStatus(i) === "overdue").length;
+  const getOverdueCount = (t) => tenantInvoices(t.id).filter(i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue").length;
+  const getTenantProcessingCount = (t) => {
+    const invProcessing = tenantInvoices(t.id).filter(i => !i.paid && i.payment_status === "processing").length;
+    const custProcessing = (customInvoicesByTenant[t.id] || []).filter(i => !i.paid && i.payment_status === "processing").length;
+    return invProcessing + custProcessing;
+  };
+  const getTenantProcessingTotal = (t) => {
+    const invTotal = tenantInvoices(t.id).filter(i => !i.paid && i.payment_status === "processing").reduce((s, i) => s + Number(i.total || i.rent || 0), 0);
+    const custTotal = (customInvoicesByTenant[t.id] || []).filter(i => !i.paid && i.payment_status === "processing").reduce((s, i) => s + Number(i.amount || 0), 0);
+    return invTotal + custTotal;
+  };
   const getDisplayAmount = (t) => {
     const overdue = tenantInvoices(t.id).filter(
       i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue"
@@ -1097,10 +1107,14 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
                     </div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{fmt(amount)}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: overdueCount > 0 ? "#dc2626" : getTenantProcessingCount(tenant) > 0 ? "#2563eb" : "inherit" }}>{fmt(overdueCount === 0 && getTenantProcessingCount(tenant) > 0 ? getTenantProcessingTotal(tenant) : amount)}</div>
                     {overdueCount > 0 ? (
                       <button onClick={() => { setSelectedTenant(tenant); setSheet("invoices"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                         <span style={{ fontSize: 12, color: "#dc2626", border: "1.5px solid #dc2626", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>⏱ {overdueCount}</span>
+                      </button>
+                    ) : getTenantProcessingCount(tenant) > 0 ? (
+                      <button onClick={() => { setSelectedTenant(tenant); setSheet("invoices"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                        <span style={{ fontSize: 12, color: "#2563eb", border: "1.5px solid #2563eb", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>↻ Processing</span>
                       </button>
                     ) : (
                       <span style={{ fontSize: 12, color: "#16a34a", border: "1.5px solid #16a34a", borderRadius: 20, padding: "3px 10px", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600 }}>✓ Current</span>
