@@ -895,6 +895,12 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
   const tenantInvoices = (id) => allActive.filter(i => i.tenant_id === id);
   const getOverdueCount = (t) => tenantInvoices(t.id).filter(i => !i.paid && getStatus(i) === "overdue").length;
   const getDisplayAmount = (t) => {
+    const overdue = tenantInvoices(t.id).filter(
+      i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue"
+    );
+    if (overdue.length > 0) {
+      return overdue.reduce((sum, i) => sum + calcLiveTotal(i, t), 0);
+    }
     const thisMonth = tenantInvoices(t.id).find(i => i.month === currentMonthName);
     return thisMonth ? calcLiveTotal(thisMonth, t) : Number(t.rent || 0);
   };
