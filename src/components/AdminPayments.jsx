@@ -56,8 +56,12 @@ function calcLiveTotal(inv, tenant = null) {
   if (inv.payment_status === "processing") return Number(inv.total || inv.rent || 0);
   if (inv.is_custom) return Number(inv.rent || 0);
   if (inv.fee_waived) return Number(inv.rent || 0);
+  if (!inv.due_date) return Number(inv.total || inv.rent || 0);
   const rules = getTenantLateFeeRules(tenant);
-  return Number(inv.rent || 0) + calcLateFee(inv.due_date, rules);
+  const lateFee = calcLateFee(inv.due_date, rules);
+  // If no late fee has kicked in yet, just show the base total
+  if (lateFee === 0) return Number(inv.total || inv.rent || 0);
+  return Number(inv.rent || 0) + lateFee;
 }
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
