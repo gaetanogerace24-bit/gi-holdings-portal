@@ -1,7 +1,8 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripeKey = process.env.STRIPE_TEST_MODE === "true" ? process.env.STRIPE_TEST_KEY : process.env.STRIPE_SECRET_KEY;
+const stripe = new Stripe(stripeKey);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
