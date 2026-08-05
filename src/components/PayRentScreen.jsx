@@ -55,13 +55,13 @@ function classifyInvoice(inv, now) {
 }
 
 // ── Autopay Section Component ─────────────────────────────────────────────
-function AutopaySection({ tenant, payMethod = "ach" }) {
-  const [autopayEnabled, setAutopayEnabled] = useState(tenant?.autopay_enabled || false);
+function AutopaySection({ tenant, payMethod = "ach", freshStart = false }) {
+  const [autopayEnabled, setAutopayEnabled] = useState(freshStart ? false : (tenant?.autopay_enabled || false));
   const [autopayStep, setAutopayStep] = useState("idle"); // idle | connecting | success | disabling
   const [autopayError, setAutopayError] = useState(null);
   const [savedCardLast4, setSavedCardLast4] = useState(null);
   const [savedCardBrand, setSavedCardBrand] = useState(null);
-  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(tenant?.autopay_method || payMethod);
+  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(freshStart ? payMethod : (tenant?.autopay_method || payMethod));
   const autopayMountedRef = useRef(false);
 
   // selectedAutopayMethod reflects what's SAVED in DB, not what's hovered in payment selector
@@ -137,6 +137,8 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
           autopay_enabled: true,
           autopay_method: "ach",
           stripe_payment_method_id: typeof paymentMethodId === "string" ? paymentMethodId : paymentMethodId?.id,
+          card_last4: null,
+          card_brand: null,
         }).eq("id", tenant.id);
 
         setAutopayEnabled(true);
@@ -962,7 +964,11 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                - ACH: always show
                - Card: only show if they already have card autopay enabled from a previous session */}
           {(payMethod === "ach" || (payMethod === "card" && tenant?.autopay_enabled && tenant?.autopay_method === "card")) && (
-            <AutopaySection tenant={tenant} payMethod={payMethod} />
+            <AutopaySection 
+              tenant={tenant} 
+              payMethod={payMethod}
+              freshStart={payMethod === "ach" && tenant?.autopay_enabled && tenant?.autopay_method === "card"}
+            />
           )}
         </>
       )}
