@@ -912,10 +912,25 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     );
     const overdueTotal = overdue.reduce((sum, i) => sum + calcLiveTotal(i, t), 0);
 
-    // Also sum unpaid custom invoices (not processing)
+    // Also sum unpaid custom invoices (not processing) with live late fees
     const customTotal = (customInvoicesByTenant[t.id] || [])
       .filter(i => !i.paid && i.payment_status !== "processing")
-      .reduce((sum, i) => sum + Number(i.amount || 0), 0);
+      .reduce((sum, i) => {
+        if (!i.late_fee_enabled) return sum + Number(i.amount || 0);
+        const startDay = Number(i.late_fee_start_day);
+        const initialFee = Number(i.initial_late_fee || 0);
+        const dailyFee = Number(i.daily_late_fee || 0);
+        const dateStr = i.due_date || i.created_at;
+        if (!dateStr || !startDay) return sum + Number(i.amount || 0);
+        const today = new Date(); today.setHours(0,0,0,0);
+        const parts = dateStr.split("T")[0].split("-");
+        const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+        const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+        if (today < feeStart) return sum + Number(i.amount || 0);
+        const daysLate = Math.floor((today - feeStart) / 86400000);
+        const lateFee = initialFee + (daysLate * dailyFee);
+        return sum + Number(i.amount || 0) + lateFee;
+      }, 0);
 
     if (overdue.length > 0 || customTotal > 0) {
       return overdueTotal + customTotal;
