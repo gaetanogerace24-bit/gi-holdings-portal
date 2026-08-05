@@ -61,13 +61,14 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
   const [autopayError, setAutopayError] = useState(null);
   const [savedCardLast4, setSavedCardLast4] = useState(null);
   const [savedCardBrand, setSavedCardBrand] = useState(null);
-  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(tenant?.autopay_method || payMethod);
+  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(tenant?.autopay_enabled ? (tenant?.autopay_method || payMethod) : payMethod);
   const autopayMountedRef = useRef(false);
 
-  // Sync selectedAutopayMethod when parent payMethod prop changes (only if no saved preference)
+  // Sync selectedAutopayMethod when parent payMethod prop changes
+  // If autopay is off, always follow what they have selected in the payment method picker
   useEffect(() => {
-    if (!tenant?.autopay_method) setSelectedAutopayMethod(payMethod);
-  }, [payMethod]);
+    if (!autopayEnabled) setSelectedAutopayMethod(payMethod);
+  }, [payMethod, autopayEnabled]);
 
   // Read saved card details from tenant object
   useEffect(() => {
