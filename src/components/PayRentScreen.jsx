@@ -275,8 +275,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const classified = invoices.map(inv => ({
     ...inv,
     _type: classifyInvoice(inv, now),
-    liveFee: inv.is_custom || inv.payment_status === "processing" ? 0 : calcLateFee(inv.due_date, lateFeeRules),
-    liveTotal: inv.payment_status === "processing" ? Number(inv.total || inv.rent || 0) : inv.is_custom ? Number(inv.rent || 0) : Number(inv.rent || 0) + calcLateFee(inv.due_date, lateFeeRules),
+    liveFee: inv.is_custom || inv.payment_status === "processing" || inv.fee_waived ? 0 : calcLateFee(inv.due_date, lateFeeRules),
+    liveTotal: inv.payment_status === "processing" ? Number(inv.total || inv.rent || 0) : inv.is_custom ? Number(inv.rent || 0) : Number(inv.rent || 0) + (inv.fee_waived ? 0 : calcLateFee(inv.due_date, lateFeeRules)),
   }));
 
   const processingInvoices = classified.filter(inv => inv.payment_status === "processing" && !inv.paid);
