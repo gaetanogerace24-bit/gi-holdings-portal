@@ -56,13 +56,26 @@ function classifyInvoice(inv, now) {
 
 // ── Autopay Section Component ─────────────────────────────────────────────
 function AutopaySection({ tenant, payMethod = "ach" }) {
-  const [autopayEnabled, setAutopayEnabled] = useState(tenant?.autopay_enabled || false);
+  // When on ACH and card autopay is saved, show fresh (off) — they're switching methods
+  const isCardSavedButOnACH = payMethod === "ach" && tenant?.autopay_method === "card" && tenant?.autopay_enabled;
+  const [autopayEnabled, setAutopayEnabled] = useState(isCardSavedButOnACH ? false : (tenant?.autopay_enabled || false));
   const [autopayStep, setAutopayStep] = useState("idle"); // idle | connecting | success | disabling
   const [autopayError, setAutopayError] = useState(null);
-  const [savedCardLast4, setSavedCardLast4] = useState(null);
-  const [savedCardBrand, setSavedCardBrand] = useState(null);
-  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(tenant?.autopay_method || payMethod);
+  const [savedCardLast4, setSavedCardLast4] = useState(isCardSavedButOnACH ? null : (tenant?.card_last4 || null));
+  const [savedCardBrand, setSavedCardBrand] = useState(isCardSavedButOnACH ? null : (tenant?.card_brand || null));
+  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(isCardSavedButOnACH ? "ach" : (tenant?.autopay_method || payMethod));
   const autopayMountedRef = useRef(false);
+
+  // Reset state when payMethod changes (e.g. switching between ACH and card)
+  useEffect(() => {
+    const freshACH = payMethod === "ach" && tenant?.autopay_method === "card" && tenant?.autopay_enabled;
+    setAutopayEnabled(freshACH ? false : (tenant?.autopay_enabled || false));
+    setSelectedAutopayMethod(freshACH ? "ach" : (tenant?.autopay_method || payMethod));
+    setSavedCardLast4(freshACH ? null : (tenant?.card_last4 || null));
+    setSavedCardBrand(freshACH ? null : (tenant?.card_brand || null));
+    setAutopayStep("idle");
+    setAutopayError(null);
+  }, [payMethod]);
 
   // selectedAutopayMethod reflects what's SAVED in DB, not what's hovered in payment selector
   // Only update if tenant.autopay_method changes (e.g. after save)
