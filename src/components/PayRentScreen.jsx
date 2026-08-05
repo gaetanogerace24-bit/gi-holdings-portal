@@ -59,6 +59,7 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
   const [autopayEnabled, setAutopayEnabled] = useState(tenant?.autopay_enabled || false);
   const [autopayStep, setAutopayStep] = useState("idle"); // idle | connecting | success | disabling
   const [autopayError, setAutopayError] = useState(null);
+  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(payMethod);
   const autopayMountedRef = useRef(false);
 
   const handleEnableAutopay = async () => {
@@ -67,7 +68,7 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
     try {
       const stripe = await getStripe();
 
-      if (payMethod === "card") {
+      if (selectedAutopayMethod === "card") {
         // Card autopay — card gets saved when tenant pays by card with setup_future_usage.
         // Just save the preference; run-autopay will use the saved card.
         await supabase.from("tenants").update({
@@ -149,7 +150,7 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
           <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>🔄 Autopay</div>
           <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
             {autopayEnabled
-              ? "Your rent is automatically paid on the 1st of each month."
+              ? "Automatically pays any outstanding balance every day at 12:30 AM, including rent due on the 1st and any open charges."
               : "Automatically pays any outstanding balance every day at 12:30 AM, including rent due on the 1st and any open charges."}
           </div>
         </div>
@@ -191,15 +192,15 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
         <div style={{ marginTop: 12, borderTop: "0.5px solid #e5e7eb", paddingTop: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Autopay method</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "2px solid #1b3d2a", borderRadius: 8, background: "#f0faf5", cursor: "pointer" }}>
-              <input type="radio" name="autopay_method" defaultChecked style={{ accentColor: "#1b3d2a" }} />
+            <label onClick={() => { setSelectedAutopayMethod("ach"); supabase.from("tenants").update({ autopay_method: "ach" }).eq("id", tenant.id); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedAutopayMethod === "ach" ? "2px solid #1b3d2a" : "0.5px solid #e5e7eb", borderRadius: 8, background: selectedAutopayMethod === "ach" ? "#f0faf5" : "#fff", cursor: "pointer" }}>
+              <input type="radio" name="autopay_method" checked={selectedAutopayMethod === "ach"} onChange={() => {}} style={{ accentColor: "#1b3d2a" }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>🏦 Bank transfer (ACH)</div>
                 <div style={{ fontSize: 11, color: "#6b7280" }}>No extra fee · 3–5 business days</div>
               </div>
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "0.5px solid #e5e7eb", borderRadius: 8, cursor: "pointer" }}>
-              <input type="radio" name="autopay_method" style={{ accentColor: "#1b3d2a" }} />
+            <label onClick={() => { setSelectedAutopayMethod("card"); supabase.from("tenants").update({ autopay_method: "card" }).eq("id", tenant.id); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedAutopayMethod === "card" ? "2px solid #2563eb" : "0.5px solid #e5e7eb", borderRadius: 8, background: selectedAutopayMethod === "card" ? "#eff6ff" : "#fff", cursor: "pointer" }}>
+              <input type="radio" name="autopay_method" checked={selectedAutopayMethod === "card"} onChange={() => {}} style={{ accentColor: "#2563eb" }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>💳 Debit / Credit card</div>
                 <div style={{ fontSize: 11, color: "#6b7280" }}>Processing fee applies · Instant</div>
