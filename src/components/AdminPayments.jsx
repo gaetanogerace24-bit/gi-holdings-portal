@@ -579,15 +579,31 @@ function ProcessingSheet({ invoices = [], customInvoices = [], tenants = [], onC
               </div>
             </div>
           ))}
-          {customInvoices.map(inv => (
-            <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: "1px solid #f3f4f6" }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{tenantName(inv.tenant_id)}</div>
-                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{inv.title}</div>
+          {customInvoices.map(inv => {
+            const tenant = tenants.find(t => t.id === inv.tenant_id);
+            const asInvoice = {
+              ...inv,
+              is_custom: true,
+              rent: inv.amount,
+              month: inv.title,
+              due_date: inv.due_date || inv.created_at,
+              total: Number(inv.amount || 0),
+              late_fee: inv.late_fee || 0,
+            };
+            return (
+              <div key={inv.id} onClick={() => onSelect && onSelect(asInvoice, tenant || { name: tenantName(inv.tenant_id), address: "—" })}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: "1px solid #f3f4f6", cursor: "pointer" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{tenantName(inv.tenant_id)}</div>
+                  <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>{inv.title}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(Number(inv.amount || 0))}</div>
+                  <span style={{ fontSize: 12, color: "#9ca3af" }}>›</span>
+                </div>
               </div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{fmt(Number(inv.amount || 0))}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       <div style={{ height: 32 }} />
@@ -1200,8 +1216,8 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
       {sheet === "allUnpaid" && <FilteredInvoiceSheet title="Unpaid Invoices" invoices={unpaidList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
       {sheet === "allUpcoming" && <FilteredInvoiceSheet title="Upcoming Invoices" invoices={upcomingList} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="nextmonth" />}
       {sheet === "allCompleted" && <FilteredInvoiceSheet title="Completed Invoices" invoices={[...completedList, ...paidCustomInvoices.map(i => ({ ...i, paid: true, rent: i.amount, is_custom: true, month: i.title })), ...paidClientInvoices.map(i => ({ ...i, paid: true, rent: i.amount, is_custom: true, month: i.description, due_date: i.updated_at, tenant_name: i.name, tenant_address: "Client invoice", paid_date: i.updated_at }))]} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenant) => { setSelectedInvoice(inv); setSelectedTenant(tenant); setSheet("invoice"); }} defaultFilter="thismonth" />}
-      {sheet === "processing" && <ProcessingSheet invoices={processingList} customInvoices={processingCustomInvoices} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv) => { 
-        const tenant = tenants.find(t => t.id === inv.tenant_id);
+      {sheet === "processing" && <ProcessingSheet invoices={processingList} customInvoices={processingCustomInvoices} tenants={tenants} onClose={() => setSheet(null)} onSelect={(inv, tenantOverride) => { 
+        const tenant = tenantOverride || tenants.find(t => t.id === inv.tenant_id);
         setSelectedInvoice(inv); 
         setSelectedTenant(tenant || { name: inv.tenant_name || "Unknown", address: inv.tenant_address || "—" });
         setSheet("invoice"); 
