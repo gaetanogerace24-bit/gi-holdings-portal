@@ -59,13 +59,20 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
   const [autopayEnabled, setAutopayEnabled] = useState(tenant?.autopay_enabled || false);
   const [autopayStep, setAutopayStep] = useState("idle"); // idle | connecting | success | disabling
   const [autopayError, setAutopayError] = useState(null);
-  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(payMethod);
+  const [savedCardLast4, setSavedCardLast4] = useState(null);
+  const [savedCardBrand, setSavedCardBrand] = useState(null);
+  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(tenant?.autopay_method || payMethod);
   const autopayMountedRef = useRef(false);
 
-  // Sync selectedAutopayMethod when parent payMethod prop changes
+  // Sync selectedAutopayMethod when parent payMethod prop changes (only if no saved preference)
   useEffect(() => {
-    setSelectedAutopayMethod(payMethod);
+    if (!tenant?.autopay_method) setSelectedAutopayMethod(payMethod);
   }, [payMethod]);
+
+  // Read saved card details from tenant object
+  useEffect(() => {
+    if (tenant?.card_last4) { setSavedCardLast4(tenant.card_last4); setSavedCardBrand(tenant.card_brand || "Card"); }
+  }, [tenant?.card_last4]);
 
   const handleEnableAutopay = async () => {
     setAutopayStep("connecting");
@@ -210,7 +217,11 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
               <input type="radio" name="autopay_method" checked={selectedAutopayMethod === "card"} onChange={() => {}} style={{ accentColor: "#2563eb" }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>💳 Debit / Credit card</div>
-                <div style={{ fontSize: 11, color: "#6b7280" }}>Processing fee applies · Instant</div>
+                {savedCardLast4 ? (
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>•••• {savedCardLast4} · {savedCardBrand || "Card"} · Processing fee applies · Instant</div>
+                ) : (
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>Processing fee applies · Instant</div>
+                )}
               </div>
             </label>
           </div>
