@@ -41,11 +41,11 @@ function calcLateFee(dueDateStr, rules = {}) {
 }
 
 function getTenantLateFeeRules(tenant) {
-  if (!tenant || !tenant.custom_late_fee) return {};
+  if (!tenant) return {};
   return {
     late_fee_start_day: tenant.late_fee_start_day || 5,
-    initial_late_fee: tenant.initial_late_fee ?? 35,
-    daily_late_fee: tenant.daily_late_fee ?? 10,
+    initial_late_fee: tenant.initial_late_fee != null ? tenant.initial_late_fee : 35,
+    daily_late_fee: tenant.daily_late_fee != null ? tenant.daily_late_fee : 10,
   };
 }
 
