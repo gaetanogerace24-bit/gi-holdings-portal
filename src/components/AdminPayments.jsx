@@ -374,9 +374,27 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
   );
 }
 
-function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
+function InvoiceListSheet({ tenant, invoices, customInvoices = [], onClose, onSelect }) {
   const sorted = [...invoices].sort((a, b) => new Date(b.due_date) - new Date(a.due_date));
   const active = invoices.filter(i => !i.deleted);
+  const activeCustom = customInvoices.filter(i => !i.deleted);
+  const calcCustomLiveTotal = (inv) => {
+    if (!inv.late_fee_enabled) return Number(inv.amount || 0);
+    const startDay = Number(inv.late_fee_start_day);
+    const initialFee = Number(inv.initial_late_fee || 0);
+    const dailyFee = Number(inv.daily_late_fee || 0);
+    const dateStr = inv.due_date || inv.created_at;
+    if (!dateStr || !startDay) return Number(inv.amount || 0);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const parts = dateStr.split("T")[0].split("-");
+    const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+    const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+    if (today < feeStart) return Number(inv.amount || 0);
+    const daysLate = Math.floor((today - feeStart) / 86400000);
+    return Number(inv.amount || 0) + initialFee + (daysLate * dailyFee);
+  };
+  const regularTotal = active.reduce((s, i) => s + calcLiveTotal(i, tenant), 0);
+  const customTotal = activeCustom.reduce((s, i) => s + calcCustomLiveTotal(i), 0);
   return (
     <Sheet onClose={onClose}>
       <SheetHeader title="Invoices" onClose={onClose} />
@@ -387,15 +405,15 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
       <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid #f3f4f6" }}>
         <div>
           <div style={{ fontSize: 12, color: "#000" }}>Total amount</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(active.reduce((s, i) => s + calcLiveTotal(i, tenant), 0))}</div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(regularTotal + customTotal)}</div>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 12, color: "#000" }}>Invoices</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{active.length}</div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{active.length + activeCustom.length}</div>
         </div>
       </div>
       <div style={{ border: "1px solid #f3f4f6", borderRadius: 12, margin: "12px 20px", overflow: "hidden" }}>
-        {sorted.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#000" }}>No invoices yet</div>}
+        {sorted.length === 0 && activeCustom.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "#000" }}>No invoices yet</div>}
         {sorted.map((inv, i) => {
           const status = inv.payment_status === "processing" ? "processing" : getStatus(inv);
           const isDeleted = inv.deleted;
@@ -403,7 +421,7 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
           const label = inv.is_custom ? (inv.month?.split(" —")[0] || "Custom charge") : "Rent & Fees";
           return (
             <div key={inv.id} onClick={() => !isDeleted && onSelect(inv)}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none", cursor: isDeleted ? "default" : "pointer", opacity: isDeleted ? 0.45 : 1 }}>
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < sorted.length - 1 || activeCustom.length > 0 ? "1px solid #f3f4f6" : "none", cursor: isDeleted ? "default" : "pointer", opacity: isDeleted ? 0.45 : 1 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 500, color: isDeleted ? "#9ca3af" : "#1f2937" }}>{label}</div>
                 <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>Due {fmtDate(inv.due_date)}</div>
@@ -416,6 +434,27 @@ function InvoiceListSheet({ tenant, invoices, onClose, onSelect }) {
                     : status === "processing" ? <span style={{ color: "#2563eb", fontWeight: 600 }}>↻ Processing</span>
                     : status === "overdue" ? <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>
                     : <span style={{ color: "#2563eb" }}>📅 Upcoming</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {activeCustom.map((inv, i) => {
+          const isProcessing = inv.payment_status === "processing";
+          const liveTotal = calcCustomLiveTotal(inv);
+          return (
+            <div key={`cust_${inv.id}`} onClick={() => onSelect({ ...inv, is_custom: true, rent: inv.amount, month: inv.title }, tenant)}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: i < activeCustom.length - 1 ? "1px solid #f3f4f6" : "none", cursor: "pointer" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#1f2937" }}>{inv.title || "Custom charge"}</div>
+                <div style={{ fontSize: 12, color: "#000", marginTop: 2 }}>Custom charge</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{fmt(liveTotal)}</div>
+                <div style={{ fontSize: 12, marginTop: 3 }}>
+                  {inv.paid ? <span style={{ color: "#16a34a" }}>✓ Completed</span>
+                    : isProcessing ? <span style={{ color: "#2563eb", fontWeight: 600 }}>↻ Processing</span>
+                    : <span style={{ color: "#dc2626", fontWeight: 600 }}>⏱ Overdue</span>}
                 </div>
               </div>
             </div>
@@ -1211,7 +1250,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
         </Sheet>
       )}
       {sheet === "detail" && selectedTenant && <CollectionDetailSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => { setSheet(null); setSelectedTenant(null); }} onViewInvoices={() => setSheet("invoices")} onArchive={handleArchive} />}
-      {sheet === "invoices" && selectedTenant && <InvoiceListSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} onClose={() => setSheet(null)} onSelect={inv => { setSelectedInvoice(inv); setSheet("invoice"); }} />}
+      {sheet === "invoices" && selectedTenant && <InvoiceListSheet tenant={selectedTenant} invoices={tenantInvoices(selectedTenant.id)} customInvoices={customInvoicesByTenant[selectedTenant.id] || []} onClose={() => setSheet(null)} onSelect={inv => { setSelectedInvoice(inv); setSheet("invoice"); }} />}
       {sheet === "invoice" && selectedInvoice && selectedTenant && <InvoiceDetailSheet inv={selectedInvoice} tenant={selectedTenant} onClose={() => { 
         if (selectedInvoice.payment_status === "processing") { setSheet("processing"); } 
         else { setSheet("invoices"); } 
