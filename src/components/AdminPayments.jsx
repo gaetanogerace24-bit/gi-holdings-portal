@@ -55,6 +55,8 @@ function calcLiveTotal(inv, tenant = null) {
   if (inv.paid) return Number(inv.total || inv.rent || 0);
   if (inv.payment_status === "processing") return Number(inv.total || inv.rent || 0);
   if (inv.is_custom) return Number(inv.rent || 0);
+  // Use total from DB if available — it is the source of truth
+  if (inv.total != null && Number(inv.total) > 0) return Number(inv.total);
   const rules = getTenantLateFeeRules(tenant);
   return Number(inv.rent || 0) + calcLateFee(inv.due_date, rules);
 }
