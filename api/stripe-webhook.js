@@ -90,7 +90,12 @@ export default async function handler(req, res) {
     }
 
     // Owner SMS
-    await sendSMS(OWNER_PHONE, `✅ G&I Holdings: ${tenantName} payment of ${amount} for ${monthLabel} confirmed ✅`);
+    const isCardPayment = !pi.payment_method_types?.includes("us_bank_account");
+    if (isCardPayment) {
+      await sendSMS(OWNER_PHONE, `✅💳 G&I Holdings: ${tenantName} paid ${amount} for ${monthLabel} by card — payment cleared 💳✅`);
+    } else {
+      await sendSMS(OWNER_PHONE, `✅ G&I Holdings: ${tenantName} ${amount} for ${monthLabel} — ACH went from pending to cleared ✅`);
+    }
 
     // Owner email
     await sendEmail(OWNER_EMAIL, `✅ Payment confirmed — ${tenantName} ${monthLabel}`,
@@ -107,7 +112,11 @@ export default async function handler(req, res) {
 
     // Tenant SMS
     if (tenantPhone) {
-      await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} went through. Thank you! Log in to view your receipt: ${PORTAL_URL} ✅`);
+      if (isCardPayment) {
+        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} went through. Thank you! Log in to view your receipt: ${PORTAL_URL} ✅`);
+      } else {
+        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} has cleared and your payment is confirmed. Thank you! View your receipt: ${PORTAL_URL} ✅`);
+      }
     }
 
     // Tenant email
