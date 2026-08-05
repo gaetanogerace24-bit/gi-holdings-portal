@@ -173,16 +173,16 @@ function SummaryCard({ badgeColor, badgeLabel, badgeBorder, sub, amount, amountC
   );
 }
 
-function PaymentTimeline({ inv }) {
+function PaymentTimeline({ inv, tenant }) {
   if (!inv) return null;
   const events = [];
   const createdAt = new Date(inv.created_at || inv.due_date);
   events.push({ date: createdAt, label: "Invoice created", color: "#2563eb" });
   const parts = (inv.due_date || "").split("T")[0].split("-");
   const due = parts.length === 3 ? new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))) : new Date(inv.due_date);
-  const feeStartDay = Number(inv.late_fee_start_day) || 5;
-  const initialFee = inv.initial_late_fee != null ? Number(inv.initial_late_fee) : 35;
-  const dailyFee = inv.daily_late_fee != null ? Number(inv.daily_late_fee) : 10;
+  const feeStartDay = Number(tenant?.late_fee_start_day || inv.late_fee_start_day) || 5;
+  const initialFee = (tenant?.initial_late_fee ?? inv.initial_late_fee) != null ? Number(tenant?.initial_late_fee ?? inv.initial_late_fee) : 35;
+  const dailyFee = (tenant?.daily_late_fee ?? inv.daily_late_fee) != null ? Number(tenant?.daily_late_fee ?? inv.daily_late_fee) : 10;
   const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), feeStartDay));
   const overdueDay = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate() + 1));
   const today = todayEST();
@@ -362,7 +362,7 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
       <div style={{ borderTop: "1px solid #f3f4f6", margin: "12px 20px 0" }} />
       <TabBar tab={tab} setTab={setTab} tabs={[{ key: "timeline", label: "Payment timeline" }, { key: "breakdown", label: "Invoice breakdown" }]} />
       <div style={{ padding: "0 20px" }}>
-        {tab === "timeline" && <PaymentTimeline inv={inv} />}
+        {tab === "timeline" && <PaymentTimeline inv={inv} tenant={tenant} />}
         {tab === "breakdown" && <InvoiceBreakdown inv={inv} tenant={tenant} />}
       </div>
     </Sheet>
