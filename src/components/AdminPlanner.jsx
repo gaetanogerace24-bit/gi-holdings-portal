@@ -207,8 +207,8 @@ export default function AdminPlanner({ tenants = [] }) {
                                           {columns.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                                         </select>
                                         {prop.planner_stage === "inspection" && (
-                                          <div style={{ marginTop: 10, background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "8px 10px" }} onMouseDown={e => e.stopPropagation()}>
-                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#9a3412", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 5 }}>📅 Inspection date</div>
+                                          <div style={{ marginTop: 10, border: "1px solid #000", borderRadius: 8, padding: "8px 10px" }} onMouseDown={e => e.stopPropagation()}>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 5 }}>📅 Inspection date</div>
                                             <input
                                               type="date"
                                               value={prop.inspection_date || ""}
@@ -218,7 +218,19 @@ export default function AdminPlanner({ tenants = [] }) {
                                                 await supabase.from("properties").update({ inspection_date: d }).eq("id", prop.id);
                                               }}
                                               onMouseDown={e => e.stopPropagation()}
-                                              style={{ width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid #fed7aa", background: "#fff", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", cursor: "pointer" }}
+                                              style={{ width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", cursor: "pointer", marginBottom: 8 }}
+                                            />
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 5 }}>📝 Notes</div>
+                                            <textarea
+                                              rows={3}
+                                              value={prop.inspection_notes || ""}
+                                              onChange={async e => {
+                                                const notes = e.target.value;
+                                                setProperties(prev => prev.map(p => p.id === prop.id ? { ...p, inspection_notes: notes } : p));
+                                                await supabase.from("properties").update({ inspection_notes: notes }).eq("id", prop.id);
+                                              }}
+                                              onMouseDown={e => e.stopPropagation()}
+                                              style={{ width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", resize: "none" }}
                                             />
                                           </div>
                                         )}
