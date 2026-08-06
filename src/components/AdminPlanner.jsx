@@ -179,7 +179,7 @@ export default function AdminPlanner({ tenants = [] }) {
                                         {...cardProv.dragHandleProps}
                                         style={{
                                           background: "#fff", borderRadius: 10,
-                                          border: prop.planner_stage === "inspection" ? "1.5px solid #fb923c" : "1.5px solid #e5e7eb",
+                                          border: prop.planner_stage?.startsWith("inspection") ? "1.5px solid #fb923c" : "1.5px solid #e5e7eb",
                                           padding: "12px 14px", cursor: "grab",
                                           boxShadow: cardSnap.isDragging ? "0 6px 18px rgba(0,0,0,0.12)" : "0 1px 3px rgba(0,0,0,0.06)",
                                           userSelect: "none", marginBottom: 8,
@@ -206,7 +206,7 @@ export default function AdminPlanner({ tenants = [] }) {
                                           <option value="">— Unassigned —</option>
                                           {columns.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                                         </select>
-                                        {prop.planner_stage === "inspection" && (
+                                        {prop.planner_stage?.startsWith("inspection") && (
                                           <div style={{ marginTop: 10, border: "1px solid #000", borderRadius: 8, padding: "8px 10px" }} onMouseDown={e => e.stopPropagation()}>
                                             <div style={{ fontSize: 10, fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 5 }}>📅 Inspection date</div>
                                             <input
@@ -259,3 +259,4 @@ export default function AdminPlanner({ tenants = [] }) {
     </div>
   );
 }
+
