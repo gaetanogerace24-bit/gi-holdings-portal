@@ -217,6 +217,59 @@ serve(async (_req) => {
         }).eq("id", inv.id);
       }
 
+      const tenant = inv.tenants;
+      if (tenant) {
+        const firstName = tenant.name?.split(" ")[0] || "there";
+        const toEmail = TEST_MODE ? TEST_EMAIL : tenant.email;
+        const toPhone = TEST_MODE ? TEST_PHONE : tenant.phone;
+        const invoiceTitle = inv.title || "Custom charge";
+
+        if (toEmail) {
+          const subject = `⚠️ Payment overdue — ${invoiceTitle}`;
+          const html = `
+            <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;">
+              <div style="background:#c0392b;padding:28px 24px;border-radius:12px 12px 0 0;">
+                <div style="font-size:20px;font-weight:700;color:#fff;">G&I Holdings LLC</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:2px;">Payment Overdue</div>
+              </div>
+              <div style="padding:28px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+                <p style="font-size:16px;color:#1a1a1a;">Hi ${firstName},</p>
+                <p style="font-size:14px;color:#4b5563;line-height:1.6;">
+                  Your payment for <strong>${invoiceTitle}</strong> is overdue.
+                </p>
+                <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:16px 20px;margin:20px 0;">
+                  <div style="font-weight:700;color:#991b1b;margin-bottom:8px;">Amount breakdown</div>
+                  <div style="font-size:13px;color:#4b5563;">
+                    <div>Original charge: <strong>$${amount.toFixed(2)}</strong></div>
+                    <div style="color:#dc2626;">Late fees: <strong>$${lateFee.toFixed(2)}</strong></div>
+                    <hr style="border:none;border-top:1px solid #fca5a5;margin:8px 0;"/>
+                  </div>
+                  <div style="font-size:18px;font-weight:800;color:#dc2626;">Total due: $${total.toFixed(2)}</div>
+                </div>
+                <a href="${PORTAL_URL}" style="display:block;background:#c0392b;color:#fff;text-align:center;padding:14px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;margin-top:16px;">
+                  Pay now → giholdingsllc.com
+                </a>
+              </div>
+            </div>
+          `;
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${RESEND_API_KEY}` },
+            body: JSON.stringify({
+              from: FROM_EMAIL,
+              to: toEmail,
+              subject: TEST_MODE ? `[TEST - ${tenant.name}] ${subject}` : subject,
+              html,
+            }),
+          });
+        }
+
+        if (toPhone) {
+          const smsMsg = `G&I Holdings: Hi ${firstName}, your payment for "${invoiceTitle}" is overdue. Total now due: $${total.toFixed(2)} (includes $${lateFee.toFixed(2)} in late fees). Log in: ${PORTAL_URL}`;
+          await sendSMS(toPhone, smsMsg);
+        }
+      }
+
       results.push({ type: "custom_invoice", id: inv.id, lateFee, total });
     }
 
@@ -263,3 +316,4 @@ serve(async (_req) => {
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 });
+
