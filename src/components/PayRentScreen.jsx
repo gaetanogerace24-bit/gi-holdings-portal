@@ -513,10 +513,11 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       if (fnErr) throw new Error(fnErr.message || "Could not start payment");
       if (data?.error) throw new Error(data.error);
       // If tenant has a saved card, attach it to paymentData so checkout shows it
-      const savedCard = payMethod === "card" && tenant?.card_last4
-        ? { last4: tenant.card_last4, brand: tenant.card_brand || "Card", pmId: tenant.stripe_payment_method_id }
+      const chosenCard = payMethod === "card" && selectedCardId
+        ? savedCards.find(c => c.id === selectedCardId) || (tenant?.card_last4 ? { id: tenant.stripe_payment_method_id, last4: tenant.card_last4, brand: tenant.card_brand || "Card" } : null)
         : null;
-      setPaymentData({ ...data, payMethod, savedCard, useNewCard: false });
+      const savedCard = chosenCard ? { last4: chosenCard.last4, brand: chosenCard.brand || "Card", pmId: chosenCard.id } : null;
+      setPaymentData({ ...data, payMethod, savedCard, useNewCard: !savedCard });
       setStep("checkout");
     } catch (err) {
       setError(err.message || "Could not start payment. Please try again.");
@@ -1022,26 +1023,45 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                   <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>1–2 business days</div>
                 </button>
               </div>
+
               {payMethod === "card" && (
-                <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: 12, color: "#1e40af" }}>
-                  💳 Card total: <strong>{fmt(cardTotal(total))}</strong> (includes {fmt(cardFee(total))} processing fee)
-                </div>
+                <>
+                  <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: 12, color: "#1e40af" }}>
+                    💳 Card total: <strong>{fmt(cardTotal(total))}</strong> (includes {fmt(cardFee(total))} processing fee)
+                  </div>
+                  {savedCards.length > 0 && (
+                    <div style={{ background: "#fff", border: "0.5px solid #e5e7eb", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9ca3af", marginBottom: 8 }}>Saved cards</div>
+                      {savedCards.map(card => (
+                        <label key={card.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedCardId === card.id ? "2px solid #2563eb" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedCardId === card.id ? "#eff6ff" : "#fff", cursor: "pointer", marginBottom: 6 }}>
+                          <input type="radio" name="saved_card" checked={selectedCardId === card.id} onChange={() => setSelectedCardId(card.id)} style={{ accentColor: "#2563eb" }} />
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>{card.brand?.charAt(0).toUpperCase() + card.brand?.slice(1)} ••••{card.last4}</div>
+                          </div>
+                        </label>
+                      ))}
+                      <button onClick={() => setSelectedCardId(null)} style={{ width: "100%", marginTop: 4, padding: "9px", borderRadius: 8, border: "1.5px dashed #e5e7eb", background: "none", color: "#6b7280", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+                        + Use a different card
+                      </button>
+                    </div>
+                  )}
+                  <AutopaySection
+                    tenant={tenant}
+                    payMethod="card"
+                    selectedCardId={selectedCardId}
+                  />
+                </>
               )}
+
               <button onClick={startCheckout} style={payMethod === "card" ? cardPayBtnStyle : payBtnStyle}>
                 {payMethod === "card" ? `💳 Pay ${fmt(cardTotal(total))} by card →` : `🏦 Pay ${fmt(total)} by bank transfer →`}
               </button>
             </>
           )}
-          {/* Autopay section:
-               - ACH: always show
-               - Card: only show if they already have card autopay enabled from a previous session */}
-          {(payMethod === "ach" || (payMethod === "card" && tenant?.autopay_enabled && tenant?.autopay_method === "card")) && (
-            <AutopaySection 
-              tenant={payMethod === "ach" && tenant?.autopay_method === "card" 
-                ? { ...tenant, autopay_enabled: false, autopay_method: "ach", card_last4: null, card_brand: null }
-                : tenant
-              }
-              payMethod={payMethod}
+          {payMethod === "ach" && (
+            <AutopaySection
+              tenant={tenant?.autopay_method === "card" ? { ...tenant, autopay_enabled: false, autopay_method: "ach", card_last4: null, card_brand: null } : tenant}
+              payMethod="ach"
             />
           )}
         </>
@@ -1125,6 +1145,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
