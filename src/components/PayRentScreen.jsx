@@ -1058,7 +1058,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               {paymentData.savedCard && !paymentData.useNewCard ? (
                 <>
                   <button onClick={payWithSavedCard} disabled={paying} style={{ ...cardPayBtnStyle, opacity: paying ? 0.6 : 1 }}>
-                    {paying ? "Processing..." : `Pay with ${paymentData.savedCard.brand} ••••${paymentData.savedCard.last4} →`}
+                    {paying ? "Processing..." : `Use saved ${paymentData.savedCard.brand} ••••${paymentData.savedCard.last4} →`}
                   </button>
                   <button onClick={() => setPaymentData(prev => ({ ...prev, useNewCard: true }))} disabled={paying}
                     style={{ width: "100%", padding: "13px", borderRadius: 12, cursor: "pointer", border: "1.5px solid #2563eb", background: "#fff", color: "#2563eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, marginBottom: 10, opacity: paying ? 0.6 : 1 }}>
@@ -1125,6 +1125,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
