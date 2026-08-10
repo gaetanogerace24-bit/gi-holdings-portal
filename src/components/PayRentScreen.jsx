@@ -64,7 +64,20 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
   const [savedCardLast4, setSavedCardLast4] = useState(isCardSavedButOnACH ? null : (tenant?.card_last4 || null));
   const [savedCardBrand, setSavedCardBrand] = useState(isCardSavedButOnACH ? null : (tenant?.card_brand || null));
   const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(isCardSavedButOnACH ? "ach" : (tenant?.autopay_method || payMethod));
+  const [savedCards, setSavedCards] = useState([]);
+  const [selectedCardId, setSelectedCardId] = useState(tenant?.stripe_payment_method_id || null);
   const autopayMountedRef = useRef(false);
+
+  useEffect(() => {
+    if (!tenant?.id) return;
+    supabase.functions.invoke("list-payment-methods", { body: { tenant_id: tenant.id } })
+      .then(({ data }) => {
+        if (data?.cards?.length) {
+          setSavedCards(data.cards);
+          setSelectedCardId(prev => prev || tenant?.stripe_payment_method_id || data.cards[0]?.id);
+        }
+      }).catch(() => {});
+  }, [tenant?.id]);
 
   // Reset state when payMethod changes (e.g. switching between ACH and card)
   useEffect(() => {
@@ -242,9 +255,28 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
             {selectedAutopayMethod === "card" && (
             <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "2px solid #2563eb", borderRadius: 8, background: "#eff6ff", cursor: "default" }}>
               <input type="radio" name="autopay_method" checked readOnly style={{ accentColor: "#2563eb" }} />
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>💳 Debit / Credit card</div>
-                {savedCardLast4 ? (
+                {savedCards.length > 1 ? (
+                  <select
+                    value={selectedCardId || ""}
+                    onChange={async (e) => {
+                      const pmId = e.target.value;
+                      setSelectedCardId(pmId);
+                      const card = savedCards.find(c => c.id === pmId);
+                      await supabase.from("tenants").update({
+                        stripe_payment_method_id: pmId,
+                        card_last4: card?.last4 || null,
+                        card_brand: card?.brand || null,
+                      }).eq("id", tenant.id);
+                    }}
+                    style={{ marginTop: 4, fontSize: 12, width: "100%", borderRadius: 6, border: "1px solid #bfdbfe", padding: "3px 6px" }}
+                  >
+                    {savedCards.map(c => (
+                      <option key={c.id} value={c.id}>•••• {c.last4} · {c.brand}</option>
+                    ))}
+                  </select>
+                ) : savedCardLast4 ? (
                   <div style={{ fontSize: 11, color: "#6b7280" }}>•••• {savedCardLast4} · {savedCardBrand || "Card"} · Processing fee applies · Instant</div>
                 ) : (
                   <div style={{ fontSize: 11, color: "#6b7280" }}>Processing fee applies · Instant</div>
@@ -1046,6 +1078,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
