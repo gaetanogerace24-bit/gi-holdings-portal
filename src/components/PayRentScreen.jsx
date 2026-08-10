@@ -64,7 +64,11 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
   const [savedCardLast4, setSavedCardLast4] = useState(isCardSavedButOnACH ? null : (tenant?.card_last4 || null));
   const [savedCardBrand, setSavedCardBrand] = useState(isCardSavedButOnACH ? null : (tenant?.card_brand || null));
   const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(isCardSavedButOnACH ? "ach" : (tenant?.autopay_method || payMethod));
-  const [savedCards, setSavedCards] = useState([]);
+  // Pre-populate with known card so it shows instantly, then load full list in background
+  const initialCard = tenant?.stripe_payment_method_id && tenant?.card_last4
+    ? [{ id: tenant.stripe_payment_method_id, last4: tenant.card_last4, brand: tenant.card_brand || "Card" }]
+    : [];
+  const [savedCards, setSavedCards] = useState(initialCard);
   const [selectedCardId, setSelectedCardId] = useState(tenant?.stripe_payment_method_id || null);
   const autopayMountedRef = useRef(false);
 
@@ -1078,6 +1082,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
