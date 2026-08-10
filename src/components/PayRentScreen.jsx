@@ -512,7 +512,11 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       });
       if (fnErr) throw new Error(fnErr.message || "Could not start payment");
       if (data?.error) throw new Error(data.error);
-      setPaymentData({ ...data, payMethod });
+      // If tenant has a saved card, attach it to paymentData so checkout shows it
+      const savedCard = payMethod === "card" && tenant?.card_last4
+        ? { last4: tenant.card_last4, brand: tenant.card_brand || "Card", pmId: tenant.stripe_payment_method_id }
+        : null;
+      setPaymentData({ ...data, payMethod, savedCard, useNewCard: false });
       setStep("checkout");
     } catch (err) {
       setError(err.message || "Could not start payment. Please try again.");
@@ -624,6 +628,24 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       handleSuccess(paymentData.paymentIntentId, false, true);
     } catch (err) {
       setResultInfo({ failReason: err.message || "Your bank declined this payment. Please try a different card." });
+      setStep("failed");
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const payWithSavedCard = async () => {
+    setPaying(true);
+    setError(null);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("create-rent-payment", {
+        body: { ...currentRequest(), useSavedCard: true },
+      });
+      if (fnErr) throw new Error(fnErr.message || "Could not start payment");
+      if (data?.error) throw new Error(data.error);
+      handleSuccess(data.paymentIntentId, false, true);
+    } catch (err) {
+      setResultInfo({ failReason: err.message || "Your card was declined. Please try a different card." });
       setStep("failed");
     } finally {
       setPaying(false);
@@ -1033,10 +1055,30 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               <div style={{ fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
                 Card payments clear in 1–2 business days. Includes {fmt(cardFee(total))} processing fee.
               </div>
-              <div id="stripe-card-mount" style={{ border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "12px", marginBottom: 14, minHeight: 44 }} />
-              <button onClick={payWithCard} disabled={paying} style={{ ...cardPayBtnStyle, opacity: paying ? 0.6 : 1 }}>
-                {paying ? "Processing..." : `💳 Pay ${fmt(cardTotal(total))} →`}
-              </button>
+              {paymentData.savedCard && !paymentData.useNewCard ? (
+                <>
+                  <button onClick={payWithSavedCard} disabled={paying} style={{ ...cardPayBtnStyle, opacity: paying ? 0.6 : 1 }}>
+                    {paying ? "Processing..." : `Pay with ${paymentData.savedCard.brand} ••••${paymentData.savedCard.last4} →`}
+                  </button>
+                  <button onClick={() => setPaymentData(prev => ({ ...prev, useNewCard: true }))} disabled={paying}
+                    style={{ width: "100%", padding: "13px", borderRadius: 12, cursor: "pointer", border: "1.5px solid #2563eb", background: "#fff", color: "#2563eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, marginBottom: 10, opacity: paying ? 0.6 : 1 }}>
+                    Use a different card
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div id="stripe-card-mount" style={{ border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "12px", marginBottom: 14, minHeight: 44 }} />
+                  <button onClick={payWithCard} disabled={paying} style={{ ...cardPayBtnStyle, opacity: paying ? 0.6 : 1 }}>
+                    {paying ? "Processing..." : `💳 Pay ${fmt(cardTotal(total))} →`}
+                  </button>
+                  {paymentData.savedCard && (
+                    <button onClick={() => setPaymentData(prev => ({ ...prev, useNewCard: false }))} disabled={paying}
+                      style={{ width: "100%", padding: "13px", borderRadius: 12, cursor: "pointer", border: "1.5px solid #2563eb", background: "#fff", color: "#2563eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, marginBottom: 10, opacity: paying ? 0.6 : 1 }}>
+                      ← Use {paymentData.savedCard.brand} ••••{paymentData.savedCard.last4} instead
+                    </button>
+                  )}
+                </>
+              )}
             </>
           ) : (
             <>
@@ -1083,6 +1125,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
