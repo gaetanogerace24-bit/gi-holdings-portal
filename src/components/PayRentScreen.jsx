@@ -73,10 +73,11 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
   const autopayMountedRef = useRef(false);
 
   useEffect(() => {
-    if (!tenant?.id) return;
+    if (!tenant?.id || !tenant?.stripe_customer_id) return;
     supabase.functions.invoke("list-payment-methods", { body: { tenant_id: tenant.id } })
       .then(({ data }) => {
-        if (data?.cards?.length) {
+        if (data?.cards?.length > 1) {
+          // Only update if there are multiple cards (single card already shown instantly)
           setSavedCards(data.cards);
           setSelectedCardId(prev => prev || tenant?.stripe_payment_method_id || data.cards[0]?.id);
         }
@@ -1082,6 +1083,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
