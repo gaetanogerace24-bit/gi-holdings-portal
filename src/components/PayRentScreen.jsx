@@ -346,6 +346,25 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const elementsRef = useRef(null);
   const cardMountedRef = useRef(false);
 
+  // Saved cards for inline card picker
+  const [savedCards, setSavedCards] = useState(
+    tenant?.stripe_payment_method_id && tenant?.card_last4
+      ? [{ id: tenant.stripe_payment_method_id, last4: tenant.card_last4, brand: tenant.card_brand || "Card" }]
+      : []
+  );
+  const [selectedCardId, setSelectedCardId] = useState(tenant?.stripe_payment_method_id || null);
+
+  useEffect(() => {
+    if (!tenant?.id) return;
+    supabase.functions.invoke("list-payment-methods", { body: { tenant_id: tenant.id } })
+      .then(({ data }) => {
+        if (data?.cards?.length > 1) {
+          setSavedCards(data.cards);
+          setSelectedCardId(prev => prev || tenant?.stripe_payment_method_id || data.cards[0]?.id);
+        }
+      }).catch(() => {});
+  }, [tenant?.id]);
+
   const cardFee = (amt) => Math.round((amt * 0.029 + 0.30) * 100) / 100;
   const cardTotal = (amt) => Math.round((amt + cardFee(amt)) * 100) / 100;
 
@@ -1145,6 +1164,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
