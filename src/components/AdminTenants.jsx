@@ -847,7 +847,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
         </div>
       )}
 
-      {activeTenants.length === 0 && !showForm && (
+      {activeTenants.length === 0 && !showForm && !showS8Inspections && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>No tenants added yet</div>
@@ -856,7 +856,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {activeTenants.map(t => {
+        {!showS8Inspections && activeTenants.map(t => {
           const docsOpen = expandedDocs === t.id;
           const isM2M = t.month_to_month || t.monthToMonth;
           return (
