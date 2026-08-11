@@ -57,9 +57,10 @@ function calcLiveTotal(inv, tenant = null) {
   if (inv.is_custom) return Number(inv.rent || 0);
   if (inv.fee_waived) return Number(inv.rent || 0);
   if (!inv.due_date) return Number(inv.total || inv.rent || 0);
+  // Use stored total if late fee already applied
+  if (Number(inv.total) > Number(inv.rent)) return Number(inv.total);
   const rules = getTenantLateFeeRules(tenant);
   const lateFee = calcLateFee(inv.due_date, rules);
-  // If no late fee has kicked in yet, just show the base total
   if (lateFee === 0) return Number(inv.total || inv.rent || 0);
   return Number(inv.rent || 0) + lateFee;
 }
@@ -379,6 +380,7 @@ function InvoiceListSheet({ tenant, invoices, customInvoices = [], onClose, onSe
   const active = invoices.filter(i => !i.deleted);
   const activeCustom = customInvoices.filter(i => !i.deleted);
   const calcCustomLiveTotal = (inv) => {
+    if (Number(inv.total) > 0) return Number(inv.total);
     if (!inv.late_fee_enabled) return Number(inv.amount || 0);
     const startDay = Number(inv.late_fee_start_day);
     const initialFee = Number(inv.initial_late_fee || 0);
@@ -1552,6 +1554,7 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     </div>
   );
 }
+
 
 
 
