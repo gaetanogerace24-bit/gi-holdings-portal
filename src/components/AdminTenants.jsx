@@ -529,11 +529,6 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                                 <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>{h.inspection_date ? new Date(h.inspection_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
                                 <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, fontStyle: h.notes ? "normal" : "italic" }}>{h.notes || "No notes"}</div>
                               </div>
-                              <button onClick={async () => {
-                                if (!confirm("Delete this past inspection record?")) return;
-                                await supabase.from("inspection_history").delete().eq("id", h.id);
-                                setInspectionHistory(prev => prev.filter(r => r.id !== h.id));
-                              }} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 13, padding: "2px 6px", flexShrink: 0 }}>🗑</button>
                             </div>
                           ))}
                         </div>
