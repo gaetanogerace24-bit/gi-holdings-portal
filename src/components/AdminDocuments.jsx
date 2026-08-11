@@ -7,7 +7,7 @@ const DOC_ICONS = {
   "Community rules": "📜", "Notice": "📋", "Other": "📁",
 };
 
-export default function AdminDocuments({ tenants, setTenants, initialTenantId = "" }) {
+export default function AdminDocuments({ tenants, setTenants, initialTenantId = "", isActive }) {
   const [properties, setProperties] = useState([]);
   const [search, setSearch] = useState("");
   const [expandedProperties, setExpandedProperties] = useState({});
@@ -22,7 +22,13 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    supabase.from("properties").select("*").neq("status", "archived").order("created_at", { ascending: true })
+    if (isActive === false) {
+      setExpandedProperties({});
+      setExpandedTenants({});
+    }
+  }, [isActive]);
+
+  useEffect(() => {
       .then(({ data }) => { if (data) setProperties(data); });
   }, []);
 
@@ -209,6 +215,7 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {propertyRows
           .filter(({ prop, tenant }) => matchesProp(prop, tenant))
+          .filter(({ prop }) => Object.keys(expandedProperties).length === 0 || expandedProperties[prop.id])
           .map(({ prop, tenant }) => {
             const isExpanded = expandedProperties[prop.id];
             const docCount = tenant ? (tenant.documents || []).length : 0;
@@ -296,7 +303,7 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
             );
           })}
 
-        {unassignedTenants.filter(t => !search || t.name.toLowerCase().includes(searchLower)).length > 0 && (
+        {Object.keys(expandedProperties).length === 0 && unassignedTenants.filter(t => !search || t.name.toLowerCase().includes(searchLower)).length > 0 && (
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.7px" }}>Unassigned tenants</div>
@@ -380,3 +387,4 @@ function Label({ children }) {
 const greenBtn = { background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" };
 const outlineBtn = { padding: "7px 12px", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#6b7280" };
 const selectSt = { padding: "10px 12px", borderRadius: 9, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a" };
+
