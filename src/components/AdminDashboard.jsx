@@ -93,7 +93,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           <div style={{ display: active === "payments" ? "block" : "none" }}><AdminPayments tenants={tenants} invoices={sharedInvoices} initialProcessingCustomInvoices={sharedProcessingCustomInvoices} initialPaidCustomInvoices={sharedPaidCustomInvoices} initialPaidClientInvoices={sharedPaidClientInvoices} /></div>
           <div style={{ display: active === "tickets" ? "block" : "none" }}><AdminTickets tenants={tenants} sharedTickets={sharedTickets} setSharedTickets={setSharedTickets} supabase={supabase} /></div>
           <div style={{ display: active === "tenants" ? "block" : "none" }}><AdminTenants tenants={tenants} setTenants={setTenants} isActive={active === "tenants"} /></div>
-          <div style={{ display: active === "properties" ? "block" : "none" }}><AdminProperties tenants={tenants} onCountChange={setPropertyCount} /></div>
+          <div style={{ display: active === "properties" ? "block" : "none" }}><AdminProperties tenants={tenants} onCountChange={setPropertyCount} isActive={active === "properties"} /></div>
           <div style={{ display: active === "documents" ? "block" : "none" }}><AdminDocuments tenants={tenants} setTenants={setTenants} /></div>
           <div style={{ display: active === "messages" ? "block" : "none" }}><AdminMessages tenants={tenants} supabase={supabase} /></div>
           <div style={{ display: active === "planner" ? "block" : "none" }}><AdminPlanner tenants={tenants} supabase={supabase} /></div>
