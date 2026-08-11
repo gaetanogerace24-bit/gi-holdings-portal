@@ -916,28 +916,57 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               {payableCustomInvoicesWithFee.map(inv => {
                 const chargeId = `cust_${inv.id}`;
                 const isSelected = effectiveSelectedIds.has(chargeId);
+                const amount = Number(inv.amount || 0);
+                const lateFee = Number(inv.late_fee || 0);
+                const dailyFee = Number(inv.daily_late_fee || 0);
+                const initialFee = Number(inv.initial_late_fee || 0);
+                const daysOfDaily = lateFee > initialFee && dailyFee > 0 ? Math.round((lateFee - initialFee) / dailyFee) : 0;
                 return (
-                  <div key={inv.id} onClick={() => toggleCharge(chargeId)} style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "12px 14px", borderRadius: 10, marginBottom: 8, cursor: "pointer",
-                    outline: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"),
-                    background: isSelected ? "#f0fdf4" : "#fff",
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{
-                        width: 20, height: 20, borderRadius: 4, flexShrink: 0,
-                        background: isSelected ? "#1b3d2a" : "#fff",
-                        border: isSelected ? "none" : "1.5px solid #d1d5db",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>
-                        {isSelected && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
+                  <div key={inv.id} style={{ marginBottom: 8, outline: "2px solid " + (isSelected ? "#1b3d2a" : "#e5e7eb"), borderRadius: 10, overflow: "hidden" }}>
+                    <div onClick={() => toggleCharge(chargeId)} style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "12px 14px", cursor: "pointer",
+                      background: isSelected ? "#f0fdf4" : "#fff",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{
+                          width: 20, height: 20, borderRadius: 4, flexShrink: 0,
+                          background: isSelected ? "#1b3d2a" : "#fff",
+                          border: isSelected ? "none" : "1.5px solid #d1d5db",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          {isSelected && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{inv.title}</div>
+                          <div style={{ fontSize: 11, color: "#dc2626", marginTop: 1 }}>Other charge · due immediately</div>
+                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{inv.title}</div>
-                        <div style={{ fontSize: 11, color: "#dc2626", marginTop: 1 }}>Other charge · due immediately</div>
-                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(inv._liveTotal)}</div>
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(inv._liveTotal)}</div>
+                    {lateFee > 0 && (
+                      <div style={{ background: "#fef2f2", borderTop: "1px solid #fca5a5", borderRadius: "0 0 8px 8px", padding: "10px 14px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                          <span style={{ color: "#6b7280" }}>Charge amount</span>
+                          <span style={{ color: "#1a1a1a", fontWeight: 500 }}>{fmt(amount)}</span>
+                        </div>
+                        {initialFee > 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: daysOfDaily > 0 ? 4 : 6 }}>
+                            <span style={{ color: "#dc2626" }}>One-time late fee</span>
+                            <span style={{ color: "#dc2626", fontWeight: 500 }}>+{fmt(initialFee)}</span>
+                          </div>
+                        )}
+                        {daysOfDaily > 0 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                            <span style={{ color: "#dc2626" }}>{fmt(dailyFee)}/day × {daysOfDaily} day{daysOfDaily !== 1 ? "s" : ""}</span>
+                            <span style={{ color: "#dc2626", fontWeight: 500 }}>+{fmt(daysOfDaily * dailyFee)}</span>
+                          </div>
+                        )}
+                        <div style={{ fontSize: 11, color: "#dc2626", paddingTop: 6, borderTop: "0.5px solid #fca5a5" }}>
+                          {fmt(dailyFee)} added each day until paid
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1170,6 +1199,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
