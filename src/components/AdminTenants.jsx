@@ -488,7 +488,16 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                           <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{t.name} · ${(Number(t.section8_amount || 0) + Number(t.tenant_portion || 0)).toLocaleString()}/mo</div>
                         </div>
                         {current ? (
-                          <span style={{ background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>🔍 In inspection</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>🔍 In inspection</span>
+                            <button onClick={async () => {
+                              if (!confirm("Remove this inspection record?")) return;
+                              await supabase.from("inspection_history").delete().eq("id", current.id);
+                              setInspectionHistory(prev => prev.filter(h => h.id !== current.id));
+                            }} style={{ background: "none", border: "1px solid #fca5a5", borderRadius: 7, padding: "3px 10px", fontSize: 12, color: "#dc2626", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                              🗑 Remove
+                            </button>
+                          </div>
                         ) : tenantHistory.length === 0 ? (
                           <span style={{ background: "#f3f4f6", color: "#9ca3af", border: "1.5px solid #e5e7eb", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700 }}>No inspection yet</span>
                         ) : null}
@@ -520,6 +529,11 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                                 <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>{h.inspection_date ? new Date(h.inspection_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
                                 <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, fontStyle: h.notes ? "normal" : "italic" }}>{h.notes || "No notes"}</div>
                               </div>
+                              <button onClick={async () => {
+                                if (!confirm("Delete this past inspection record?")) return;
+                                await supabase.from("inspection_history").delete().eq("id", h.id);
+                                setInspectionHistory(prev => prev.filter(r => r.id !== h.id));
+                              }} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 13, padding: "2px 6px", flexShrink: 0 }}>🗑</button>
                             </div>
                           ))}
                         </div>
