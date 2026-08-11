@@ -865,7 +865,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {!showS8Inspections && !showLeaseOverview && activeTenants.map(t => {
+      {!showS8Inspections && !showLeaseOverview && !showForm && activeTenants.map(t => {
           const docsOpen = expandedDocs === t.id;
           const isM2M = t.month_to_month || t.monthToMonth;
           return (
