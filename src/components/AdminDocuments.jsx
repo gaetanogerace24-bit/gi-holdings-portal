@@ -29,6 +29,7 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
   }, [isActive]);
 
   useEffect(() => {
+    supabase.from("properties").select("*").neq("status", "archived").order("created_at", { ascending: true })
       .then(({ data }) => { if (data) setProperties(data); });
   }, []);
 
