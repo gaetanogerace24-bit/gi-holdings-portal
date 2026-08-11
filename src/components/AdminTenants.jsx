@@ -865,7 +865,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {!showS8Inspections && !showLeaseOverview && activeTenants.map(t => {
+      {!showS8Inspections && !showLeaseOverview && activeTenants.filter(t => !expandedDocs || expandedDocs === t.id).map(t => {
           const docsOpen = expandedDocs === t.id;
           const isM2M = t.month_to_month || t.monthToMonth;
           return (
@@ -956,7 +956,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                         <div style={{ fontSize: 12, color: "#6b7280" }}>Drag & drop a file or <span style={{ color: "#4caf7d", fontWeight: 600 }}>click to browse</span></div>
                         {docForm.url && docForm.url.includes("supabase") && <div style={{ fontSize: 11, color: "#4caf7d", marginTop: 6 }}>✅ File uploaded</div>}
                       </div>
-                      <input value={docForm.url} onChange={e => setDocForm({ ...docForm, url: e.target.value })} placeholder="Or paste a Google Drive / Dropbox URL..." style={{ ...inputSt, fontSize: 12 }} />
+
                     </div>
                     <button onClick={() => addDocument(t.id)} style={{ ...greenBtn, fontSize: 13, padding: "8px 18px" }}>+ Add document</button>
                   </div>
