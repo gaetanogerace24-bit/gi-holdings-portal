@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
 const EMPTY_FORM = { name: "", email: "", phone: "", unit: "", address: "", rent: "", leaseStart: "", leaseEnd: "", notes: "", public_note: "", deposit: "", section8: false, section8Amount: "", tenantPortion: "", monthToMonth: false, loginEmail: "", customLateFee: false, lateFeeStartDay: "", initialLateFee: "", dailyLateFee: "", proratedFirst: false, proratedMoveInDate: "" };
@@ -88,7 +88,7 @@ async function generateLeaseInvoices(tenantId, leaseStart, leaseEnd, rent, tenan
   return toInsert.length;
 }
 
-export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, onNavigateToDocuments }) {
+export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, onNavigateToDocuments, isActive }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -358,6 +358,13 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const [showLeaseOverview, setShowLeaseOverview] = useState(false);
   const [showS8Inspections, setShowS8Inspections] = useState(false);
   const [inspectionHistory, setInspectionHistory] = useState([]);
+
+  useEffect(() => {
+    if (isActive === false) {
+      setShowLeaseOverview(false);
+      setShowS8Inspections(false);
+    }
+  }, [isActive]);
 
   const loadInspectionHistory = async () => {
     const { data } = await supabase
