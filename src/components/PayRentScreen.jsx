@@ -850,11 +850,11 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                 const isSelected = effectiveSelectedIds.has(chargeId);
                 const isOverdue = inv._type === "overdue";
                 const rent = Number(inv.rent || 0);
-                const fee = inv.liveFee || 0;
+                const fee = Number(inv.late_fee || inv.liveFee || 0);
                 const startDay = lateFeeRules.startDay || 5;
-                const initialFee = lateFeeRules.initialFee ?? 35;
-                const dailyFee = lateFeeRules.dailyFee ?? 10;
-                const daysOfDaily = fee > initialFee ? Math.round((fee - initialFee) / dailyFee) : 0;
+                const initialFee = Number(inv.initial_late_fee ?? lateFeeRules.initialFee ?? 35);
+                const dailyFee = Number(inv.daily_late_fee ?? lateFeeRules.dailyFee ?? 10);
+                const daysOfDaily = fee > initialFee && dailyFee > 0 ? Math.round((fee - initialFee) / dailyFee) : 0;
                 const feeStartDate = (() => {
                   if (!inv.due_date) return null;
                   const parts = inv.due_date.split("T")[0].split("-");
