@@ -498,9 +498,16 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                               🗑 Remove
                             </button>
                           </div>
-                        ) : tenantHistory.length === 0 ? (
-                          <span style={{ background: "#f3f4f6", color: "#9ca3af", border: "1.5px solid #e5e7eb", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700 }}>No inspection yet</span>
-                        ) : null}
+                        ) : (
+                          <button onClick={async () => {
+                            if (!confirm("Remove all inspection records for this property?")) return;
+                            const ids = tenantHistory.map(h => h.id);
+                            await supabase.from("inspection_history").delete().in("id", ids);
+                            setInspectionHistory(prev => prev.filter(h => !ids.includes(h.id)));
+                          }} style={{ background: "none", border: "1px solid #fca5a5", borderRadius: 7, padding: "3px 10px", fontSize: 12, color: "#dc2626", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                            🗑 Remove
+                          </button>
+                        )}
                       </div>
 
                       {current && (
