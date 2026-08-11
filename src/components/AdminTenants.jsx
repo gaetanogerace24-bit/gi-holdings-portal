@@ -865,7 +865,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {!showS8Inspections && !showLeaseOverview && activeTenants.filter(t => !expandedDocs || expandedDocs === t.id).map(t => {
+      {!showS8Inspections && !showLeaseOverview && activeTenants.map(t => {
           const docsOpen = expandedDocs === t.id;
           const isM2M = t.month_to_month || t.monthToMonth;
           return (
@@ -895,98 +895,12 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={() => onNavigateToDocuments ? onNavigateToDocuments(t.id) : setExpandedDocs(docsOpen ? null : t.id)} style={{ ...outlineBtn, borderColor: "#e5e7eb", color: "#6b7280" }}>
-                    📄 Docs {t.documents?.length > 0 ? `(${t.documents.length})` : ""}
-                  </button>
                   <button onClick={() => openEdit(t)} style={outlineBtn}>Tenant Information</button>
                   <button onClick={() => handleRemove(t.id, t.name)} style={{ ...outlineBtn, borderColor: "#fee2e2", color: "#dc2626" }}>Remove</button>
                 </div>
               </div>
               {t.notes && (
                 <div style={{ margin: "0 20px 14px 20px", fontSize: 12, color: "#6b7280", background: "#f9fafb", borderRadius: 8, padding: "8px 12px" }}>📝 {t.notes}</div>
-              )}
-              {docsOpen && (
-                <div style={{ borderTop: "1px solid #f3f4f6", padding: "16px 20px", background: "#fafafa" }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: "#1b3d2a" }}>📄 Documents for {t.name}</div>
-                  <div style={{ background: "#fff", borderRadius: 12, padding: "14px", border: "1px solid #e5e7eb", marginBottom: 14 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: "#374151" }}>Add new document</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                      <div>
-                        <Label>Document name</Label>
-                        <input value={docForm.name} onChange={e => setDocForm({ ...docForm, name: e.target.value })} placeholder="e.g. Lease 2025-2026" style={inputSt} />
-                      </div>
-                      <div>
-                        <Label>Category</Label>
-                        <select value={docForm.category} onChange={e => setDocForm({ ...docForm, category: e.target.value })} style={inputSt}>
-                          {DOC_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div style={{ marginBottom: 10 }}>
-                      <Label>Upload file or paste URL</Label>
-                      <div
-                        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "#4caf7d"; e.currentTarget.style.background = "#f0fdf4"; }}
-                        onDragLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fafafa"; }}
-                        onDrop={async e => {
-                          e.preventDefault();
-                          e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fafafa";
-                          const file = e.dataTransfer.files[0];
-                          if (!file) return;
-                          const path = `${t.id}/${Date.now()}_${file.name}`;
-                          const { data, error } = await supabase.storage.from("tenant-docs").upload(path, file, { upsert: true });
-                          if (!error) {
-                            const { data: urlData } = supabase.storage.from("tenant-docs").getPublicUrl(path);
-                            setDocForm(f => ({ ...f, url: urlData.publicUrl, name: f.name || file.name }));
-                          }
-                        }}
-                        style={{ border: "2px dashed #e5e7eb", borderRadius: 10, padding: "16px", textAlign: "center", background: "#fafafa", cursor: "pointer", marginBottom: 8, transition: "all 0.15s" }}
-                        onClick={() => document.getElementById(`file-upload-${t.id}`).click()}
-                      >
-                        <input id={`file-upload-${t.id}`} type="file" style={{ display: "none" }} onChange={async e => {
-                          const file = e.target.files[0];
-                          if (!file) return;
-                          const path = `${t.id}/${Date.now()}_${file.name}`;
-                          const { data, error } = await supabase.storage.from("tenant-docs").upload(path, file, { upsert: true });
-                          if (!error) {
-                            const { data: urlData } = supabase.storage.from("tenant-docs").getPublicUrl(path);
-                            setDocForm(f => ({ ...f, url: urlData.publicUrl, name: f.name || file.name }));
-                          }
-                        }} />
-                        <div style={{ fontSize: 20, marginBottom: 4 }}>📎</div>
-                        <div style={{ fontSize: 12, color: "#6b7280" }}>Drag & drop a file or <span style={{ color: "#4caf7d", fontWeight: 600 }}>click to browse</span></div>
-                        {docForm.url && docForm.url.includes("supabase") && <div style={{ fontSize: 11, color: "#4caf7d", marginTop: 6 }}>✅ File uploaded</div>}
-                      </div>
-
-                    </div>
-                    <button onClick={() => addDocument(t.id)} style={{ ...greenBtn, fontSize: 13, padding: "8px 18px" }}>+ Add document</button>
-                  </div>
-                  {(!t.documents || t.documents.length === 0) ? (
-                    <div style={{ textAlign: "center", padding: "20px", color: "#9ca3af", fontSize: 13 }}>No documents yet — add one above</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {DOC_CATEGORIES.map(cat => {
-                        const catDocs = (t.documents || []).filter(d => d.category === cat);
-                        if (catDocs.length === 0) return null;
-                        return (
-                          <div key={cat}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 6 }}>{cat}</div>
-                            {catDocs.map(doc => (
-                              <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", borderRadius: 9, padding: "10px 14px", border: "1px solid #f3f4f6", marginBottom: 6 }}>
-                                <span style={{ fontSize: 16 }}>{docIcon(doc.category)}</span>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 500 }}>{doc.name}</div>
-                                  <div style={{ fontSize: 11, color: "#9ca3af" }}>Added {doc.date}</div>
-                                </div>
-                                {doc.url && <a href={doc.url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#4caf7d", fontWeight: 600, textDecoration: "none" }}>View →</a>}
-                                <button onClick={() => removeDocument(t.id, doc.id)} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 14, padding: "2px 6px" }}>✕</button>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
               )}
             </div>
           );
