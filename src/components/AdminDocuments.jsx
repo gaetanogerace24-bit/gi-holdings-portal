@@ -216,7 +216,7 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {propertyRows
           .filter(({ prop, tenant }) => matchesProp(prop, tenant))
-          .filter(({ prop }) => Object.keys(expandedProperties).length === 0 || expandedProperties[prop.id])
+          .filter(({ prop }) => !Object.values(expandedProperties).some(v => v) || expandedProperties[prop.id])
           .map(({ prop, tenant }) => {
             const isExpanded = expandedProperties[prop.id];
             const docCount = tenant ? (tenant.documents || []).length : 0;
@@ -304,7 +304,7 @@ export default function AdminDocuments({ tenants, setTenants, initialTenantId = 
             );
           })}
 
-        {Object.keys(expandedProperties).length === 0 && unassignedTenants.filter(t => !search || t.name.toLowerCase().includes(searchLower)).length > 0 && (
+        {!Object.values(expandedProperties).some(v => v) && unassignedTenants.filter(t => !search || t.name.toLowerCase().includes(searchLower)).length > 0 && (
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.7px" }}>Unassigned tenants</div>
