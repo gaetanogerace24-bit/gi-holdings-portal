@@ -3,13 +3,20 @@ import { supabase } from "../supabase";
 
 const EMPTY_FORM = { address: "", city: "Youngstown", state: "OH", zip: "", type: "Single Family Home", notes: "", tenant_id: "" };
 
-export default function AdminProperties({ tenants = [], onCountChange }) {
+export default function AdminProperties({ tenants = [], onCountChange, isActive }) {
   const [properties, setProperties] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [saving, setSaving] = useState(false);
   const [assigningId, setAssigningId] = useState(null);
+
+  useEffect(() => {
+    if (isActive === false) {
+      setSelectedProperty(null);
+      setShowAddForm(false);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     load();
@@ -317,3 +324,4 @@ function fmtDate(dateStr) {
 }
 const greenBtn = { background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" };
 const inputSt = { width: "100%", padding: "10px 13px", borderRadius: 9, border: "1.5px solid #e5e7eb", fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#1a1a1a", boxSizing: "border-box" };
+
