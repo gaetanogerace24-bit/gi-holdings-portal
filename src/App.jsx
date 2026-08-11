@@ -33,7 +33,7 @@ function clearSession() {
 
 export default function App() {
   const [screen, setScreen] = useState("loading");
-  const [activeTab, setActiveTab] = useState("tickets");
+  const [activeTab, setActiveTab] = useState("pay");
   const [showModal, setShowModal] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [tenants, setTenants] = useState([]);
@@ -286,6 +286,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
