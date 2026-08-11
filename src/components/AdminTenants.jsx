@@ -407,7 +407,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
           <button onClick={() => { setShowLeaseOverview(!showLeaseOverview); setShowS8Inspections(false); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showLeaseOverview ? "#1b3d2a" : "#e5e7eb", color: showLeaseOverview ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
             📅 Lease Overview
           </button>
-          <button onClick={() => { const next = !showS8Inspections; setShowS8Inspections(next); setShowLeaseOverview(false); if (next) loadInspectionHistory(); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showS8Inspections ? "#1b3d2a" : "#e5e7eb", color: showS8Inspections ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
+          <button onClick={() => { const next = !showS8Inspections; setShowS8Inspections(next); setShowLeaseOverview(false); if (next) loadInspectionHistory(); else setSelectedS8TenantId(null); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showS8Inspections ? "#1b3d2a" : "#e5e7eb", color: showS8Inspections ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
             🏠 S8 Inspections
           </button>
           <button onClick={openAdd} style={greenBtn}>+ Add tenant</button>
