@@ -358,6 +358,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const [showLeaseOverview, setShowLeaseOverview] = useState(false);
   const [showS8Inspections, setShowS8Inspections] = useState(false);
   const [inspectionHistory, setInspectionHistory] = useState([]);
+  const [selectedS8TenantId, setSelectedS8TenantId] = useState(null);
 
   useEffect(() => {
     if (isActive === false) {
@@ -365,6 +366,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       setShowS8Inspections(false);
       setExpandedDocs(null);
       setShowForm(false);
+      setSelectedS8TenantId(null);
     }
   }, [isActive]);
 
@@ -454,94 +456,102 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
         const tenantsWithHistory = new Set(inspectionHistory.filter(h => h.inspection_date).map(h => h.tenant_id));
         const s8Tenants = activeTenants.filter(t => t.section8 && tenantsWithHistory.has(t.id));
         const today = new Date(); today.setHours(0,0,0,0);
-        const activeCount = s8Tenants.filter(t => {
-          const prop = inspectionHistory.find(h => h.tenant_id === t.id && !h.completed_at);
-          return prop;
-        }).length;
+        const activeCount = s8Tenants.filter(t => inspectionHistory.find(h => h.tenant_id === t.id && !h.completed_at)).length;
+        const selected = selectedS8TenantId ? s8Tenants.find(t => t.id === selectedS8TenantId) : null;
+
+        if (selected) {
+          const tenantHistory = inspectionHistory.filter(h => h.tenant_id === selected.id).sort((a, b) => new Date(b.inspected_at) - new Date(a.inspected_at));
+          const current = tenantHistory.find(h => !h.completed_at);
+          const past = tenantHistory.filter(h => h.completed_at);
+          const inspDate = current?.inspection_date ? new Date(current.inspection_date + "T00:00:00") : null;
+          const daysUntil = inspDate ? Math.ceil((inspDate - today) / (1000 * 60 * 60 * 24)) : null;
+          const initials = selected.name.split(" ").map(n => n[0]).join("").slice(0, 2);
+          return (
+            <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", marginBottom: 24, overflow: "hidden" }}>
+              <div style={{ padding: "14px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: 10 }}>
+                <button onClick={() => setSelectedS8TenantId(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" }}>←</button>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{selected.address}</div>
+                {current && <span style={{ marginLeft: "auto", background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700 }}>🔍 In inspection</span>}
+              </div>
+              <div style={{ padding: "16px 20px" }}>
+                <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>{selected.name} · ${(Number(selected.section8_amount || 0) + Number(selected.tenant_portion || 0)).toLocaleString()}/mo</div>
+                {current && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                    <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Inspection date</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{inspDate ? inspDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
+                    </div>
+                    <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Days until</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: daysUntil <= 3 ? "#dc2626" : "#d97706" }}>{daysUntil !== null ? (daysUntil === 0 ? "Today!" : daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`) : "—"}</div>
+                    </div>
+                    <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", gridColumn: "1 / -1" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Notes</div>
+                      <div style={{ fontSize: 13, color: current.notes ? "#1a1a1a" : "#9ca3af", fontStyle: current.notes ? "normal" : "italic" }}>{current.notes || "No notes added"}</div>
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: past.length > 0 ? 16 : 0 }}>
+                  {current && (
+                    <button onClick={async () => {
+                      if (!confirm("Remove this inspection record?")) return;
+                      await supabase.from("inspection_history").delete().eq("id", current.id);
+                      setInspectionHistory(prev => prev.filter(h => h.id !== current.id));
+                      setSelectedS8TenantId(null);
+                    }} style={{ background: "none", border: "1px solid #fca5a5", borderRadius: 7, padding: "5px 12px", fontSize: 12, color: "#dc2626", cursor: "pointer" }}>🗑 Remove</button>
+                  )}
+                  {!current && tenantHistory.length > 0 && (
+                    <button onClick={async () => {
+                      if (!confirm("Remove all inspection records for this property?")) return;
+                      const ids = tenantHistory.map(h => h.id);
+                      await supabase.from("inspection_history").delete().in("id", ids);
+                      setInspectionHistory(prev => prev.filter(h => !ids.includes(h.id)));
+                      setSelectedS8TenantId(null);
+                    }} style={{ background: "none", border: "1px solid #fca5a5", borderRadius: 7, padding: "5px 12px", fontSize: 12, color: "#dc2626", cursor: "pointer" }}>🗑 Remove</button>
+                  )}
+                </div>
+                {past.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Past inspections</div>
+                    {past.map(h => (
+                      <div key={h.id} style={{ padding: "8px 12px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, marginBottom: 6 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>{h.inspection_date ? new Date(h.inspection_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, fontStyle: h.notes ? "normal" : "italic" }}>{h.notes || "No notes"}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
 
         return (
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", marginBottom: 24, overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>🏠 Section 8 inspection history</div>
-              {activeCount > 0 && (
-                <span style={{ background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>{activeCount} active</span>
-              )}
+              {activeCount > 0 && <span style={{ background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>{activeCount} active</span>}
             </div>
             {s8Tenants.length === 0 ? (
-              <div style={{ padding: "24px 20px", color: "#9ca3af", fontSize: 14 }}>No Section 8 tenants found.</div>
+              <div style={{ padding: "24px 20px", color: "#9ca3af", fontSize: 14 }}>No Section 8 inspections yet.</div>
             ) : s8Tenants.map((t, i) => {
-              const tenantHistory = inspectionHistory.filter(h => h.tenant_id === t.id).sort((a, b) => new Date(b.inspected_at) - new Date(a.inspected_at));
-              const current = tenantHistory.find(h => !h.completed_at);
-              const past = tenantHistory.filter(h => h.completed_at);
-              const inspDate = current?.inspection_date ? new Date(current.inspection_date + "T00:00:00") : null;
-              const daysUntil = inspDate ? Math.ceil((inspDate - today) / (1000 * 60 * 60 * 24)) : null;
+              const current = inspectionHistory.find(h => h.tenant_id === t.id && !h.completed_at);
               const initials = t.name.split(" ").map(n => n[0]).join("").slice(0, 2);
-
               return (
-                <div key={t.id} style={{ padding: "16px 20px", borderBottom: i < s8Tenants.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#166534", flexShrink: 0, marginTop: 2 }}>{initials}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{t.address}</div>
-                          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{t.name} · ${(Number(t.section8_amount || 0) + Number(t.tenant_portion || 0)).toLocaleString()}/mo</div>
-                        </div>
-                        {current ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>🔍 In inspection</span>
-                            <button onClick={async () => {
-                              if (!confirm("Remove this inspection record?")) return;
-                              await supabase.from("inspection_history").delete().eq("id", current.id);
-                              setInspectionHistory(prev => prev.filter(h => h.id !== current.id));
-                            }} style={{ background: "none", border: "1px solid #fca5a5", borderRadius: 7, padding: "3px 10px", fontSize: 12, color: "#dc2626", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                              🗑 Remove
-                            </button>
-                          </div>
-                        ) : (
-                          <button onClick={async () => {
-                            if (!confirm("Remove all inspection records for this property?")) return;
-                            const ids = tenantHistory.map(h => h.id);
-                            await supabase.from("inspection_history").delete().in("id", ids);
-                            setInspectionHistory(prev => prev.filter(h => !ids.includes(h.id)));
-                          }} style={{ background: "none", border: "1px solid #fca5a5", borderRadius: 7, padding: "3px 10px", fontSize: 12, color: "#dc2626", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                            🗑 Remove
-                          </button>
-                        )}
-                      </div>
-
-                      {current && (
-                        <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                          <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Inspection date</div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{inspDate ? inspDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
-                          </div>
-                          <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Days until inspection</div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: daysUntil <= 3 ? "#dc2626" : "#d97706" }}>{daysUntil !== null ? (daysUntil === 0 ? "Today!" : daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`) : "—"}</div>
-                          </div>
-                          <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", gridColumn: "1 / -1" }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Notes</div>
-                            <div style={{ fontSize: 13, color: current.notes ? "#1a1a1a" : "#9ca3af", fontStyle: current.notes ? "normal" : "italic" }}>{current.notes || "No notes added"}</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {past.length > 0 && (
-                        <div style={{ marginTop: 10 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Past inspections</div>
-                          {past.map((h, hi) => (
-                            <div key={h.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "8px 12px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, marginBottom: 6 }}>
-                              <div>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>{h.inspection_date ? new Date(h.inspection_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
-                                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, fontStyle: h.notes ? "normal" : "italic" }}>{h.notes || "No notes"}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                <div key={t.id} onClick={() => setSelectedS8TenantId(t.id)} style={{ padding: "14px 20px", borderBottom: i < s8Tenants.length - 1 ? "1px solid #f3f4f6" : "none", display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
+                  onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#166534", flexShrink: 0 }}>{initials}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>{t.address}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{t.name}</div>
                   </div>
+                  {current ? (
+                    <span style={{ background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>🔍 In inspection</span>
+                  ) : (
+                    <span style={{ background: "#f3f4f6", color: "#6b7280", border: "1px solid #e5e7eb", borderRadius: 20, padding: "3px 10px", fontSize: 11 }}>Past</span>
+                  )}
+                  <span style={{ color: "#9ca3af", fontSize: 16 }}>›</span>
                 </div>
               );
             })}
