@@ -526,17 +526,23 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     setError(null);
     setStep("processing");
     try {
+      // If card is selected and tenant has a saved card picked, charge it immediately
+      if (payMethod === "card" && selectedCardId) {
+        const { data, error: fnErr } = await supabase.functions.invoke("create-rent-payment", {
+          body: { ...currentRequest(), useSavedCard: true, paymentMethod: "card", savedCardPmId: selectedCardId },
+        });
+        if (fnErr) throw new Error(fnErr.message || "Could not start payment");
+        if (data?.error) throw new Error(data.error);
+        handleSuccess(data.paymentIntentId, false, true);
+        return;
+      }
+
       const { data, error: fnErr } = await supabase.functions.invoke("create-rent-payment", {
         body: { ...currentRequest(), paymentMethod: payMethod },
       });
       if (fnErr) throw new Error(fnErr.message || "Could not start payment");
       if (data?.error) throw new Error(data.error);
-      // If tenant has a saved card, attach it to paymentData so checkout shows it
-      const chosenCard = payMethod === "card" && selectedCardId
-        ? savedCards.find(c => c.id === selectedCardId) || (tenant?.card_last4 ? { id: tenant.stripe_payment_method_id, last4: tenant.card_last4, brand: tenant.card_brand || "Card" } : null)
-        : null;
-      const savedCard = chosenCard ? { last4: chosenCard.last4, brand: chosenCard.brand || "Card", pmId: chosenCard.id } : null;
-      setPaymentData({ ...data, payMethod, savedCard, useNewCard: !savedCard });
+      setPaymentData({ ...data, payMethod, savedCard: null, useNewCard: true });
       setStep("checkout");
     } catch (err) {
       setError(err.message || "Could not start payment. Please try again.");
@@ -1164,6 +1170,7 @@ function ErrBox({ msg }) { return <div style={{ background: "#fef2f2", border: "
 const payBtnStyle = { width: "100%", background: "#4caf7d", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const cardPayBtnStyle = { width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 13, padding: "15px", fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 800, cursor: "pointer", marginBottom: 10, marginTop: 4 };
 const backBtnStyle = { width: "100%", background: "none", border: "none", color: "#9ca3af", fontFamily: "'DM Sans', sans-serif", fontSize: 13, cursor: "pointer", padding: "8px" };
+
 
 
 
