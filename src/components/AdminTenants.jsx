@@ -442,7 +442,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       )}
 
       {showS8Inspections && (() => {
-        const s8Tenants = activeTenants.filter(t => t.section8);
+        const tenantsWithHistory = new Set(inspectionHistory.map(h => h.tenant_id));
+        const s8Tenants = activeTenants.filter(t => t.section8 && tenantsWithHistory.has(t.id));
         const today = new Date(); today.setHours(0,0,0,0);
         const activeCount = s8Tenants.filter(t => {
           const prop = inspectionHistory.find(h => h.tenant_id === t.id && !h.completed_at);
