@@ -363,6 +363,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     if (isActive === false) {
       setShowLeaseOverview(false);
       setShowS8Inspections(false);
+      setExpandedDocs(null);
+      setShowForm(false);
     }
   }, [isActive]);
 
@@ -921,8 +923,40 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                       </div>
                     </div>
                     <div style={{ marginBottom: 10 }}>
-                      <Label>File URL (Google Drive, Dropbox, etc.)</Label>
-                      <input value={docForm.url} onChange={e => setDocForm({ ...docForm, url: e.target.value })} placeholder="https://drive.google.com/..." style={inputSt} />
+                      <Label>Upload file or paste URL</Label>
+                      <div
+                        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "#4caf7d"; e.currentTarget.style.background = "#f0fdf4"; }}
+                        onDragLeave={e => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fafafa"; }}
+                        onDrop={async e => {
+                          e.preventDefault();
+                          e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.background = "#fafafa";
+                          const file = e.dataTransfer.files[0];
+                          if (!file) return;
+                          const path = `${t.id}/${Date.now()}_${file.name}`;
+                          const { data, error } = await supabase.storage.from("tenant-docs").upload(path, file, { upsert: true });
+                          if (!error) {
+                            const { data: urlData } = supabase.storage.from("tenant-docs").getPublicUrl(path);
+                            setDocForm(f => ({ ...f, url: urlData.publicUrl, name: f.name || file.name }));
+                          }
+                        }}
+                        style={{ border: "2px dashed #e5e7eb", borderRadius: 10, padding: "16px", textAlign: "center", background: "#fafafa", cursor: "pointer", marginBottom: 8, transition: "all 0.15s" }}
+                        onClick={() => document.getElementById(`file-upload-${t.id}`).click()}
+                      >
+                        <input id={`file-upload-${t.id}`} type="file" style={{ display: "none" }} onChange={async e => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          const path = `${t.id}/${Date.now()}_${file.name}`;
+                          const { data, error } = await supabase.storage.from("tenant-docs").upload(path, file, { upsert: true });
+                          if (!error) {
+                            const { data: urlData } = supabase.storage.from("tenant-docs").getPublicUrl(path);
+                            setDocForm(f => ({ ...f, url: urlData.publicUrl, name: f.name || file.name }));
+                          }
+                        }} />
+                        <div style={{ fontSize: 20, marginBottom: 4 }}>📎</div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Drag & drop a file or <span style={{ color: "#4caf7d", fontWeight: 600 }}>click to browse</span></div>
+                        {docForm.url && docForm.url.includes("supabase") && <div style={{ fontSize: 11, color: "#4caf7d", marginTop: 6 }}>✅ File uploaded</div>}
+                      </div>
+                      <input value={docForm.url} onChange={e => setDocForm({ ...docForm, url: e.target.value })} placeholder="Or paste a Google Drive / Dropbox URL..." style={{ ...inputSt, fontSize: 12 }} />
                     </div>
                     <button onClick={() => addDocument(t.id)} style={{ ...greenBtn, fontSize: 13, padding: "8px 18px" }}>+ Add document</button>
                   </div>
