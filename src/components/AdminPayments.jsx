@@ -990,21 +990,17 @@ export default function AdminPayments({ tenants = [], invoices: propInvoices = [
     return invTotal + custTotal;
   };
   const getDisplayAmount = (t) => {
-    const overdue = tenantInvoices(t.id).filter(
-      i => !i.paid && i.payment_status !== "processing" && getStatus(i) === "overdue"
-    );
-    const overdueTotal = overdue.reduce((sum, i) => sum + calcLiveTotal(i, t), 0);
-
-    // Also sum unpaid custom invoices (not processing) with live late fees
+    const unpaid = tenantInvoices(t.id).filter(i => !i.paid && i.payment_status !== "processing");
+    const overdueInvs = unpaid.filter(i => getStatus(i) === "overdue");
+    const overdueTotal = overdueInvs.reduce((sum, i) => sum + (Number(i.total) > Number(i.rent) ? Number(i.total) : calcLiveTotal(i, t)), 0);
     const customTotal = (customInvoicesByTenant[t.id] || [])
       .filter(i => !i.paid && i.payment_status !== "processing")
       .reduce((sum, i) => sum + (Number(i.total) > 0 ? Number(i.total) : Number(i.amount || 0)), 0);
-
-    if (overdue.length > 0 || customTotal > 0) {
+    if (overdueInvs.length > 0 || customTotal > 0) {
       return overdueTotal + customTotal;
     }
     const thisMonth = tenantInvoices(t.id).find(i => i.month === currentMonthName);
-    return thisMonth ? calcLiveTotal(thisMonth, t) : Number(t.rent || 0);
+    return thisMonth ? (Number(thisMonth.total) || calcLiveTotal(thisMonth, t)) : Number(t.rent || 0);
   };
 
   const handleMarkPaid = async (inv) => {
