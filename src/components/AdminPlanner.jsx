@@ -49,8 +49,37 @@ export default function AdminPlanner({ tenants = [] }) {
   const getTenant = (prop) => tenants.find(t => t.id === prop.tenant_id) || null;
 
   const moveCard = async (propId, newStage) => {
+    const prev_stage = properties.find(p => p.id === propId)?.planner_stage || null;
     setProperties(prev => prev.map(p => p.id === propId ? { ...p, planner_stage: newStage } : p));
     await supabase.from("properties").update({ planner_stage: newStage }).eq("id", propId);
+
+    // If moved INTO inspection, log a new inspection_history record
+    if (newStage?.startsWith("inspection") && !prev_stage?.startsWith("inspection")) {
+      const prop = properties.find(p => p.id === propId);
+      const tenant = prop ? tenants.find(t => t.id === prop.tenant_id) : null;
+      if (tenant?.section8) {
+        await supabase.from("inspection_history").insert({
+          property_id: propId,
+          tenant_id: tenant.id,
+          inspected_at: new Date().toISOString(),
+          inspection_date: null,
+          notes: null,
+          completed_at: null,
+        });
+      }
+    }
+
+    // If moved OUT of inspection, mark the open record as completed
+    if (prev_stage?.startsWith("inspection") && !newStage?.startsWith("inspection")) {
+      const prop = properties.find(p => p.id === propId);
+      const tenant = prop ? tenants.find(t => t.id === prop.tenant_id) : null;
+      if (tenant?.section8) {
+        await supabase.from("inspection_history")
+          .update({ completed_at: new Date().toISOString() })
+          .eq("property_id", propId)
+          .is("completed_at", null);
+      }
+    }
   };
 
   const addColumn = () => {
@@ -216,6 +245,7 @@ export default function AdminPlanner({ tenants = [] }) {
                                                 const d = e.target.value;
                                                 setProperties(prev => prev.map(p => p.id === prop.id ? { ...p, inspection_date: d } : p));
                                                 await supabase.from("properties").update({ inspection_date: d }).eq("id", prop.id);
+                                                await supabase.from("inspection_history").update({ inspection_date: d }).eq("property_id", prop.id).is("completed_at", null);
                                               }}
                                               onMouseDown={e => e.stopPropagation()}
                                               style={{ width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", cursor: "pointer", marginBottom: 8 }}
@@ -228,6 +258,7 @@ export default function AdminPlanner({ tenants = [] }) {
                                                 const notes = e.target.value;
                                                 setProperties(prev => prev.map(p => p.id === prop.id ? { ...p, inspection_notes: notes } : p));
                                                 await supabase.from("properties").update({ inspection_notes: notes }).eq("id", prop.id);
+                                                await supabase.from("inspection_history").update({ notes }).eq("property_id", prop.id).is("completed_at", null);
                                               }}
                                               onMouseDown={e => e.stopPropagation()}
                                               style={{ width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", resize: "none" }}
@@ -259,5 +290,6 @@ export default function AdminPlanner({ tenants = [] }) {
     </div>
   );
 }
+
 
 
