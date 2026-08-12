@@ -426,7 +426,9 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
           <button onClick={() => { const next = !showS8Increases; setShowS8Increases(next); setShowLeaseOverview(false); setShowS8Inspections(false); setSelectedS8TenantId(null); setSelectedS8RecordId(null); setSelectedIncreaseTenantId(null); if (next) loadS8Increases(); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showS8Increases ? "#1b3d2a" : "#e5e7eb", color: showS8Increases ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
             📈 S8 Rent Increases
           </button>
-          <button onClick={openAdd} style={greenBtn}>+ Add tenant</button>
+          {!showLeaseOverview && !showS8Inspections && !showS8Increases && (
+            <button onClick={openAdd} style={greenBtn}>+ Add tenant</button>
+          )}
         </div>
       </div>
 
