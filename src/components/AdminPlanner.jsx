@@ -275,7 +275,7 @@ export default function AdminPlanner({ tenants = [] }) {
                                                   await supabase.from("inspection_history").update({ reinspection_date: d }).eq("property_id", prop.id).is("completed_at", null);
                                                 }}
                                                 onMouseDown={e => e.stopPropagation()}
-                                                style={{ width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid #fcd34d", background: "#fffbeb", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", cursor: "pointer" }}
+                                                style={{ width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", cursor: "pointer" }}
                                               />
                                             </div>
                                           </div>
