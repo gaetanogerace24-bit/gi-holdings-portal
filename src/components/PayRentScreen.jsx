@@ -409,12 +409,21 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     }
   }, [step]);
 
-  const classified = invoices.map(inv => ({
-    ...inv,
-    _type: classifyInvoice(inv, now),
-    liveFee: inv.is_custom || inv.payment_status === "processing" || inv.fee_waived ? 0 : (Number(inv.late_fee) || calcLateFee(inv.due_date, lateFeeRules)),
-    liveTotal: inv.payment_status === "processing" ? Number(inv.total || inv.rent || 0) : inv.is_custom ? Number(inv.rent || 0) : inv.fee_waived ? Number(inv.rent || 0) : Number(inv.rent || 0) + (Number(inv.late_fee) || calcLateFee(inv.due_date, lateFeeRules)),
-  }));
+  const classified = invoices.map(inv => {
+    const _type = classifyInvoice(inv, now);
+    const r = Number(inv.rent || 0);
+    const isProcessing = inv.payment_status === "processing";
+    const isCustom = !!inv.is_custom;
+    const isWaived = !!inv.fee_waived;
+    // liveFee: use stored late_fee if present, otherwise calculate from tenant rules
+    const liveFee = (isCustom || isProcessing || isWaived) ? 0
+      : (Number(inv.late_fee) > 0 ? Number(inv.late_fee) : calcLateFee(inv.due_date, lateFeeRules));
+    // liveTotal: rent + liveFee
+    const liveTotal = isProcessing ? Number(inv.total || r)
+      : (isCustom || isWaived) ? r
+      : r + liveFee;
+    return { ...inv, _type, liveFee, liveTotal };
+  });
 
   const processingInvoices = classified.filter(inv => inv.payment_status === "processing" && !inv.paid);
 
