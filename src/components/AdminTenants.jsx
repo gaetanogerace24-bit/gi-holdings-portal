@@ -465,6 +465,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
           const past = tenantHistory.filter(h => h.completed_at);
           const inspDate = current?.inspection_date ? new Date(current.inspection_date + "T00:00:00") : null;
           const daysUntil = inspDate ? Math.ceil((inspDate - today) / (1000 * 60 * 60 * 24)) : null;
+          const reinspDate = current?.reinspection_date ? new Date(current.reinspection_date + "T00:00:00") : null;
+          const daysUntilReinsp = reinspDate ? Math.ceil((reinspDate - today) / (1000 * 60 * 60 * 24)) : null;
           const initials = selected.name.split(" ").map(n => n[0]).join("").slice(0, 2);
           return (
             <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", marginBottom: 24, overflow: "hidden" }}>
@@ -488,6 +490,20 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                     <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", gridColumn: "1 / -1" }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Notes</div>
                       <div style={{ fontSize: 13, color: current.notes ? "#1a1a1a" : "#9ca3af", fontStyle: current.notes ? "normal" : "italic" }}>{current.notes || "No notes added"}</div>
+                    </div>
+                  </div>
+                )}
+                {current && reinspDate && (
+                  <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 12, marginBottom: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>🔄 Re-inspection date</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{reinspDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                      </div>
+                      <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Days until re-inspection</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{daysUntilReinsp === 0 ? "Today!" : daysUntilReinsp < 0 ? `${Math.abs(daysUntilReinsp)} days ago` : `${daysUntilReinsp} days`}</div>
+                      </div>
                     </div>
                   </div>
                 )}
