@@ -413,8 +413,25 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     ...inv,
     _type: classifyInvoice(inv, now),
     liveFee: inv.is_custom || inv.payment_status === "processing" || inv.fee_waived ? 0 : (Number(inv.late_fee) || calcLateFee(inv.due_date, lateFeeRules)),
-    // liveTotal: use stored late_fee from DB (set by late fee job), fall back to live calc
-    liveTotal: inv.payment_status === "processing" ? Number(inv.total || inv.rent || 0) : inv.is_custom ? Number(inv.rent || 0) : inv.fee_waived ? Number(inv.rent || 0) : Number(inv.rent || 0) + Number(inv.late_fee || 0),
+    liveTotal: (() => {
+      if (inv.payment_status === "processing") return Number(inv.total || inv.rent || 0);
+      if (inv.is_custom) return Number(inv.rent || 0);
+      if (inv.fee_waived) return Number(inv.rent || 0);
+      const r = Number(inv.rent || 0);
+      if (Number(inv.late_fee) > 0) return r + Number(inv.late_fee);
+      const initialFee = Number(inv.initial_late_fee ?? 0);
+      const dailyFee = Number(inv.daily_late_fee ?? 0);
+      const startDay = Number(inv.late_fee_start_day ?? 5);
+      if (!initialFee && !dailyFee) return r + calcLateFee(inv.due_date, lateFeeRules);
+      if (!inv.due_date) return r;
+      const parts = inv.due_date.split("T")[0].split("-");
+      const due = new Date(Date.UTC(Number(parts[0]), Number(parts[1])-1, Number(parts[2])));
+      const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), startDay));
+      const today = new Date(); today.setUTCHours(0,0,0,0);
+      if (today < feeStart) return r;
+      const days = Math.round((today - feeStart) / 86400000);
+      return r + initialFee + days * dailyFee;
+    })(),
   }));
 
   const processingInvoices = classified.filter(inv => inv.payment_status === "processing" && !inv.paid);
