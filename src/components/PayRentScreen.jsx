@@ -415,13 +415,12 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     const isProcessing = inv.payment_status === "processing";
     const isCustom = !!inv.is_custom;
     const isWaived = !!inv.fee_waived;
-    // liveFee: use stored late_fee if present, otherwise calculate from tenant rules
     const liveFee = (isCustom || isProcessing || isWaived) ? 0
       : (Number(inv.late_fee) > 0 ? Number(inv.late_fee) : calcLateFee(inv.due_date, lateFeeRules));
-    // liveTotal: rent + liveFee
+    // Always use stored total from DB — it's already correct (set by late fee job)
     const liveTotal = isProcessing ? Number(inv.total || r)
       : (isCustom || isWaived) ? r
-      : r + liveFee;
+      : (Number(inv.total) > r ? Number(inv.total) : r + liveFee);
     return { ...inv, _type, liveFee, liveTotal };
   });
 
