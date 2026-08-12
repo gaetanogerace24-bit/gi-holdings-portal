@@ -360,6 +360,15 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const [inspectionHistory, setInspectionHistory] = useState([]);
   const [selectedS8TenantId, setSelectedS8TenantId] = useState(null);
   const [selectedS8RecordId, setSelectedS8RecordId] = useState(null);
+  const [showS8Increases, setShowS8Increases] = useState(false);
+  const [s8Increases, setS8Increases] = useState([]);
+  const [selectedIncreaseTenantId, setSelectedIncreaseTenantId] = useState(null);
+  const [increaseForm, setIncreaseForm] = useState({ date: "", notes: "" });
+
+  const loadS8Increases = async () => {
+    const { data } = await supabase.from("s8_rent_increases").select("*").order("requested_date", { ascending: false });
+    setS8Increases(data || []);
+  };
 
   useEffect(() => {
     if (isActive === false) {
@@ -369,6 +378,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       setShowForm(false);
       setSelectedS8TenantId(null);
       setSelectedS8RecordId(null);
+      setShowS8Increases(false);
+      setSelectedIncreaseTenantId(null);
     }
   }, [isActive]);
 
@@ -409,8 +420,11 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
           <button onClick={() => { setShowLeaseOverview(!showLeaseOverview); setShowS8Inspections(false); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showLeaseOverview ? "#1b3d2a" : "#e5e7eb", color: showLeaseOverview ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
             📅 Lease Overview
           </button>
-          <button onClick={() => { const next = !showS8Inspections; setShowS8Inspections(next); setShowLeaseOverview(false); if (next) loadInspectionHistory(); else { setSelectedS8TenantId(null); setSelectedS8RecordId(null); } }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showS8Inspections ? "#1b3d2a" : "#e5e7eb", color: showS8Inspections ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
+          <button onClick={() => { const next = !showS8Inspections; setShowS8Inspections(next); setShowLeaseOverview(false); setShowS8Increases(false); if (next) loadInspectionHistory(); else { setSelectedS8TenantId(null); setSelectedS8RecordId(null); } }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showS8Inspections ? "#1b3d2a" : "#e5e7eb", color: showS8Inspections ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
             🏠 S8 Inspections
+          </button>
+          <button onClick={() => { const next = !showS8Increases; setShowS8Increases(next); setShowLeaseOverview(false); setShowS8Inspections(false); setSelectedS8TenantId(null); setSelectedS8RecordId(null); setSelectedIncreaseTenantId(null); if (next) loadS8Increases(); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showS8Increases ? "#1b3d2a" : "#e5e7eb", color: showS8Increases ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
+            📈 S8 Rent Increases
           </button>
           <button onClick={openAdd} style={greenBtn}>+ Add tenant</button>
         </div>
@@ -588,6 +602,118 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                     <span style={{ background: "#f3f4f6", color: "#6b7280", border: "1px solid #e5e7eb", borderRadius: 20, padding: "3px 10px", fontSize: 11 }}>Past</span>
                   )}
                   <span style={{ color: "#9ca3af", fontSize: 16 }}>›</span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {showS8Increases && (() => {
+        const s8Tenants = activeTenants.filter(t => t.section8);
+        const lastByTenant = {};
+        s8Increases.forEach(r => { if (!lastByTenant[r.tenant_id]) lastByTenant[r.tenant_id] = r; });
+
+        // PAGE 2 — tenant detail
+        if (selectedIncreaseTenantId) {
+          const t = s8Tenants.find(t => t.id === selectedIncreaseTenantId);
+          if (!t) return null;
+          const tenantIncreases = s8Increases.filter(r => r.tenant_id === t.id).sort((a, b) => new Date(b.requested_date) - new Date(a.requested_date));
+          const last = tenantIncreases[0];
+          const applyAfter = last ? (() => { const d = new Date(last.requested_date + "T00:00:00"); d.setMonth(d.getMonth() + 10); return d; })() : null;
+          const initials = t.name.split(" ").map(n => n[0]).join("").slice(0, 2);
+          return (
+            <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", marginBottom: 24, overflow: "hidden" }}>
+              <div style={{ padding: "14px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: 10 }}>
+                <button onClick={() => setSelectedIncreaseTenantId(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" }}>←</button>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{t.name}</div>
+              </div>
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6" }}>
+                <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 14 }}>{t.address} · S8: ${Number(t.section8_amount || 0).toLocaleString()} + Tenant: ${Number(t.tenant_portion || 0).toLocaleString()}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Last requested</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{last ? new Date(last.requested_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never"}</div>
+                  </div>
+                  <div style={{ background: applyAfter ? "#f0fdf4" : "#fef2f2", border: `1px solid ${applyAfter ? "#86efac" : "#fca5a5"}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Apply again after</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: applyAfter ? "#16a34a" : "#dc2626" }}>{applyAfter ? applyAfter.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", marginBottom: 10 }}>+ Log new request</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Date submitted</div>
+                    <input type="date" value={increaseForm.date} onChange={e => setIncreaseForm(f => ({ ...f, date: e.target.value }))} style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 7, padding: "7px 10px", fontSize: 13, boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Notes (optional)</div>
+                    <input type="text" value={increaseForm.notes} onChange={e => setIncreaseForm(f => ({ ...f, notes: e.target.value }))} placeholder="e.g. Requested 5% increase" style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 7, padding: "7px 10px", fontSize: 13, boxSizing: "border-box" }} />
+                  </div>
+                </div>
+                <button onClick={async () => {
+                  if (!increaseForm.date) return;
+                  const { data } = await supabase.from("s8_rent_increases").insert({ tenant_id: t.id, requested_date: increaseForm.date, notes: increaseForm.notes || null }).select().single();
+                  if (data) { setS8Increases(prev => [data, ...prev]); setIncreaseForm({ date: "", notes: "" }); }
+                }} style={{ background: "#1b3d2a", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, color: "#fff", cursor: "pointer", fontWeight: 600 }}>Save request</button>
+              </div>
+              <div style={{ padding: "14px 20px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 10 }}>History</div>
+                {tenantIncreases.length === 0 ? (
+                  <div style={{ fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>No requests logged yet.</div>
+                ) : tenantIncreases.map(r => (
+                  <div key={r.id} style={{ padding: "10px 14px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{new Date(r.requested_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, fontStyle: r.notes ? "normal" : "italic" }}>{r.notes || "No notes"}</div>
+                    </div>
+                    <button onClick={async () => {
+                      if (!confirm("Delete this record?")) return;
+                      await supabase.from("s8_rent_increases").delete().eq("id", r.id);
+                      setS8Increases(prev => prev.filter(x => x.id !== r.id));
+                    }} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 13 }}>🗑</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        // PAGE 1 — list
+        return (
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", marginBottom: 24, overflow: "hidden" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>📈 S8 Rent Increases</div>
+              <span style={{ background: "#f0fdf4", color: "#16a34a", border: "1.5px solid #86efac", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>{s8Tenants.length} tenants</span>
+            </div>
+            {s8Tenants.map((t, i) => {
+              const last = lastByTenant[t.id];
+              const applyAfter = last ? (() => { const d = new Date(last.requested_date + "T00:00:00"); d.setMonth(d.getMonth() + 10); return d; })() : null;
+              const initials = t.name.split(" ").map(n => n[0]).join("").slice(0, 2);
+              const colors = ["#dcfce7/#166534", "#fef3c7/#92400e", "#dbeafe/#1e40af", "#f3e8ff/#7e22ce", "#fce7f3/#9d174d"];
+              const [bg, fg] = (colors[i % colors.length]).split("/");
+              return (
+                <div key={t.id} onClick={() => { setSelectedIncreaseTenantId(t.id); setIncreaseForm({ date: "", notes: "" }); }}
+                  style={{ padding: "14px 20px", borderBottom: i < s8Tenants.length - 1 ? "1px solid #f3f4f6" : "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#fff" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
+                  onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: fg, flexShrink: 0 }}>{initials}</div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>{t.name}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>{t.address}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 2 }}>Last requested</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: last ? "#1a1a1a" : "#dc2626" }}>{last ? new Date(last.requested_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never requested"}</div>
+                      {applyAfter && <div style={{ fontSize: 11, color: "#16a34a", marginTop: 2 }}>✅ Apply again after {applyAfter.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
+                    </div>
+                    <span style={{ color: "#9ca3af", fontSize: 16 }}>›</span>
+                  </div>
                 </div>
               );
             })}
@@ -918,7 +1044,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
         </div>
       )}
 
-      {activeTenants.length === 0 && !showForm && !showS8Inspections && !showLeaseOverview && (
+      {activeTenants.length === 0 && !showForm && !showS8Inspections && !showLeaseOverview && !showS8Increases && (
         <div style={{ background: "#fff", borderRadius: 16, padding: "60px 40px", textAlign: "center", border: "2px dashed #e5e7eb" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>No tenants added yet</div>
@@ -927,7 +1053,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {!showS8Inspections && !showLeaseOverview && !showForm && activeTenants.map(t => {
+      {!showS8Inspections && !showLeaseOverview && !showForm && !showS8Increases && activeTenants.map(t => {
           const docsOpen = expandedDocs === t.id;
           const isM2M = t.month_to_month || t.monthToMonth;
           return (
