@@ -409,6 +409,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     }
   }, [step]);
 
+  console.log("INVOICES DEBUG", invoices.map(i => ({ month: i.month, rent: i.rent, late_fee: i.late_fee, total: i.total })));
   const classified = invoices.map(inv => ({
     ...inv,
     _type: classifyInvoice(inv, now),
