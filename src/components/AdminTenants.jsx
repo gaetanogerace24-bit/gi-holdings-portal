@@ -359,6 +359,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
   const [showS8Inspections, setShowS8Inspections] = useState(false);
   const [inspectionHistory, setInspectionHistory] = useState([]);
   const [selectedS8TenantId, setSelectedS8TenantId] = useState(null);
+  const [selectedS8RecordId, setSelectedS8RecordId] = useState(null);
 
   useEffect(() => {
     if (isActive === false) {
@@ -367,6 +368,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
       setExpandedDocs(null);
       setShowForm(false);
       setSelectedS8TenantId(null);
+      setSelectedS8RecordId(null);
     }
   }, [isActive]);
 
@@ -407,7 +409,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
           <button onClick={() => { setShowLeaseOverview(!showLeaseOverview); setShowS8Inspections(false); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showLeaseOverview ? "#1b3d2a" : "#e5e7eb", color: showLeaseOverview ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
             📅 Lease Overview
           </button>
-          <button onClick={() => { const next = !showS8Inspections; setShowS8Inspections(next); setShowLeaseOverview(false); if (next) loadInspectionHistory(); else setSelectedS8TenantId(null); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showS8Inspections ? "#1b3d2a" : "#e5e7eb", color: showS8Inspections ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
+          <button onClick={() => { const next = !showS8Inspections; setShowS8Inspections(next); setShowLeaseOverview(false); if (next) loadInspectionHistory(); else { setSelectedS8TenantId(null); setSelectedS8RecordId(null); } }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showS8Inspections ? "#1b3d2a" : "#e5e7eb", color: showS8Inspections ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
             🏠 S8 Inspections
           </button>
           <button onClick={openAdd} style={greenBtn}>+ Add tenant</button>
@@ -463,81 +465,99 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
           const tenantHistory = inspectionHistory.filter(h => h.tenant_id === selected.id).sort((a, b) => new Date(b.inspected_at) - new Date(a.inspected_at));
           const current = tenantHistory.find(h => !h.completed_at);
           const past = tenantHistory.filter(h => h.completed_at);
-          const inspDate = current?.inspection_date ? new Date(current.inspection_date + "T00:00:00") : null;
-          const daysUntil = inspDate ? Math.ceil((inspDate - today) / (1000 * 60 * 60 * 24)) : null;
-          const reinspDate = current?.reinspection_date ? new Date(current.reinspection_date + "T00:00:00") : null;
-          const daysUntilReinsp = reinspDate ? Math.ceil((reinspDate - today) / (1000 * 60 * 60 * 24)) : null;
-          const initials = selected.name.split(" ").map(n => n[0]).join("").slice(0, 2);
-          return (
-            <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", marginBottom: 24, overflow: "hidden" }}>
-              <div style={{ padding: "14px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: 10 }}>
-                <button onClick={() => setSelectedS8TenantId(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" }}>←</button>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{selected.address}</div>
-                {current && <span style={{ marginLeft: "auto", background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700 }}>🔍 In inspection</span>}
-              </div>
-              <div style={{ padding: "16px 20px" }}>
-                <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>{selected.name} · ${(Number(selected.section8_amount || 0) + Number(selected.tenant_portion || 0)).toLocaleString()}/mo</div>
-                {current && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+
+          // LEVEL 3 — single inspection record detail
+          if (selectedS8RecordId) {
+            const record = tenantHistory.find(h => h.id === selectedS8RecordId);
+            if (!record) { setSelectedS8RecordId(null); return null; }
+            const inspDate = record.inspection_date ? new Date(record.inspection_date + "T00:00:00") : null;
+            const daysUntil = inspDate ? Math.ceil((inspDate - today) / (1000 * 60 * 60 * 24)) : null;
+            const reinspDate = record.reinspection_date ? new Date(record.reinspection_date + "T00:00:00") : null;
+            const daysUntilReinsp = reinspDate ? Math.ceil((reinspDate - today) / (1000 * 60 * 60 * 24)) : null;
+            const isCurrent = !record.completed_at;
+            return (
+              <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", marginBottom: 24, overflow: "hidden" }}>
+                <div style={{ padding: "14px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: 10 }}>
+                  <button onClick={() => setSelectedS8RecordId(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" }}>←</button>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{selected.address}</div>
+                  {isCurrent && <span style={{ marginLeft: "auto", background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700 }}>🔍 In inspection</span>}
+                </div>
+                <div style={{ padding: "16px 20px" }}>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>{selected.name} · ${(Number(selected.section8_amount || 0) + Number(selected.tenant_portion || 0)).toLocaleString()}/mo</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Inspection date</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{inspDate ? inspDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
                     </div>
                     <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Days until</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: daysUntil <= 3 ? "#dc2626" : "#d97706" }}>{daysUntil !== null ? (daysUntil === 0 ? "Today!" : daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`) : "—"}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{daysUntil !== null ? (daysUntil === 0 ? "Today!" : daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`) : "—"}</div>
                     </div>
                     <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px", gridColumn: "1 / -1" }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Notes</div>
-                      <div style={{ fontSize: 13, color: current.notes ? "#1a1a1a" : "#9ca3af", fontStyle: current.notes ? "normal" : "italic" }}>{current.notes || "No notes added"}</div>
+                      <div style={{ fontSize: 13, color: record.notes ? "#1a1a1a" : "#9ca3af", fontStyle: record.notes ? "normal" : "italic" }}>{record.notes || "No notes added"}</div>
                     </div>
                   </div>
-                )}
-                {current && reinspDate && (
-                  <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 12, marginBottom: 12 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>🔄 Re-inspection date</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{reinspDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
-                      </div>
-                      <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Days until re-inspection</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{daysUntilReinsp === 0 ? "Today!" : daysUntilReinsp < 0 ? `${Math.abs(daysUntilReinsp)} days ago` : `${daysUntilReinsp} days`}</div>
+                  {reinspDate && (
+                    <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 12, marginBottom: 12 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>🔄 Re-inspection date</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>{reinspDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                        </div>
+                        <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#d97706", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Days until re-inspection</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{daysUntilReinsp === 0 ? "Today!" : daysUntilReinsp < 0 ? `${Math.abs(daysUntilReinsp)} days ago` : `${daysUntilReinsp} days`}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: past.length > 0 ? 16 : 0 }}>
-                  {current && (
+                  )}
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <button onClick={async () => {
                       if (!confirm("Remove this inspection record?")) return;
-                      await supabase.from("inspection_history").delete().eq("id", current.id);
-                      setInspectionHistory(prev => prev.filter(h => h.id !== current.id));
-                      setSelectedS8TenantId(null);
+                      await supabase.from("inspection_history").delete().eq("id", record.id);
+                      setInspectionHistory(prev => prev.filter(h => h.id !== record.id));
+                      setSelectedS8RecordId(null);
                     }} style={{ background: "none", border: "1px solid #fca5a5", borderRadius: 7, padding: "5px 12px", fontSize: 12, color: "#dc2626", cursor: "pointer" }}>🗑 Remove</button>
-                  )}
-                  {!current && tenantHistory.length > 0 && (
-                    <button onClick={async () => {
-                      if (!confirm("Remove all inspection records for this property?")) return;
-                      const ids = tenantHistory.map(h => h.id);
-                      await supabase.from("inspection_history").delete().in("id", ids);
-                      setInspectionHistory(prev => prev.filter(h => !ids.includes(h.id)));
-                      setSelectedS8TenantId(null);
-                    }} style={{ background: "none", border: "1px solid #fca5a5", borderRadius: 7, padding: "5px 12px", fontSize: 12, color: "#dc2626", cursor: "pointer" }}>🗑 Remove</button>
-                  )}
-                </div>
-                {past.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Past inspections</div>
-                    {past.map(h => (
-                      <div key={h.id} style={{ padding: "8px 12px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, marginBottom: 6 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>{h.inspection_date ? new Date(h.inspection_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
-                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2, fontStyle: h.notes ? "normal" : "italic" }}>{h.notes || "No notes"}</div>
-                      </div>
-                    ))}
                   </div>
-                )}
+                </div>
               </div>
+            );
+          }
+
+          // LEVEL 2 — inspection history list for this property
+          return (
+            <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", marginBottom: 24, overflow: "hidden" }}>
+              <div style={{ padding: "14px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: 10 }}>
+                <button onClick={() => setSelectedS8TenantId(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" }}>←</button>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>{selected.address}</div>
+              </div>
+              {tenantHistory.map((h, i) => {
+                const isCurrent = !h.completed_at;
+                const hDate = h.inspection_date ? new Date(h.inspection_date + "T00:00:00") : null;
+                const hReinsp = h.reinspection_date ? new Date(h.reinspection_date + "T00:00:00") : null;
+                return (
+                  <div key={h.id} onClick={() => setSelectedS8RecordId(h.id)}
+                    style={{ padding: "14px 20px", borderBottom: i < tenantHistory.length - 1 ? "1px solid #f3f4f6" : "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#fff" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#f9fafb"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{hDate ? hDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
+                      <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+                        {hReinsp ? `Re-inspection: ${hReinsp.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : h.notes || "No notes"}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {isCurrent ? (
+                        <span style={{ background: "#fffbeb", color: "#d97706", border: "1.5px solid #d97706", borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>🔍 In inspection</span>
+                      ) : (
+                        <span style={{ background: "#f9fafb", color: "#6b7280", border: "1px solid #e5e7eb", borderRadius: 20, padding: "3px 10px", fontSize: 11 }}>Past</span>
+                      )}
+                      <span style={{ color: "#9ca3af", fontSize: 16 }}>›</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         }
