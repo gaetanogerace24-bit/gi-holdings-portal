@@ -499,7 +499,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const selectedRegularInvoices = payableInvoices.filter(i => effectiveSelectedIds.has(`inv_${i.id}`));
   const selectedCustomInvoices = payableCustomInvoicesWithFee.filter(i => effectiveSelectedIds.has(`cust_${i.id}`));
 
-  const multiTotal = selectedRegularInvoices.reduce((s, i) => s + i.liveTotal, 0)
+  const multiTotal = selectedRegularInvoices.reduce((s, i) => s + (Number(i.total) > Number(i.rent) ? Number(i.total) : Number(i.rent) + Number(i.late_fee || 0)), 0)
     + selectedCustomInvoices.reduce((s, i) => s + i._liveTotal, 0);
 
   const total = payingCustomInvoice
@@ -890,7 +890,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                           <div style={{ fontSize: 11, color: "#dc2626", marginTop: 1 }}>{isOverdue ? "Overdue" : "Due now"}</div>
                         </div>
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(inv.liveTotal)}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(Number(inv.total) > Number(inv.rent) ? Number(inv.total) : Number(inv.rent) + Number(inv.late_fee || 0))}</div>
                     </div>
                     {fee > 0 && (
                       <div style={{
