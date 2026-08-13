@@ -118,9 +118,9 @@ export default async function handler(req, res) {
 
     // Owner SMS
     if (isCardPayment) {
-      await sendSMS(OWNER_PHONE, `✅💳 G&I Holdings: ${tenantName} paid ${amount} for ${monthLabel} by card — payment cleared 💳✅`);
+      await sendSMS(OWNER_PHONE, `✅💳 G&I Holdings: ${tenantName} paid ${amount} for ${monthLabel} by card — payment cleared. ✅💳`);
     } else {
-      await sendSMS(OWNER_PHONE, `✅ G&I Holdings: ${tenantName} ${amount} for ${monthLabel} — ACH went from pending to cleared ✅`);
+      await sendSMS(OWNER_PHONE, `✅ G&I Holdings: ${tenantName} paid ${amount} for ${monthLabel} — ACH cleared. ✅`);
     }
 
     // Owner email
@@ -139,9 +139,9 @@ export default async function handler(req, res) {
     // Tenant SMS
     if (tenantPhone) {
       if (isCardPayment) {
-        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} went through. Thank you!`);
+        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} has been completed. Thank you! ✅`);
       } else {
-        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} has cleared. Thank you!`);
+        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} has been completed. Thank you! ✅`);
       }
     }
 
@@ -194,7 +194,7 @@ export default async function handler(req, res) {
 
     // Tenant SMS
     if (tenantPhone) {
-      await sendSMS(tenantPhone, `❌ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} was declined. Please check your card details or try a different payment method.`);
+      await sendSMS(tenantPhone, `❌ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} was declined. Please check your card details, try a different payment method, or contact your bank for assistance. ❌`);
     }
 
     // Tenant email
@@ -231,7 +231,7 @@ export default async function handler(req, res) {
     }
     // Tenant SMS
     if (tenantPhone) {
-      await sendSMS(tenantPhone, `⏳ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} is processing. It takes 3–5 business days to clear. We'll notify you when confirmed. ⏳`);
+      await sendSMS(tenantPhone, `⏳ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} is processing. It takes 3–5 business days to clear. We will notify you when confirmed. ⏳`);
     }
 
     // Tenant email
