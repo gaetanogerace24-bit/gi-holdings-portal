@@ -230,9 +230,15 @@ function PaymentTimeline({ inv, tenant }) {
     events.push({ date: submittedAt, label: "Payment submitted — processing (3–5 business days)", color: "#2563eb" });
     events.push({ date: null, label: "Waiting for bank transfer to clear", color: "ghost" });
   } else {
-    const hasFees2 = inv.is_custom ? !!inv.late_fee_enabled : true;
-    if (hasFees2 && overdueDay <= today) {
-      const addDays2 = (date, n) => { const d = new Date(date); d.setUTCDate(d.getUTCDate() + n); return d; };
+    const addDays2 = (date, n) => { const d = new Date(date); d.setUTCDate(d.getUTCDate() + n); return d; };
+    if (inv.is_custom && inv.late_fee_enabled && feeStart <= today) {
+      // Custom invoice: fees start on late_fee_start_day regardless of due date
+      events.push({ date: new Date(feeStart), label: `$${initialFee.toFixed(2)} one-time late fee added`, color: "#dc2626", expand: true });
+      const days = daysBetween(feeStart, today);
+      for (let d = 1; d <= days; d++) {
+        events.push({ date: addDays2(feeStart, d), label: `$${dailyFee.toFixed(2)} daily late fee added`, color: "#dc2626", expand: true });
+      }
+    } else if (!inv.is_custom && overdueDay <= today) {
       const stopBeforeFee = feeStart <= today ? feeStart : today;
       const daysOverdueBeforeFee = daysBetween(overdueDay, stopBeforeFee);
       for (let d = 0; d <= daysOverdueBeforeFee; d++) {
