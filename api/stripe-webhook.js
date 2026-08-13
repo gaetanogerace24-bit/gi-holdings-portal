@@ -139,9 +139,9 @@ export default async function handler(req, res) {
     // Tenant SMS
     if (tenantPhone) {
       if (isCardPayment) {
-        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} went through. Thank you! Log in to view your receipt: ${PORTAL_URL} ✅`);
+        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} went through. Thank you!`);
       } else {
-        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} has cleared and your payment is confirmed. Thank you! View your receipt: ${PORTAL_URL} ✅`);
+        await sendSMS(tenantPhone, `✅ G&I Holdings: Hi ${firstName}, your bank transfer of ${amount} for ${monthLabel} has cleared. Thank you!`);
       }
     }
 
@@ -194,7 +194,7 @@ export default async function handler(req, res) {
 
     // Tenant SMS
     if (tenantPhone) {
-      await sendSMS(tenantPhone, `❌ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} was declined. Please check your card details or try a different payment method. Contact your bank if the issue continues. Log in to retry: ${PORTAL_URL} ❌`);
+      await sendSMS(tenantPhone, `❌ G&I Holdings: Hi ${firstName}, your payment of ${amount} for ${monthLabel} was declined. Please check your card details or try a different payment method.`);
     }
 
     // Tenant email
