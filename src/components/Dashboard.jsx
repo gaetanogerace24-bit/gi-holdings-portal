@@ -67,7 +67,22 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
 
   const displayTotal = visibleInvoices.reduce((sum, inv) => sum + inv.liveTotal, 0);
   const displayLateFees = visibleInvoices.reduce((sum, inv) => sum + inv.liveFee, 0);
-  const customTotal = customInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0) + Number(inv.late_fee || 0), 0);
+  const calcCustomFee = (inv) => {
+    if (!inv.late_fee_enabled) return 0;
+    const startDay = inv.late_fee_start_day;
+    const initialFee = Number(inv.initial_late_fee || 0);
+    const dailyFee = Number(inv.daily_late_fee || 0);
+    const dateStr = inv.due_date || inv.created_at;
+    if (!dateStr || !startDay) return 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const parts = dateStr.split("T")[0].split("-");
+    const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+    const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+    if (today < feeStart) return 0;
+    const daysLate = Math.floor((today.getTime() - feeStart.getTime()) / (1000*60*60*24));
+    return initialFee + (daysLate * dailyFee);
+  };
+  const customTotal = customInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0) + calcCustomFee(inv), 0);
 
   const autoFee = day < 5 ? 0 : 35 + Math.max(0, (day - 4) - 1) * 10;
   const fallbackTotal = tenant?.paid ? 0 : (rent + (tenant?.section8 ? 0 : autoFee));
@@ -148,7 +163,7 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
             {customInvoices.map(inv => (
               <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
                 <span style={{ color: "#ff8a80" }}>⚠️ {inv.title || "Custom Charge"}</span>
-                <span style={{ fontWeight: 700, color: "#ff8a80" }}>{fmt(Number(inv.amount || 0) + Number(inv.late_fee || 0))}</span>
+                <span style={{ fontWeight: 700, color: "#ff8a80" }}>{fmt(Number(inv.amount || 0) + calcCustomFee(inv))}</span>
               </div>
             ))}
           </div>
