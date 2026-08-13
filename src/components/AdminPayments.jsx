@@ -186,9 +186,10 @@ function PaymentTimeline({ inv, tenant }) {
   events.push({ date: createdAt, label: "Invoice created", color: "#2563eb" });
   const parts = (inv.due_date || "").split("T")[0].split("-");
   const due = parts.length === 3 ? new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))) : new Date(inv.due_date);
-  const feeStartDay = Number(tenant?.late_fee_start_day || inv.late_fee_start_day) || 5;
-  const initialFee = (tenant?.initial_late_fee ?? inv.initial_late_fee) != null ? Number(tenant?.initial_late_fee ?? inv.initial_late_fee) : 35;
-  const dailyFee = (tenant?.daily_late_fee ?? inv.daily_late_fee) != null ? Number(tenant?.daily_late_fee ?? inv.daily_late_fee) : 10;
+  const isCustomInv = !!inv?.is_custom;
+  const feeStartDay = isCustomInv ? (Number(inv.late_fee_start_day) || 5) : (Number(tenant?.late_fee_start_day || inv.late_fee_start_day) || 5);
+  const initialFee = isCustomInv ? Number(inv.initial_late_fee || 0) : ((tenant?.initial_late_fee ?? inv.initial_late_fee) != null ? Number(tenant?.initial_late_fee ?? inv.initial_late_fee) : 35);
+  const dailyFee = isCustomInv ? Number(inv.daily_late_fee || 0) : ((tenant?.daily_late_fee ?? inv.daily_late_fee) != null ? Number(tenant?.daily_late_fee ?? inv.daily_late_fee) : 10);
   const feeStart = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), feeStartDay));
   const overdueDay = new Date(Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate() + 1));
   const today = todayEST();
@@ -211,7 +212,7 @@ function PaymentTimeline({ inv, tenant }) {
     const overdueDay = addDays(due, 1);
     const submittedAt = toESTDate(inv.updated_at);
 
-    const hasFees = !inv.is_custom || inv.late_fee_enabled;
+    const hasFees = inv.is_custom ? !!inv.late_fee_enabled : true;
     if (hasFees && overdueDay <= submittedAt) {
       const stopBeforeFee = feeStart <= submittedAt ? feeStart : submittedAt;
       const daysOverdueBeforeFee = daysBetween(overdueDay, stopBeforeFee);
@@ -229,7 +230,7 @@ function PaymentTimeline({ inv, tenant }) {
     events.push({ date: submittedAt, label: "Payment submitted — processing (3–5 business days)", color: "#2563eb" });
     events.push({ date: null, label: "Waiting for bank transfer to clear", color: "ghost" });
   } else {
-    const hasFees2 = !inv.is_custom || inv.late_fee_enabled;
+    const hasFees2 = inv.is_custom ? !!inv.late_fee_enabled : true;
     if (hasFees2 && overdueDay <= today) {
       const addDays2 = (date, n) => { const d = new Date(date); d.setUTCDate(d.getUTCDate() + n); return d; };
       const stopBeforeFee = feeStart <= today ? feeStart : today;
