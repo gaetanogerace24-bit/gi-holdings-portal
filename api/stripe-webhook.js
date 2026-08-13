@@ -1,3 +1,4 @@
+// SMS templates updated Aug 13 2026
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
