@@ -417,7 +417,7 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
           </div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => { setShowLeaseOverview(!showLeaseOverview); setShowS8Inspections(false); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showLeaseOverview ? "#1b3d2a" : "#e5e7eb", color: showLeaseOverview ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
+          <button onClick={() => { setShowLeaseOverview(!showLeaseOverview); setShowS8Inspections(false); setShowS8Increases(false); setSelectedIncreaseTenantId(null); }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showLeaseOverview ? "#1b3d2a" : "#e5e7eb", color: showLeaseOverview ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
             📅 Lease Overview
           </button>
           <button onClick={() => { const next = !showS8Inspections; setShowS8Inspections(next); setShowLeaseOverview(false); setShowS8Increases(false); if (next) loadInspectionHistory(); else { setSelectedS8TenantId(null); setSelectedS8RecordId(null); } }} style={{ ...outlineBtn, fontSize: 13, padding: "10px 16px", borderColor: showS8Inspections ? "#1b3d2a" : "#e5e7eb", color: showS8Inspections ? "#1b3d2a" : "#374151", fontWeight: 600 }}>
