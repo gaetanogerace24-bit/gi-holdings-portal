@@ -696,6 +696,18 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
               const initials = t.name.split(" ").map(n => n[0]).join("").slice(0, 2);
               const colors = ["#dcfce7/#166534", "#fef3c7/#92400e", "#dbeafe/#1e40af", "#f3e8ff/#7e22ce", "#fce7f3/#9d174d"];
               const [bg, fg] = (colors[i % colors.length]).split("/");
+              const today = new Date(); today.setHours(0,0,0,0);
+              const isReady = !applyAfter || applyAfter <= today;
+              const daysLeft = applyAfter && !isReady ? Math.ceil((applyAfter - today) / 86400000) : 0;
+              const monthsLeft = Math.floor(daysLeft / 30);
+              const remDays = daysLeft % 30;
+              const isWarning = !isReady && daysLeft <= 60;
+              const timerLabel = isReady ? "✅ Ready to request" : (monthsLeft > 0 ? `⏳ ${monthsLeft}mo ${remDays}d left` : `⏳ ${daysLeft}d left`);
+              const timerStyle = isReady
+                ? { background: "#f0fdf4", color: "#166534", border: "1.5px solid #86efac" }
+                : isWarning
+                  ? { background: "#fffbeb", color: "#92400e", border: "1.5px solid #fcd34d" }
+                  : { background: "#fef2f2", color: "#991b1b", border: "1.5px solid #fca5a5" };
               return (
                 <div key={t.id} onClick={() => { setSelectedIncreaseTenantId(t.id); setIncreaseForm({ date: "", notes: "" }); }}
                   style={{ padding: "14px 20px", borderBottom: i < s8Tenants.length - 1 ? "1px solid #f3f4f6" : "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#fff" }}
@@ -710,9 +722,9 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 2 }}>Last requested</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: last ? "#1a1a1a" : "#dc2626" }}>{last ? new Date(last.requested_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never requested"}</div>
-                      {applyAfter && <div style={{ fontSize: 11, color: "#16a34a", marginTop: 2 }}>✅ Apply again after {applyAfter.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>}
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Last requested</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: last ? "#1a1a1a" : "#dc2626", marginBottom: 5 }}>{last ? new Date(last.requested_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Never requested"}</div>
+                      <span style={{ ...timerStyle, display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>{timerLabel}</span>
                     </div>
                     <span style={{ color: "#9ca3af", fontSize: 16 }}>›</span>
                   </div>
