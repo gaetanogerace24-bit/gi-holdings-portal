@@ -67,7 +67,7 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
 
   const displayTotal = visibleInvoices.reduce((sum, inv) => sum + inv.liveTotal, 0);
   const displayLateFees = visibleInvoices.reduce((sum, inv) => sum + inv.liveFee, 0);
-  const customTotal = customInvoices.reduce((sum, inv) => sum + Number(inv.total || inv.amount || 0), 0);
+  const customTotal = customInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0) + Number(inv.late_fee || 0), 0);
 
   const autoFee = day < 5 ? 0 : 35 + Math.max(0, (day - 4) - 1) * 10;
   const fallbackTotal = tenant?.paid ? 0 : (rent + (tenant?.section8 ? 0 : autoFee));
@@ -148,7 +148,7 @@ export default function Dashboard({ tenant, invoices = [], customInvoices = [], 
             {customInvoices.map(inv => (
               <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
                 <span style={{ color: "#ff8a80" }}>⚠️ {inv.title || "Custom Charge"}</span>
-                <span style={{ fontWeight: 700, color: "#ff8a80" }}>{fmt(inv.total || inv.amount || 0)}</span>
+                <span style={{ fontWeight: 700, color: "#ff8a80" }}>{fmt(Number(inv.amount || 0) + Number(inv.late_fee || 0))}</span>
               </div>
             ))}
           </div>
