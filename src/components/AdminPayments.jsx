@@ -211,7 +211,8 @@ function PaymentTimeline({ inv, tenant }) {
     const overdueDay = addDays(due, 1);
     const submittedAt = toESTDate(inv.updated_at);
 
-    if (!inv.is_custom && overdueDay <= submittedAt) {
+    const hasFees = !inv.is_custom || inv.late_fee_enabled;
+    if (hasFees && overdueDay <= submittedAt) {
       const stopBeforeFee = feeStart <= submittedAt ? feeStart : submittedAt;
       const daysOverdueBeforeFee = daysBetween(overdueDay, stopBeforeFee);
       for (let d = 0; d <= daysOverdueBeforeFee; d++) {
@@ -228,18 +229,19 @@ function PaymentTimeline({ inv, tenant }) {
     events.push({ date: submittedAt, label: "Payment submitted — processing (3–5 business days)", color: "#2563eb" });
     events.push({ date: null, label: "Waiting for bank transfer to clear", color: "ghost" });
   } else {
-    if (!inv.is_custom && overdueDay <= today) {
-      const addDays = (date, n) => { const d = new Date(date); d.setUTCDate(d.getUTCDate() + n); return d; };
+    const hasFees2 = !inv.is_custom || inv.late_fee_enabled;
+    if (hasFees2 && overdueDay <= today) {
+      const addDays2 = (date, n) => { const d = new Date(date); d.setUTCDate(d.getUTCDate() + n); return d; };
       const stopBeforeFee = feeStart <= today ? feeStart : today;
       const daysOverdueBeforeFee = daysBetween(overdueDay, stopBeforeFee);
       for (let d = 0; d <= daysOverdueBeforeFee; d++) {
-        events.push({ date: addDays(overdueDay, d), label: "Payment overdue", color: "#dc2626", expand: true });
+        events.push({ date: addDays2(overdueDay, d), label: "Payment overdue", color: "#dc2626", expand: true });
       }
       if (feeStart <= today) {
         events.push({ date: new Date(feeStart), label: `$${initialFee.toFixed(2)} one-time late fee added`, color: "#dc2626", expand: true });
         const days = daysBetween(feeStart, today);
         for (let d = 1; d <= days; d++) {
-          events.push({ date: addDays(feeStart, d), label: `$${dailyFee.toFixed(2)} daily late fee added`, color: "#dc2626", expand: true });
+          events.push({ date: addDays2(feeStart, d), label: `$${dailyFee.toFixed(2)} daily late fee added`, color: "#dc2626", expand: true });
         }
       }
     }
@@ -267,14 +269,27 @@ function PaymentTimeline({ inv, tenant }) {
 }
 
 function InvoiceBreakdown({ inv, tenant }) {
-  const rent = Number(inv?.rent || 0);
+  const isCustom = !!inv?.is_custom;
+  const rent = isCustom ? Number(inv?.amount || 0) : Number(inv?.rent || 0);
   const rules = getTenantLateFeeRules(tenant);
-  const startDay = rules.late_fee_start_day || 5;
-  const initialFee = Number(rules.initial_late_fee ?? 35);
-  const dailyFee = Number(rules.daily_late_fee ?? 10);
+  const startDay = isCustom ? Number(inv?.late_fee_start_day || 0) : (rules.late_fee_start_day || 5);
+  const initialFee = isCustom ? Number(inv?.initial_late_fee || 0) : Number(rules.initial_late_fee ?? 35);
+  const dailyFee = isCustom ? Number(inv?.daily_late_fee || 0) : Number(rules.daily_late_fee ?? 10);
+  const calcCustomLateFeeBreakdown = () => {
+    if (!inv?.late_fee_enabled) return 0;
+    const dateStr = inv.due_date || inv.created_at;
+    if (!dateStr || !startDay) return 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const parts = dateStr.split("T")[0].split("-");
+    const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+    const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+    if (today < feeStart) return 0;
+    const daysLate = Math.floor((today - feeStart) / 86400000);
+    return initialFee + (daysLate * dailyFee);
+  };
   const lateFee = (inv?.paid || inv?.payment_status === "processing")
     ? Number(inv?.late_fee || 0)
-    : (inv?.is_custom ? 0 : calcLateFee(inv?.due_date, rules));
+    : (isCustom ? calcCustomLateFeeBreakdown() : calcLateFee(inv?.due_date, rules));
   const total = rent + lateFee;
   const daysLate = lateFee > initialFee ? Math.round((lateFee - initialFee) / dailyFee) : 0;
   return (
@@ -283,7 +298,7 @@ function InvoiceBreakdown({ inv, tenant }) {
         <span style={{ fontSize: 14, color: "#000" }}>{inv?.is_custom ? "Charge amount" : "Monthly Rent"}</span>
         <span style={{ fontSize: 14, fontWeight: 600 }}>{fmt(rent)}</span>
       </div>
-      {!inv?.is_custom && lateFee > 0 && <>
+      {lateFee > 0 && <>
         <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
           <span style={{ fontSize: 14, color: "#dc2626" }}>One-time late fee (day {startDay})</span>
           <span style={{ fontSize: 14, fontWeight: 600, color: "#dc2626" }}>{fmt(initialFee)}</span>
@@ -309,8 +324,23 @@ function InvoiceDetailSheet({ inv, tenant, onClose, onMarkPaid, onMarkUnpaid, on
   const [confirmUnpaid, setConfirmUnpaid] = useState(false);
   const status = inv?.payment_status === "processing" ? "processing" : getStatus(inv);
   const rules = getTenantLateFeeRules(tenant);
-  const liveFee = inv?.paid ? Number(inv?.late_fee || 0) : (inv?.is_custom || inv?.payment_status === "processing" ? 0 : calcLateFee(inv?.due_date, rules));
-  const liveTotal = inv?.payment_status === "processing" ? Number(inv?.total || inv?.rent || 0) : Number(inv?.rent || 0) + liveFee;
+  const calcCustomInvLateFee = (i) => {
+    if (!i?.late_fee_enabled) return 0;
+    const startDay = Number(i.late_fee_start_day);
+    const initialFee = Number(i.initial_late_fee || 0);
+    const dailyFee = Number(i.daily_late_fee || 0);
+    const dateStr = i.due_date || i.created_at;
+    if (!dateStr || !startDay) return 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const parts = dateStr.split("T")[0].split("-");
+    const due = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+    const feeStart = new Date(due.getFullYear(), due.getMonth(), startDay);
+    if (today < feeStart) return 0;
+    const daysLate = Math.floor((today - feeStart) / 86400000);
+    return initialFee + (daysLate * dailyFee);
+  };
+  const liveFee = inv?.paid ? Number(inv?.late_fee || 0) : (inv?.is_custom ? (inv?.paid ? 0 : calcCustomInvLateFee(inv)) : (inv?.payment_status === "processing" ? 0 : calcLateFee(inv?.due_date, rules)));
+  const liveTotal = inv?.is_custom ? Number(inv?.amount || 0) + (inv?.paid ? Number(inv?.late_fee || 0) : calcCustomInvLateFee(inv)) : (inv?.payment_status === "processing" ? Number(inv?.total || inv?.rent || 0) : Number(inv?.rent || 0) + liveFee);
   return (
     <Sheet onClose={onClose}>
       <SheetHeader title="Invoice details" onClose={onClose} />
