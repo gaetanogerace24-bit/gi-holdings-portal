@@ -7,7 +7,7 @@ export default function AdminListings({ supabase }) {
   const [editListing, setEditListing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ address: "", city: "Youngstown, OH", zip: "", rent: "", beds: "", baths: "", sqft: "", description: "", available: true });
-  
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [pendingImages, setPendingImages] = useState([]);
 
   useEffect(() => { loadListings(); }, []);
