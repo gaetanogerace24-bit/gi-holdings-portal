@@ -242,9 +242,6 @@ export default function AdminListings({ supabase }) {
                 <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 14 }}>${Number(l.rent || 0).toLocaleString()}<span style={{ fontSize: 13, fontWeight: 400, color: "#6b7280" }}>/mo</span></div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => openEdit(l)} style={{ flex: 1, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px", fontSize: 13, cursor: "pointer", fontWeight: 500 }}>✏️ Edit</button>
-                  <button onClick={() => toggleAvailable(l)} style={{ flex: 1, background: l.available ? "#fef9c3" : "#f0fdf4", border: `1px solid ${l.available ? "#fde047" : "#86efac"}`, borderRadius: 8, padding: "8px", fontSize: 13, cursor: "pointer", fontWeight: 500, color: l.available ? "#854d0e" : "#166534" }}>
-                    {l.available ? "Hide" : "Show"}
-                  </button>
                   <button onClick={() => handleDelete(l.id)} style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "8px 12px", fontSize: 13, cursor: "pointer", color: "#dc2626" }}>🗑</button>
                 </div>
               </div>
