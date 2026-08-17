@@ -259,7 +259,20 @@ export default function App() {
     );
   }
 
-  if (screen === "home") return <HomePage onLoginClick={() => setScreen("login")} onApply={(listing) => { setApplyListing(listing); setApplyStep("payment"); setScreen("apply"); }} />;
+  if (screen === "home") return <HomePage onLoginClick={() => setScreen("login")} onApply={(listing) => {
+    // Check if they already paid for this listing
+    const existing = loadApplySession();
+    if (existing && existing.listingId === listing.id) {
+      setApplyListing(existing.listingData);
+      setApplicantInfo(existing.applicantInfo);
+      setApplyStep("form");
+      setScreen("apply");
+      return;
+    }
+    setApplyListing(listing);
+    setApplyStep("payment");
+    setScreen("apply");
+  }} />;
   if (screen === "login") return <LoginScreen onLogin={handleLogin} loginError={loginError} />;
   if (screen === "apply") {
     if (applyStep === "payment") return (
