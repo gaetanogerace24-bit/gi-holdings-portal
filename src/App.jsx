@@ -8,6 +8,8 @@ import AdminDashboard from "./components/AdminDashboard";
 import Dashboard from "./components/Dashboard";
 import TenantMessages from "./components/TenantMessages";
 import HomePage from "./components/HomePage";
+import ApplicationPayment from "./components/ApplicationPayment";
+import ApplicationForm from "./components/ApplicationForm";
 import { supabase } from "./supabase";
 
 const ADMIN_EMAIL = "gaetano@giholdings.com";
@@ -48,6 +50,9 @@ export default function App() {
   const [loggedInTenantId, setLoggedInTenantId] = useState(null);
   const [defaultPayMode, setDefaultPayMode] = useState("current");
   const [loginError, setLoginError] = useState(null);
+  const [applyListing, setApplyListing] = useState(null);
+  const [applyStep, setApplyStep] = useState("payment"); // payment | form
+  const [applicantInfo, setApplicantInfo] = useState(null);
 
   const currentTenant = tenants.find(t => t.id === loggedInTenantId) || null;
 
@@ -237,8 +242,12 @@ export default function App() {
     );
   }
 
-  if (screen === "home") return <HomePage onLoginClick={() => setScreen("login")} />;
+  if (screen === "home") return <HomePage onLoginClick={() => setScreen("login")} onApply={(listing) => { setApplyListing(listing); setApplyStep("payment"); setScreen("apply"); }} />;
   if (screen === "login") return <LoginScreen onLogin={handleLogin} loginError={loginError} />;
+  if (screen === "apply") {
+    if (applyStep === "payment") return <ApplicationPayment listing={applyListing} onBack={() => setScreen("home")} onSuccess={(info) => { setApplicantInfo(info); setApplyStep("form"); }} />;
+    if (applyStep === "form") return <ApplicationForm listing={applyListing} applicantInfo={applicantInfo} onBack={() => setScreen("home")} />;
+  }
 
   if (screen === "admin") return (
     <AdminDashboard
