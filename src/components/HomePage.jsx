@@ -33,8 +33,8 @@ export default function HomePage({ onLoginClick }) {
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <a href="mailto:giholdingsllc8@gmail.com" style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, textDecoration: "none" }}>
-            Contact
+          <a href="tel:+13309696464" style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, textDecoration: "none" }}>
+            Call us
           </a>
           <button onClick={onLoginClick} style={{
             background: "#4caf7d", color: "#fff", border: "none",
@@ -88,13 +88,13 @@ export default function HomePage({ onLoginClick }) {
             }}>
               Tenant portal login →
             </button>
-            <a href="mailto:giholdingsllc8@gmail.com" style={{
+            <a href="tel:+13309696464" style={{
               background: "transparent", color: "#fff",
               border: "1px solid rgba(255,255,255,0.35)",
               padding: "13px 28px", borderRadius: 10, fontSize: 15, fontWeight: 500,
               cursor: "pointer", textDecoration: "none", display: "inline-block",
             }}>
-              Contact us
+              Call us
             </a>
           </div>
         </div>
@@ -108,11 +108,11 @@ export default function HomePage({ onLoginClick }) {
       }}>
         {[
           { icon: "📍", text: "669 Bel Air Rd #1122, Bel Air, MD 21014" },
-          { icon: "📞", text: "(330) 969-6464" },
+          { icon: "📞", text: "(330) 969-6464", href: "tel:+13309696464" },
           { icon: "✉️", text: "giholdingsllc8@gmail.com" },
-        ].map(({ icon, text }) => (
+        ].map(({ icon, text, href }) => (
           <div key={text} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#555" }}>
-            <span>{icon}</span><span>{text}</span>
+            <span>{icon}</span>{href ? <a href={href} style={{ color: "#555", textDecoration: "none" }}>{text}</a> : <span>{text}</span>}
           </div>
         ))}
       </div>
@@ -165,12 +165,12 @@ export default function HomePage({ onLoginClick }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {[
                 { icon: "📍", label: "669 Bel Air Rd #1122, Bel Air, MD 21014 (mailing)" },
-                { icon: "📞", label: "(330) 969-6464" },
+                { icon: "📞", label: "(330) 969-6464", href: "tel:+13309696464" },
                 { icon: "✉️", label: "giholdingsllc8@gmail.com" },
                 { icon: "🌐", label: "giholdingsllc.com" },
-              ].map(({ icon, label }) => (
+              ].map(({ icon, label, href }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#555" }}>
-                  <span>{icon}</span><span>{label}</span>
+                  <span>{icon}</span>{href ? <a href={href} style={{ color: "#555", textDecoration: "none" }}>{label}</a> : <span>{label}</span>}
                 </div>
               ))}
             </div>
@@ -231,8 +231,8 @@ export default function HomePage({ onLoginClick }) {
           © 2026 G&I Holdings LLC. All rights reserved.
         </div>
         <div style={{ display: "flex", gap: 20 }}>
-          <a href="mailto:giholdingsllc8@gmail.com" style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, textDecoration: "none" }}>
-            Contact
+          <a href="tel:+13309696464" style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, textDecoration: "none" }}>
+            Call us
           </a>
           <button onClick={onLoginClick} style={{
             background: "none", border: "none", color: "#4caf7d",
