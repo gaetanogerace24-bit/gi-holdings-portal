@@ -7,6 +7,7 @@ import AdminPayments from "./AdminPayments";
 import AdminDocuments from "./AdminDocuments";
 import AdminProperties from "./AdminProperties";
 import AdminPlanner from "./AdminPlanner";
+import AdminListings from "./AdminListings";
 
 const NAV = [
   { key: "payments", icon: "💰", label: "Payments" },
@@ -16,6 +17,7 @@ const NAV = [
   { key: "documents", icon: "📁", label: "Documents" },
   { key: "messages", icon: "💬", label: "Messages" },
   { key: "planner", icon: "📅", label: "Planner" },
+  { key: "listings", icon: "🏡", label: "Listings" },
   { key: "settings", icon: "⚙️", label: "Settings" },
 ];
 
@@ -97,6 +99,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           <div style={{ display: active === "documents" ? "block" : "none" }}><AdminDocuments tenants={tenants} setTenants={setTenants} isActive={active === "documents"} /></div>
           <div style={{ display: active === "messages" ? "block" : "none" }}><AdminMessages tenants={tenants} supabase={supabase} /></div>
           <div style={{ display: active === "planner" ? "block" : "none" }}><AdminPlanner tenants={tenants} supabase={supabase} /></div>
+          <div style={{ display: active === "listings" ? "block" : "none" }}><AdminListings supabase={supabase} /></div>
           <div style={{ display: active === "settings" ? "block" : "none" }}><AdminSettings supabase={supabase} /></div>
         </div>
 
