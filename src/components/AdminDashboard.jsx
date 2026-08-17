@@ -8,6 +8,7 @@ import AdminDocuments from "./AdminDocuments";
 import AdminProperties from "./AdminProperties";
 import AdminPlanner from "./AdminPlanner";
 import AdminListings from "./AdminListings";
+import AdminApplications from "./AdminApplications";
 
 const NAV = [
   { key: "payments", icon: "💰", label: "Payments" },
@@ -18,6 +19,7 @@ const NAV = [
   { key: "messages", icon: "💬", label: "Messages" },
   { key: "planner", icon: "📅", label: "Planner" },
   { key: "listings", icon: "🏡", label: "Listings" },
+  { key: "applications", icon: "📋", label: "Applications" },
   { key: "settings", icon: "⚙️", label: "Settings" },
 ];
 
@@ -25,6 +27,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
   const [active, setActive] = useState("payments");
   const [tenants, setTenantsLocal] = useState(sharedTenants || []);
   const [propertyCount, setPropertyCount] = useState(initialPropertyCount);
+  const [newAppCount, setNewAppCount] = useState(0);
 
   const setTenants = (val) => { setTenantsLocal(val); if (setSharedTenants) setSharedTenants(val); };
 
@@ -70,6 +73,9 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
               {n.key === "properties" && propertyCount > 0 && (
                 <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{propertyCount}</span>
               )}
+              {n.key === "applications" && newAppCount > 0 && (
+                <span style={{ marginLeft: "auto", background: "rgba(76,175,125,0.2)", color: "#4caf7d", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 6 }}>{newAppCount}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -100,6 +106,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           <div style={{ display: active === "messages" ? "block" : "none" }}><AdminMessages tenants={tenants} supabase={supabase} /></div>
           <div style={{ display: active === "planner" ? "block" : "none" }}><AdminPlanner tenants={tenants} supabase={supabase} /></div>
           <div style={{ display: active === "listings" ? "block" : "none" }}><AdminListings key={active === "listings" ? "listings-active" : "listings-inactive"} supabase={supabase} /></div>
+          <div style={{ display: active === "applications" ? "block" : "none" }}><AdminApplications key={active === "applications" ? "apps-active" : "apps-inactive"} supabase={supabase} onNewCount={setNewAppCount} /></div>
           <div style={{ display: active === "settings" ? "block" : "none" }}><AdminSettings supabase={supabase} /></div>
         </div>
 
@@ -116,5 +123,3 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
     </div>
   );
 }
-
-
