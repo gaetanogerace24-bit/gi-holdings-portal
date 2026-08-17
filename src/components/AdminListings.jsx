@@ -36,25 +36,36 @@ export default function AdminListings({ supabase }) {
   async function handleImageUpload(e) {
     const files = Array.from(e.target.files);
     if (!files.length) return;
+
+    // Show local previews immediately
+    const localPreviews = files.map(f => ({ url: URL.createObjectURL(f), uploading: true, file: f }));
+    setPendingImages(prev => [...prev, ...localPreviews]);
     setUploadingImages(true);
-    const urls = [];
-    for (const file of files) {
+
+    const uploaded = [];
+    for (const item of localPreviews) {
+      const file = item.file;
       const ext = file.name.split(".").pop();
       const path = `listings/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error } = await supabase.storage.from("listing-images").upload(path, file, { upsert: true });
       if (!error) {
         const { data: { publicUrl } } = supabase.storage.from("listing-images").getPublicUrl(path);
-        urls.push(publicUrl);
+        uploaded.push({ url: publicUrl, uploading: false, localUrl: item.url });
       }
     }
-    setPendingImages(prev => [...prev, ...urls]);
+
+    // Replace local previews with real URLs
+    setPendingImages(prev => {
+      const kept = prev.filter(p => !localPreviews.find(lp => lp.url === p.url));
+      return [...kept, ...uploaded];
+    });
     setUploadingImages(false);
   }
 
   async function handleSave() {
     setSaving(true);
     const existingImages = editListing?.images || [];
-    const allImages = [...existingImages, ...pendingImages];
+    const allImages = [...existingImages, ...pendingImages.filter(p => !p.uploading).map(p => p.url)];
     const payload = { ...form, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), images: allImages };
     if (editListing) {
       await supabase.from("listings").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editListing.id);
@@ -142,8 +153,12 @@ export default function AdminListings({ supabase }) {
         )}
         {pendingImages.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-            {pendingImages.map(url => (
-              <img key={url} src={url} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: "1px solid #86efac" }} />
+            {pendingImages.map((img, i) => (
+              <div key={i} style={{ position: "relative" }}>
+                <img src={img.url} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: `1px solid ${img.uploading ? "#fcd34d" : "#86efac"}`, opacity: img.uploading ? 0.6 : 1 }} />
+                {img.uploading && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#92400e", background: "rgba(255,255,255,0.5)", borderRadius: 6 }}>uploading</div>}
+                {!img.uploading && <button onClick={() => setPendingImages(prev => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: -6, right: -6, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>}
+              </div>
             ))}
           </div>
         )}
