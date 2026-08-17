@@ -32,7 +32,6 @@ serve(async (req) => {
   const name = answers.full_name || "Applicant";
   const address = listing?.address || "Unknown property";
 
-  // Save to Supabase applications table
   const supa = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -68,13 +67,17 @@ serve(async (req) => {
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${RESEND_API_KEY}` },
-    body: JSON.stringify({ from: FROM_EMAIL, to: OWNER_EMAIL, subject: `📋 New application: ${name} — ${address}`, html }),
+    body: JSON.stringify({ from: FROM_EMAIL, to: OWNER_EMAIL, subject: `📋 New applicant — ${name} — ${address}`, html }),
   });
 
   await fetch("https://api.telnyx.com/v2/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${TELNYX_API_KEY}` },
-    body: JSON.stringify({ from: TELNYX_PHONE, to: OWNER_PHONE, text: `G&I Holdings: 📋 ${name} completed a rental application for ${address}. Check your email for the full details.` }),
+    body: JSON.stringify({
+      from: TELNYX_PHONE,
+      to: OWNER_PHONE,
+      text: `G&I Holdings: 📋 New applicant — ${name} submitted their application for ${address}. Check your email for details.`,
+    }),
   });
 
   return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
