@@ -57,16 +57,6 @@ export default function HomePage({ onLoginClick }) {
           background: "rgba(76,175,125,0.08)", borderRadius: "50%",
         }} />
         <div style={{ maxWidth: 640, margin: "0 auto", position: "relative" }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            background: "rgba(76,175,125,0.2)", border: "1px solid rgba(76,175,125,0.3)",
-            padding: "5px 14px", borderRadius: 20, marginBottom: 20,
-          }}>
-            <div style={{ width: 6, height: 6, background: "#4caf7d", borderRadius: "50%" }} />
-            <span style={{ color: "#a8e6c3", fontSize: 12, fontWeight: 500 }}>
-              Residential rentals — Youngstown, Ohio
-            </span>
-          </div>
           <h1 style={{
             color: "#fff", fontSize: 42, fontWeight: 700, lineHeight: 1.2,
             margin: "0 0 16px", letterSpacing: "-0.5px",
