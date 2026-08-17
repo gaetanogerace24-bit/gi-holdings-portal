@@ -10,6 +10,11 @@ export default function AdminListings({ supabase }) {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [pendingImages, setPendingImages] = useState([]);
 
+  const [showDrafts, setShowDrafts] = useState(false);
+
+  const drafts = listings.filter(l => l.status === "draft");
+  const published = listings.filter(l => l.status !== "draft");
+
   useEffect(() => { loadListings(); }, []);
 
   async function loadListings() {
@@ -63,11 +68,11 @@ export default function AdminListings({ supabase }) {
     setUploadingImages(false);
   }
 
-  async function handleSave() {
+  async function handleSave(status = "published") {
     setSaving(true);
     const existingImages = editListing?.images || [];
     const allImages = [...existingImages, ...pendingImages.filter(p => !p.uploading).map(p => p.url)];
-    const payload = { ...form, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), images: allImages };
+    const payload = { ...form, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), images: allImages, status };
     if (editListing) {
       await supabase.from("listings").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editListing.id);
     } else {
@@ -177,9 +182,14 @@ export default function AdminListings({ supabase }) {
         <span style={{ fontSize: 13, color: form.available ? "#16a34a" : "#6b7280" }}>{form.available ? "Listed as available" : "Hidden from site"}</span>
       </div>
 
-      <button onClick={handleSave} disabled={saving} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "13px 28px", fontSize: 15, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
-        {saving ? "Saving..." : editListing ? "Save changes" : "Add listing"}
-      </button>
+      <div style={{ display: "flex", gap: 12 }}>
+        <button onClick={() => handleSave("draft")} disabled={saving} style={{ background: "#f9fafb", color: "#374151", border: "1px solid #e5e7eb", borderRadius: 10, padding: "13px 28px", fontSize: 15, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
+          💾 Save as draft
+        </button>
+        <button onClick={() => handleSave("published")} disabled={saving} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "13px 28px", fontSize: 15, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
+          {saving ? "Saving..." : editListing ? "Save changes" : "Add listing"}
+        </button>
+      </div>
     </div>
   );
 
@@ -187,23 +197,29 @@ export default function AdminListings({ supabase }) {
     <div style={{ padding: 32 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>🏡 Listings</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>🏡 {showDrafts ? "Drafts" : "Listings"}</h2>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>Manage rental properties shown on your website</p>
         </div>
-        <button onClick={openAdd} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>+ Add listing</button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button onClick={() => setShowDrafts(!showDrafts)} style={{ background: showDrafts ? "#1b3d2a" : "#f9fafb", color: showDrafts ? "#fff" : "#374151", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+            💾 Drafts
+            {drafts.length > 0 && <span style={{ background: showDrafts ? "#fff" : "#1b3d2a", color: showDrafts ? "#1b3d2a" : "#fff", borderRadius: "50%", width: 20, height: 20, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{drafts.length}</span>}
+          </button>
+          <button onClick={openAdd} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>+ Add listing</button>
+        </div>
       </div>
 
       {loading ? (
         <div style={{ textAlign: "center", padding: 60, color: "#9ca3af" }}>Loading...</div>
-      ) : listings.length === 0 ? (
+      ) : (showDrafts ? drafts : published).length === 0 ? (
         <div style={{ textAlign: "center", padding: 60, color: "#9ca3af" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🏡</div>
-          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No listings yet</div>
-          <div style={{ fontSize: 13 }}>Add your first available rental property</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>{showDrafts ? "💾" : "🏡"}</div>
+          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>{showDrafts ? "No drafts" : "No listings yet"}</div>
+          <div style={{ fontSize: 13 }}>{showDrafts ? "Save a listing as draft to see it here" : "Add your first available rental property"}</div>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
-          {listings.map(l => (
+          {(showDrafts ? drafts : published).map(l => (
             <div key={l.id} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
               <div style={{ height: 140, background: "#f3f4f6", position: "relative", overflow: "hidden" }}>
                 {l.images?.[0] ? (
