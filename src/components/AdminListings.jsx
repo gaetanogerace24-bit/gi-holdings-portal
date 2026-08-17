@@ -7,7 +7,7 @@ export default function AdminListings({ supabase }) {
   const [editListing, setEditListing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ address: "", city: "Youngstown, OH", zip: "", rent: "", beds: "", baths: "", sqft: "", description: "", available: true });
-  const [lightbox, setLightbox] = useState(null);
+  
   const [pendingImages, setPendingImages] = useState([]);
 
   useEffect(() => { loadListings(); }, []);
@@ -99,15 +99,7 @@ export default function AdminListings({ supabase }) {
   const label = { fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: 4 };
 
   if (showForm) return (
-    <div style={{ padding: 32, maxWidth: 680, margin: "0 auto", position: "relative" }}>
-      {lightbox && (
-        <div onClick={() => setLightbox(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out", borderRadius: 12, minHeight: "100vh" }}>
-          <div style={{ position: "relative" }}>
-            <img src={lightbox} style={{ maxWidth: "80vw", maxHeight: "70vh", objectFit: "contain", borderRadius: 8, display: "block" }} />
-            <button onClick={() => setLightbox(null)} style={{ position: "absolute", top: -16, right: -16, background: "#dc2626", border: "none", color: "#fff", borderRadius: "50%", width: 28, height: 28, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-          </div>
-        </div>
-      )}
+    <div style={{ padding: 32, maxWidth: 680, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
         <button onClick={() => setShowForm(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#6b7280" }}>←</button>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{editListing ? "Edit listing" : "Add listing"}</h2>
@@ -154,7 +146,7 @@ export default function AdminListings({ supabase }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
             {editListing.images.map(url => (
               <div key={url} style={{ position: "relative" }}>
-                <img src={url} onClick={() => setLightbox(url)} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e7eb", cursor: "zoom-in" }} />
+                <img src={url} onClick={() => window.open(url, "_blank")} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e7eb", cursor: "zoom-in" }} />
                 <button onClick={() => removeImage(editListing, url)} style={{ position: "absolute", top: -6, right: -6, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
               </div>
             ))}
@@ -164,7 +156,7 @@ export default function AdminListings({ supabase }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
             {pendingImages.map((img, i) => (
               <div key={i} style={{ position: "relative" }}>
-                <img src={img.url} onClick={() => !img.uploading && setLightbox(img.url)} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: `1px solid ${img.uploading ? "#fcd34d" : "#86efac"}`, opacity: img.uploading ? 0.6 : 1, cursor: img.uploading ? "default" : "zoom-in" }} />
+                <img src={img.url} onClick={() => !img.uploading && window.open(img.url, "_blank")} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: `1px solid ${img.uploading ? "#fcd34d" : "#86efac"}`, opacity: img.uploading ? 0.6 : 1, cursor: img.uploading ? "default" : "zoom-in" }} />
                 {img.uploading && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#92400e", background: "rgba(255,255,255,0.5)", borderRadius: 6 }}>uploading</div>}
                 {!img.uploading && <button onClick={() => setPendingImages(prev => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: -6, right: -6, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>}
               </div>
