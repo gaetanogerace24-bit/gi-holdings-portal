@@ -177,9 +177,15 @@ export default function HomePage({ onLoginClick, onApply }) {
                   <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 16 }}>
                     ${Number(l.rent).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: "#6b7280" }}>/mo</span>
                   </div>
-                  <button onClick={() => onApply && onApply(l)} style={{ display: "block", width: "100%", background: "#1b3d2a", color: "#fff", border: "none", textAlign: "center", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                    Apply now
-                  </button>
+                  {(() => {
+                    let hasPaid = false;
+                    try { hasPaid = !!localStorage.getItem("gi_apply") && JSON.parse(localStorage.getItem("gi_apply"))?.listingId === l.id; } catch(e) {}
+                    return (
+                      <button onClick={() => onApply && onApply(l)} style={{ display: "block", width: "100%", background: hasPaid ? "#15803d" : "#1b3d2a", color: "#fff", border: "none", textAlign: "center", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                        {hasPaid ? "▶ Resume application" : "Apply now"}
+                      </button>
+                    );
+                  })()}
                   <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0" }}>${l.application_fee || 30} application fee required</p>
                 </div>
               </div>
