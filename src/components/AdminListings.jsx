@@ -15,7 +15,7 @@ export default function AdminListings({ supabase }) {
   const drafts = listings.filter(l => l.status === "draft");
   const published = listings.filter(l => l.status !== "draft");
 
-  useEffect(() => { setShowForm(false); loadListings(); }, []);
+  useEffect(() => { setShowForm(false); setShowDrafts(false); loadListings(); }, []);
 
   async function loadListings() {
     setLoading(true);
