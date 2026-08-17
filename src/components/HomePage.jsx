@@ -4,9 +4,13 @@ import { supabase } from "../supabase";
 export default function HomePage({ onLoginClick }) {
   const [scrolled, setScrolled] = useState(false);
   const [listings, setListings] = useState([]);
+  const [appFee, setAppFee] = useState(30);
 
   useEffect(() => {
     supabase.from("listings").select("*").eq("status", "published").eq("available", true).order("created_at", { ascending: false }).then(({ data }) => setListings(data || []));
+    supabase.from("settings").select("value").eq("key", "portal_settings").maybeSingle().then(({ data }) => {
+      if (data?.value?.applicationFee) setAppFee(Number(data.value.applicationFee));
+    });
   }, []);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -176,7 +180,7 @@ export default function HomePage({ onLoginClick }) {
                   <a href="tel:+13309696464" style={{ display: "block", background: "#1b3d2a", color: "#fff", textAlign: "center", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
                     Apply now
                   </a>
-                  <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0" }}>$30 application fee required</p>
+                  <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0" }}>${appFee} application fee required</p>
                 </div>
               </div>
             ))}
