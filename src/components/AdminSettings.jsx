@@ -116,6 +116,8 @@ export default function AdminSettings() {
       setTimeout(() => setFeeStatus("idle"), 3000);
     }
   };
+
+  const handleSaveOwner = async () => {
     setOwnerStatus("saving");
     try {
       const merged = await saveFields({
