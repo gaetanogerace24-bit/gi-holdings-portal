@@ -15,7 +15,6 @@ function PaymentForm({ listing, onSuccess, onBack }) {
   const [error, setError] = useState(null);
 
   const fee = Number(listing?.application_fee || 30);
-  // What applicant actually pays after Stripe fee passthrough
   const chargeAmount = ((fee + 0.30) / (1 - 0.029)).toFixed(2);
 
   async function handlePay() {
@@ -26,7 +25,7 @@ function PaymentForm({ listing, onSuccess, onBack }) {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("create-application-payment", {
-        body: { listingId: listing.id, amount: Math.round(fee * 100), name, email, phone }
+        body: { listingId: listing?.id, amount: Math.round(fee * 100), name, email, phone, listingAddress: listing?.address || "Unknown property" }
       });
       if (fnError || !data?.clientSecret) throw new Error(fnError?.message || "Failed to create payment");
 
