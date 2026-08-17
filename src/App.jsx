@@ -33,6 +33,26 @@ function clearSession() {
   try { localStorage.removeItem("gi_session"); } catch (e) {}
 }
 
+// Persist payment success across page navigations using sessionStorage
+function saveApplySession(listingId, listingData, applicantInfo) {
+  try { sessionStorage.setItem("gi_apply", JSON.stringify({ listingId, listingData, applicantInfo, ts: Date.now() })); } catch (e) {}
+}
+
+function loadApplySession() {
+  try {
+    const raw = sessionStorage.getItem("gi_apply");
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    // Expire after 2 hours
+    if (Date.now() - s.ts > 2 * 60 * 60 * 1000) { sessionStorage.removeItem("gi_apply"); return null; }
+    return s;
+  } catch (e) { return null; }
+}
+
+function clearApplySession() {
+  try { sessionStorage.removeItem("gi_apply"); } catch (e) {}
+}
+
 export default function App() {
   const [screen, setScreen] = useState("loading");
   const [activeTab, setActiveTab] = useState("pay");
@@ -71,9 +91,7 @@ export default function App() {
   useEffect(() => {
     const sub = supabase
       .channel("invoices-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "invoices" }, () => {
-        reloadInvoices();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoices" }, () => { reloadInvoices(); })
       .subscribe();
     return () => { supabase.removeChannel(sub); };
   }, []);
@@ -91,6 +109,15 @@ export default function App() {
 
   useEffect(() => {
     if (loading) return;
+    // Check if they're mid-application (paid but haven't submitted form yet)
+    const applySession = loadApplySession();
+    if (applySession) {
+      setApplyListing(applySession.listingData);
+      setApplicantInfo(applySession.applicantInfo);
+      setApplyStep("form");
+      setScreen("apply");
+      return;
+    }
     const session = loadSession();
     if (session?.screen === "admin") { setScreen("admin"); return; }
     if (session?.screen === "portal" && session.tenantId) {
@@ -216,18 +243,11 @@ export default function App() {
     if (data) setTickets([normalizeTicket(data), ...tickets]);
     setShowModal(false);
 
-    // Notify owner via email + SMS
     const tenantName = currentTenant?.name || "A tenant";
     const tenantAddress = currentTenant?.address || "";
     try {
       await supabase.functions.invoke("send-ticket-notification", {
-        body: {
-          tenantName,
-          tenantAddress,
-          title: ticket.title,
-          category: ticket.category,
-          description: ticket.description,
-        },
+        body: { tenantName, tenantAddress, title: ticket.title, category: ticket.category, description: ticket.description },
       });
     } catch (e) { console.error("Ticket notification failed:", e); }
   };
@@ -245,8 +265,31 @@ export default function App() {
   if (screen === "home") return <HomePage onLoginClick={() => setScreen("login")} onApply={(listing) => { setApplyListing(listing); setApplyStep("payment"); setScreen("apply"); }} />;
   if (screen === "login") return <LoginScreen onLogin={handleLogin} loginError={loginError} />;
   if (screen === "apply") {
-    if (applyStep === "payment") return <ApplicationPayment listing={applyListing} onBack={() => setScreen("home")} onSuccess={(info) => { setApplicantInfo(info); setApplyStep("form"); }} />;
-    if (applyStep === "form") return <ApplicationForm listing={applyListing} applicantInfo={applicantInfo} onBack={() => setScreen("home")} />;
+    if (applyStep === "payment") return (
+      <ApplicationPayment
+        listing={applyListing}
+        onBack={() => setScreen("home")}
+        onSuccess={(info) => {
+          setApplicantInfo(info);
+          setApplyStep("form");
+          // Save to sessionStorage so navigating away and back lands on the form, not payment
+          saveApplySession(applyListing?.id, applyListing, info);
+        }}
+      />
+    );
+    if (applyStep === "form") return (
+      <ApplicationForm
+        listing={applyListing}
+        applicantInfo={applicantInfo}
+        onBack={() => {
+          clearApplySession();
+          setScreen("home");
+        }}
+        onSubmitSuccess={() => {
+          clearApplySession();
+        }}
+      />
+    );
   }
 
   if (screen === "admin") return (
@@ -295,9 +338,3 @@ export default function App() {
     </div>
   );
 }
-
-
-
-
-
-
