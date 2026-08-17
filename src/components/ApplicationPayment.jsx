@@ -3,7 +3,7 @@ import { supabase } from "../supabase";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
-const stripePromise = loadStripe("pk_live_51RKMVqP4HrEeaUdI05vSBBz3LK3QTxRdUCf3iBIEfpRa38lO1QQ1IfvPvx5SaGvvOBMIMvGJUmhkCDn8X5qcze00w2QqfpWX");
+const stripePromise = loadStripe("pk_live_51TRuS9EDXH0jLhRl3r3V0AZTHWcRblzWGIy6xnorvIJheDJe5aAxCs172jinrbAQ5jJ7aLPoMx0abJ50MNLpjEmd009fTYe9Gg");
 
 function PaymentForm({ listing, onSuccess, onBack }) {
   const stripe = useStripe();
