@@ -180,7 +180,7 @@ export default function HomePage({ onLoginClick }) {
                   <a href="tel:+13309696464" style={{ display: "block", background: "#1b3d2a", color: "#fff", textAlign: "center", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
                     Apply now
                   </a>
-                  <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0" }}>${appFee} application fee required</p>
+                  <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0" }}>${l.application_fee || 30} application fee required</p>
                 </div>
               </div>
             ))}
