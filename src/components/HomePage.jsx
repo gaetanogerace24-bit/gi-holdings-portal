@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../supabase";
 
 export default function HomePage({ onLoginClick }) {
   const [scrolled, setScrolled] = useState(false);
+  const [listings, setListings] = useState([]);
 
+  useEffect(() => {
+    supabase.from("listings").select("*").eq("status", "published").eq("available", true).order("created_at", { ascending: false }).then(({ data }) => setListings(data || []));
+  }, []);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll);
@@ -136,6 +141,48 @@ export default function HomePage({ onLoginClick }) {
           ))}
         </div>
       </section>
+
+      {/* Available Rentals */}
+      {listings.length > 0 && (
+        <section style={{ padding: "64px 32px", maxWidth: 960, margin: "0 auto" }}>
+          <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1b3d2a", margin: "0 0 8px", textAlign: "center" }}>
+            Available rentals
+          </h2>
+          <p style={{ color: "#6b7280", fontSize: 15, textAlign: "center", margin: "0 0 40px" }}>
+            Properties currently available in Youngstown, Ohio
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
+            {listings.map(l => (
+              <div key={l.id} style={{ background: "#fff", border: "1px solid #e8ede8", borderRadius: 14, overflow: "hidden" }}>
+                <div style={{ height: 200, background: "#2d5a3d", position: "relative", overflow: "hidden" }}>
+                  {l.images?.[0]
+                    ? <img src={l.images[0]} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>No photo</div>
+                  }
+                  <span style={{ position: "absolute", top: 12, left: 12, background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>Available</span>
+                </div>
+                <div style={{ padding: 20 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a", marginBottom: 3 }}>{l.address}</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>{l.city}{l.zip ? ` ${l.zip}` : ""}</div>
+                  <div style={{ display: "flex", gap: 14, marginBottom: 12 }}>
+                    {l.beds && <span style={{ fontSize: 13, color: "#6b7280" }}>🛏 {l.beds} beds</span>}
+                    {l.baths && <span style={{ fontSize: 13, color: "#6b7280" }}>🚿 {l.baths} baths</span>}
+                    {l.sqft && <span style={{ fontSize: 13, color: "#6b7280" }}>📐 {Number(l.sqft).toLocaleString()} sqft</span>}
+                  </div>
+                  {l.description && <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 14px", lineHeight: 1.6 }}>{l.description}</p>}
+                  <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 16 }}>
+                    ${Number(l.rent).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: "#6b7280" }}>/mo</span>
+                  </div>
+                  <a href="tel:+13309696464" style={{ display: "block", background: "#1b3d2a", color: "#fff", textAlign: "center", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
+                    Apply now
+                  </a>
+                  <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0" }}>$30 application fee required</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* About */}
       <section style={{
