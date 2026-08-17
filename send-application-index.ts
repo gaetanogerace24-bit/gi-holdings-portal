@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY")!;
@@ -6,6 +7,11 @@ const TELNYX_PHONE = Deno.env.get("TELNYX_PHONE_NUMBER") || "+13309181957";
 const OWNER_EMAIL = "giholdingsllc8@gmail.com";
 const OWNER_PHONE = "+13309696464";
 const FROM_EMAIL = "rent@giholdingsllc.com";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const LABELS: Record<string, string> = {
   full_name: "Full Name", dob: "Date of Birth", email: "Email", phone: "Phone",
@@ -20,9 +26,25 @@ const LABELS: Record<string, string> = {
 };
 
 serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
   const { listing, answers } = await req.json();
   const name = answers.full_name || "Applicant";
   const address = listing?.address || "Unknown property";
+
+  // Save to Supabase applications table
+  const supa = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+  await supa.from("applications").insert({
+    name,
+    property_address: address,
+    listing_id: listing?.id || null,
+    answers,
+    reviewed: false,
+    archived: false,
+  });
 
   const rows = Object.entries(LABELS).map(([key, label]) => {
     const val = answers[key] || "—";
@@ -46,23 +68,14 @@ serve(async (req) => {
   await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${RESEND_API_KEY}` },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: OWNER_EMAIL,
-      subject: `📋 New application: ${name} — ${address}`,
-      html,
-    }),
+    body: JSON.stringify({ from: FROM_EMAIL, to: OWNER_EMAIL, subject: `📋 New application: ${name} — ${address}`, html }),
   });
 
   await fetch("https://api.telnyx.com/v2/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${TELNYX_API_KEY}` },
-    body: JSON.stringify({
-      from: TELNYX_PHONE,
-      to: OWNER_PHONE,
-      text: `G&I Holdings: 📋 ${name} completed a rental application for ${address}. Check your email for the full details.`,
-    }),
+    body: JSON.stringify({ from: TELNYX_PHONE, to: OWNER_PHONE, text: `G&I Holdings: 📋 ${name} completed a rental application for ${address}. Check your email for the full details.` }),
   });
 
-  return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+  return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
