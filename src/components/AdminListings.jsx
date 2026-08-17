@@ -6,7 +6,7 @@ export default function AdminListings({ supabase }) {
   const [showForm, setShowForm] = useState(false);
   const [editListing, setEditListing] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ address: "", city: "Youngstown, OH", zip: "", rent: "", beds: "", baths: "", sqft: "", description: "", available: true });
+  const [form, setForm] = useState({ address: "", city: "Youngstown, OH", zip: "", rent: "", beds: "", baths: "", sqft: "", description: "", available: true, applicationFee: "30" });
   const [uploadingImages, setUploadingImages] = useState(false);
   const [pendingImages, setPendingImages] = useState([]);
 
@@ -33,7 +33,7 @@ export default function AdminListings({ supabase }) {
 
   function openEdit(l) {
     setEditListing(l);
-    setForm({ address: l.address || "", city: l.city || "Youngstown, OH", zip: l.zip || "", rent: l.rent || "", beds: l.beds || "", baths: l.baths || "", sqft: l.sqft || "", description: l.description || "", available: l.available !== false });
+    setForm({ address: l.address || "", city: l.city || "Youngstown, OH", zip: l.zip || "", rent: l.rent || "", beds: l.beds || "", baths: l.baths || "", sqft: l.sqft || "", description: l.description || "", available: l.available !== false, applicationFee: l.application_fee || "30" });
     setPendingImages([]);
     setShowForm(true);
   }
@@ -72,7 +72,7 @@ export default function AdminListings({ supabase }) {
     setSaving(true);
     const existingImages = editListing?.images || [];
     const allImages = [...existingImages, ...pendingImages.filter(p => !p.uploading).map(p => p.url)];
-    const payload = { ...form, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), images: allImages, status };
+    const payload = { ...form, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), application_fee: Number(form.applicationFee) || 30, images: allImages, status };
     if (editListing) {
       await supabase.from("listings").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editListing.id);
     } else {
@@ -172,6 +172,12 @@ export default function AdminListings({ supabase }) {
           {uploadingImages ? "Uploading..." : "📷 Upload photos"}
           <input type="file" multiple accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.pdf" onChange={handleImageUpload} style={{ display: "none" }} disabled={uploadingImages} />
         </label>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <span style={label}>Application fee ($)</span>
+        <input style={{ ...inp, maxWidth: 200 }} type="number" value={form.applicationFee} onChange={e => setForm(f => ({ ...f, applicationFee: e.target.value }))} />
+        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>Shown on the listing card on your website</div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
