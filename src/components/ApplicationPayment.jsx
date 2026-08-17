@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "../supabase";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -15,6 +15,8 @@ function PaymentForm({ listing, onSuccess, onBack }) {
   const [error, setError] = useState(null);
 
   const fee = Number(listing?.application_fee || 30);
+  // What applicant actually pays after Stripe fee passthrough
+  const chargeAmount = ((fee + 0.30) / (1 - 0.029)).toFixed(2);
 
   async function handlePay() {
     if (!name || !email || !phone) { setError("Please fill in all fields"); return; }
@@ -57,7 +59,8 @@ function PaymentForm({ listing, onSuccess, onBack }) {
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 4 }}>Application fee for</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a", marginBottom: 2 }}>{listing?.address}</div>
           <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>{listing?.city}</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "#1b3d2a" }}>${fee}<span style={{ fontSize: 16, fontWeight: 400, color: "#6b7280" }}> one-time</span></div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: "#1b3d2a" }}>${chargeAmount}<span style={{ fontSize: 16, fontWeight: 400, color: "#6b7280" }}> one-time</span></div>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>Includes ${fee} application fee + card processing fee</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -84,7 +87,7 @@ function PaymentForm({ listing, onSuccess, onBack }) {
         {error && <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 10, padding: "12px 16px", color: "#dc2626", fontSize: 14, marginTop: 16 }}>{error}</div>}
 
         <button onClick={handlePay} disabled={paying || !stripe} style={{ width: "100%", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 12, padding: "16px", fontSize: 16, fontWeight: 700, cursor: paying ? "not-allowed" : "pointer", marginTop: 24, opacity: paying ? 0.7 : 1 }}>
-          {paying ? "Processing..." : `Pay $${fee} & Continue`}
+          {paying ? "Processing..." : `Pay $${chargeAmount} & Continue`}
         </button>
         <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 10 }}>Secure payment powered by Stripe. Non-refundable application fee.</p>
       </div>
