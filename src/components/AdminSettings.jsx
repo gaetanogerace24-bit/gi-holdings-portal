@@ -10,6 +10,7 @@ const DEFAULTS = {
   initialLateFee: "35",
   dailyLateFee: "10",
   reminderDaysBefore: "3",
+  applicationFee: "30",
   adminEmail: "gaetano@giholdings.com",
   adminPassword: "GIHoldings2026!",
 };
@@ -101,7 +102,20 @@ export default function AdminSettings() {
     }
   };
 
-  const handleSaveOwner = async () => {
+  const [feeStatus, setFeeStatus] = useState("idle");
+
+  const handleSaveFee = async () => {
+    setFeeStatus("saving");
+    try {
+      const merged = await saveFields({ applicationFee: settings.applicationFee });
+      setSettings(merged);
+      setFeeStatus("saved");
+      setTimeout(() => setFeeStatus("idle"), 3000);
+    } catch (e) {
+      setFeeStatus("error");
+      setTimeout(() => setFeeStatus("idle"), 3000);
+    }
+  };
     setOwnerStatus("saving");
     try {
       const merged = await saveFields({
@@ -141,6 +155,14 @@ export default function AdminSettings() {
         </div>
         <Field label="Send reminder X days before rent is due" value={settings.reminderDaysBefore} onChange={v => update("reminderDaysBefore", v)} type="number" />
         <SaveButton status={reminderStatus} onClick={handleSaveReminder} label="Save reminder setting" />
+      </Section>
+
+      <Section title="🏡 Rental application fee">
+        <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px" }}>
+          Amount charged to applicants before receiving the rental application form.
+        </p>
+        <Field label="Application fee ($)" value={settings.applicationFee} onChange={v => update("applicationFee", v)} type="number" hint="Currently shown on all listing cards as '$X application fee required'" />
+        <SaveButton status={feeStatus} onClick={handleSaveFee} label="Save fee" />
       </Section>
 
       <Section title="🔐 Owner login credentials">
