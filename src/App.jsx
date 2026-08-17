@@ -35,22 +35,19 @@ function clearSession() {
 
 // Persist payment success across page navigations using sessionStorage
 function saveApplySession(listingId, listingData, applicantInfo) {
-  try { sessionStorage.setItem("gi_apply", JSON.stringify({ listingId, listingData, applicantInfo, ts: Date.now() })); } catch (e) {}
+  try { localStorage.setItem("gi_apply", JSON.stringify({ listingId, listingData, applicantInfo })); } catch (e) {}
 }
 
 function loadApplySession() {
   try {
-    const raw = sessionStorage.getItem("gi_apply");
+    const raw = localStorage.getItem("gi_apply");
     if (!raw) return null;
-    const s = JSON.parse(raw);
-    // Expire after 2 hours
-    if (Date.now() - s.ts > 2 * 60 * 60 * 1000) { sessionStorage.removeItem("gi_apply"); return null; }
-    return s;
+    return JSON.parse(raw);
   } catch (e) { return null; }
 }
 
 function clearApplySession() {
-  try { sessionStorage.removeItem("gi_apply"); } catch (e) {}
+  try { localStorage.removeItem("gi_apply"); } catch (e) {}
 }
 
 export default function App() {
