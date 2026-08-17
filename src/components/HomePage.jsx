@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabase";
 
-export default function HomePage({ onLoginClick }) {
+export default function HomePage({ onLoginClick, onApply }) {
   const [scrolled, setScrolled] = useState(false);
   const [listings, setListings] = useState([]);
   const [appFee, setAppFee] = useState(30);
@@ -177,9 +177,9 @@ export default function HomePage({ onLoginClick }) {
                   <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 16 }}>
                     ${Number(l.rent).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: "#6b7280" }}>/mo</span>
                   </div>
-                  <a href="tel:+13309696464" style={{ display: "block", background: "#1b3d2a", color: "#fff", textAlign: "center", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
+                  <button onClick={() => onApply && onApply(l)} style={{ display: "block", width: "100%", background: "#1b3d2a", color: "#fff", border: "none", textAlign: "center", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
                     Apply now
-                  </a>
+                  </button>
                   <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0" }}>${l.application_fee || 30} application fee required</p>
                 </div>
               </div>
