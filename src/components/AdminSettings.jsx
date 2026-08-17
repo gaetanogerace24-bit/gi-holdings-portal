@@ -38,6 +38,7 @@ export default function AdminSettings() {
   const [companyStatus, setCompanyStatus] = useState("idle");
   const [reminderStatus, setReminderStatus] = useState("idle");
   const [ownerStatus, setOwnerStatus] = useState("idle");
+  const [feeStatus, setFeeStatus] = useState("idle");
 
   useEffect(() => {
     async function load() {
@@ -102,7 +103,6 @@ export default function AdminSettings() {
     }
   };
 
-  const [feeStatus, setFeeStatus] = useState("idle");
 
   const handleSaveFee = async () => {
     setFeeStatus("saving");
