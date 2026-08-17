@@ -72,7 +72,8 @@ export default function AdminListings({ supabase }) {
     setSaving(true);
     const existingImages = editListing?.images || [];
     const allImages = [...existingImages, ...pendingImages.filter(p => !p.uploading).map(p => p.url)];
-    const payload = { ...form, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), application_fee: Number(form.applicationFee) || 30, images: allImages, status };
+    const { applicationFee, ...formRest } = form;
+    const payload = { ...formRest, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), application_fee: Number(applicationFee) || 30, images: allImages, status };
     if (editListing) {
       await supabase.from("listings").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editListing.id);
     } else {
