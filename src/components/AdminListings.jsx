@@ -37,7 +37,6 @@ export default function AdminListings({ supabase }) {
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
-    // Show local previews immediately
     const localPreviews = files.map(f => ({ url: URL.createObjectURL(f), uploading: true, file: f }));
     setPendingImages(prev => [...prev, ...localPreviews]);
     setUploadingImages(true);
@@ -45,16 +44,18 @@ export default function AdminListings({ supabase }) {
     const uploaded = [];
     for (const item of localPreviews) {
       const file = item.file;
-      const ext = file.name.split(".").pop();
+      const ext = file.name.split(".").pop().toLowerCase();
       const path = `listings/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("listing-images").upload(path, file, { upsert: true });
-      if (!error) {
+      const { data, error } = await supabase.storage.from("listing-images").upload(path, file, { upsert: true, contentType: file.type });
+      if (error) {
+        console.error("Upload error:", error);
+        alert(`Upload failed: ${error.message}`);
+      } else {
         const { data: { publicUrl } } = supabase.storage.from("listing-images").getPublicUrl(path);
         uploaded.push({ url: publicUrl, uploading: false, localUrl: item.url });
       }
     }
 
-    // Replace local previews with real URLs
     setPendingImages(prev => {
       const kept = prev.filter(p => !localPreviews.find(lp => lp.url === p.url));
       return [...kept, ...uploaded];
@@ -107,35 +108,35 @@ export default function AdminListings({ supabase }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={{ gridColumn: "1/-1" }}>
           <span style={label}>Address</span>
-          <input style={inp} placeholder="Blank" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+          <input style={inp}  value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
         </div>
         <div>
           <span style={label}>City</span>
-          <input style={inp} placeholder="Blank" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+          <input style={inp}  value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
         </div>
         <div>
           <span style={label}>ZIP</span>
-          <input style={inp} placeholder="Blank" value={form.zip} onChange={e => setForm(f => ({ ...f, zip: e.target.value }))} />
+          <input style={inp}  value={form.zip} onChange={e => setForm(f => ({ ...f, zip: e.target.value }))} />
         </div>
         <div>
           <span style={label}>Monthly rent ($)</span>
-          <input style={inp} type="number" placeholder="Blank" value={form.rent} onChange={e => setForm(f => ({ ...f, rent: e.target.value }))} />
+          <input style={inp} type="number"  value={form.rent} onChange={e => setForm(f => ({ ...f, rent: e.target.value }))} />
         </div>
         <div>
           <span style={label}>Bedrooms</span>
-          <input style={inp} type="number" placeholder="Blank" value={form.beds} onChange={e => setForm(f => ({ ...f, beds: e.target.value }))} />
+          <input style={inp} type="number"  value={form.beds} onChange={e => setForm(f => ({ ...f, beds: e.target.value }))} />
         </div>
         <div>
           <span style={label}>Bathrooms</span>
-          <input style={inp} type="number" placeholder="Blank" value={form.baths} onChange={e => setForm(f => ({ ...f, baths: e.target.value }))} />
+          <input style={inp} type="number"  value={form.baths} onChange={e => setForm(f => ({ ...f, baths: e.target.value }))} />
         </div>
         <div>
           <span style={label}>Sq ft</span>
-          <input style={inp} type="number" placeholder="Blank" value={form.sqft} onChange={e => setForm(f => ({ ...f, sqft: e.target.value }))} />
+          <input style={inp} type="number"  value={form.sqft} onChange={e => setForm(f => ({ ...f, sqft: e.target.value }))} />
         </div>
         <div style={{ gridColumn: "1/-1" }}>
           <span style={label}>Description (optional)</span>
-          <textarea style={{ ...inp, minHeight: 80, resize: "vertical" }} placeholder="Blank" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+          <textarea style={{ ...inp, minHeight: 80, resize: "vertical" }}  value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
         </div>
       </div>
 
@@ -164,7 +165,7 @@ export default function AdminListings({ supabase }) {
         )}
         <label style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#f9fafb", border: "1px dashed #d1d5db", borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontSize: 13, color: "#6b7280" }}>
           {uploadingImages ? "Uploading..." : "📷 Upload photos"}
-          <input type="file" multiple accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} disabled={uploadingImages} />
+          <input type="file" multiple accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.pdf" onChange={handleImageUpload} style={{ display: "none" }} disabled={uploadingImages} />
         </label>
       </div>
 
