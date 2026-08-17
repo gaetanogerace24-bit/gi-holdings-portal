@@ -33,7 +33,7 @@ export default function HomePage({ onLoginClick }) {
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <a href="tel:+13309696464" style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, textDecoration: "none" }}>
+          <a href="tel:+13309696464" style={{ color: "#fff", fontSize: 13, textDecoration: "none", border: "1px solid rgba(255,255,255,0.35)", padding: "8px 16px", borderRadius: 8 }}>
             Call us
           </a>
           <button onClick={onLoginClick} style={{
