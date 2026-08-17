@@ -99,7 +99,7 @@ export default function AdminDashboard({ onLogout, sharedTenants, setSharedTenan
           <div style={{ display: active === "documents" ? "block" : "none" }}><AdminDocuments tenants={tenants} setTenants={setTenants} isActive={active === "documents"} /></div>
           <div style={{ display: active === "messages" ? "block" : "none" }}><AdminMessages tenants={tenants} supabase={supabase} /></div>
           <div style={{ display: active === "planner" ? "block" : "none" }}><AdminPlanner tenants={tenants} supabase={supabase} /></div>
-          <div style={{ display: active === "listings" ? "block" : "none" }}><AdminListings supabase={supabase} /></div>
+          <div style={{ display: active === "listings" ? "block" : "none" }}><AdminListings key={active === "listings" ? "listings-active" : "listings-inactive"} supabase={supabase} /></div>
           <div style={{ display: active === "settings" ? "block" : "none" }}><AdminSettings supabase={supabase} /></div>
         </div>
 
