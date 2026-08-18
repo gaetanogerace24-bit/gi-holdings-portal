@@ -40,7 +40,13 @@ export default function AdminApplications({ supabase: sb }) {
   async function markUnreviewed(id) {
     await (sb || supabase).from("applications").update({ reviewed: false, decision: null }).eq("id", id);
     setApps(prev => prev.map(a => a.id === id ? { ...a, reviewed: false, decision: null } : a));
-    setSelected(prev => prev?.id === id ? { ...prev, reviewed: false, decision: null } : prev);
+    setSelected(null);
+  }
+
+  async function clearDecision(id) {
+    await (sb || supabase).from("applications").update({ decision: null, reviewed: true }).eq("id", id);
+    setApps(prev => prev.map(a => a.id === id ? { ...a, decision: null, reviewed: true } : a));
+    setSelected(prev => prev?.id === id ? { ...prev, decision: null, reviewed: true } : prev);
   }
 
   async function setDecision(id, decision) {
@@ -52,8 +58,8 @@ export default function AdminApplications({ supabase: sb }) {
   const filtered = apps.filter(a => {
     if (filter === "all") return !a.reviewed;
     if (filter === "reviewed") return a.reviewed && !a.decision;
-    if (filter === "accepted") return a.decision === "accepted";
-    if (filter === "denied") return a.decision === "denied";
+    if (filter === "accepted") return a.decision === "accepted" && a.reviewed;
+    if (filter === "denied") return a.decision === "denied" && a.reviewed;
     return true;
   });
 
@@ -183,7 +189,7 @@ export default function AdminApplications({ supabase: sb }) {
                     </button>
                   )}
                   {selected.decision && (
-                    <button onClick={() => markUnreviewed(selected.id)}
+                    <button onClick={() => clearDecision(selected.id)}
                       style={{ fontSize: 13, padding: "8px 16px", borderRadius: 8, border: "1px solid #bfdbfe", color: "#1d4ed8", background: "#eff6ff", cursor: "pointer" }}>
                       Clear decision
                     </button>
