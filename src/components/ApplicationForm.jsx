@@ -56,15 +56,9 @@ export default function ApplicationForm({ listingId, onBack }) {
     }
 
     setStep("submitting");
-    try {
-      // Timeout after 10 seconds — always show success regardless
-      await Promise.race([
-        supabase.functions.invoke("send-application", { body: { listing, answers } }),
-        new Promise(resolve => setTimeout(resolve, 10000))
-      ]);
-    } catch (e) {
-      console.error(e);
-    }
+    // Fire and forget — don't wait for the edge function at all
+    // It runs in the background, success screen shows immediately
+    try { supabase.functions.invoke("send-application", { body: { listing, answers } }); } catch(e) {}
     // Clear the apply session so Resume application disappears
     try { localStorage.removeItem("gi_apply"); } catch(e) {}
     if (onSubmitSuccess) onSubmitSuccess();
