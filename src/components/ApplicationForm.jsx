@@ -79,7 +79,7 @@ export default function ApplicationForm({ listingId, onBack }) {
         <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1b3d2a", margin: "0 0 12px" }}>Application submitted!</h2>
         <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7, margin: "0 0 24px" }}>
-          Thank you {answers.full_name}! Your application for <strong>{listing?.address}</strong> has been received. G&I Holdings will be in touch with you soon.
+          Thank you, {answers.full_name}! Your application for <strong>{listing?.address || "the property"}</strong> has been received. G&I Holdings will be in touch with you soon. A confirmation has been sent to your email and phone.
         </p>
         <button onClick={onBack} style={{ background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, padding: "13px 28px", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
           Back to home
