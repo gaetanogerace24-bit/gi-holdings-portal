@@ -118,7 +118,7 @@ serve(async (req) => {
     await fetch("https://api.telnyx.com/v2/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${TELNYX_API_KEY}` },
-      body: JSON.stringify({ from: TELNYX_PHONE, to: applicantPhone, text: `G&I Holdings: ✅ Hi ${firstName}, your application for ${address} has been received. We'll be in touch soon. Questions? Call (330) 969-6464.` }),
+      body: JSON.stringify({ from: TELNYX_PHONE, to: applicantPhone, text: `G&I Holdings: ✅ Hi ${firstName}, your application for ${address} has been received. We'll be in touch soon.` }),
     });
   }
 
