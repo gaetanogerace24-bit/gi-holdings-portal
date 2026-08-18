@@ -179,10 +179,18 @@ export default function HomePage({ onLoginClick, onApply }) {
                   </div>
                   {(() => {
                     let hasPaid = false;
-                    try { hasPaid = !!localStorage.getItem("gi_apply") && JSON.parse(localStorage.getItem("gi_apply"))?.listingId === l.id; } catch(e) {}
+                    let hasSubmitted = false;
+                    try {
+                      const applyData = localStorage.getItem("gi_apply");
+                      hasPaid = !!applyData && JSON.parse(applyData)?.listingId === l.id;
+                      hasSubmitted = localStorage.getItem("gi_apply_submitted_" + l.id) === "true";
+                    } catch(e) {}
                     return (
-                      <button onClick={() => onApply && onApply(l)} style={{ display: "block", width: "100%", background: hasPaid ? "#15803d" : "#1b3d2a", color: "#fff", border: "none", textAlign: "center", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                        {hasPaid ? "▶ Resume application" : "Apply now"}
+                      <button
+                        onClick={() => !hasSubmitted && onApply && onApply(l)}
+                        style={{ display: "block", width: "100%", background: hasSubmitted ? "#6b7280" : hasPaid ? "#15803d" : "#1b3d2a", color: "#fff", border: "none", textAlign: "center", padding: "13px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: hasSubmitted ? "default" : "pointer" }}
+                      >
+                        {hasSubmitted ? "✅ Application submitted" : hasPaid ? "▶ Resume application" : "Apply now"}
                       </button>
                     );
                   })()}
