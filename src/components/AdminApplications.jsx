@@ -53,7 +53,7 @@ export default function AdminApplications({ supabase: sb }) {
 
   const filtered = apps.filter(a => {
     if (filter === "reviewed") return a.reviewed && !a.archived;
-    return !a.archived;
+    return !a.reviewed && !a.archived; // "All" tab = only new/unreviewed
   });
 
   const newCount = apps.filter(a => !a.reviewed && !a.archived).length;
