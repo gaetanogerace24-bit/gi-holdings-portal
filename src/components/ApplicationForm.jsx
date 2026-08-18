@@ -57,8 +57,12 @@ export default function ApplicationForm({ listing: listingProp, onBack, onSubmit
     // Fire and forget — don't wait for the edge function at all
     // It runs in the background, success screen shows immediately
     try { supabase.functions.invoke("send-application", { body: { listing, answers } }); } catch(e) {}
-    // Clear the apply session so Resume application disappears
-    try { localStorage.removeItem("gi_apply"); } catch(e) {}
+    // Mark as submitted in localStorage so button shows "Application submitted"
+    try {
+      const existing = JSON.parse(localStorage.getItem("gi_apply") || "{}");
+      localStorage.setItem("gi_apply_submitted_" + (existing.listingId || ""), "true");
+      localStorage.removeItem("gi_apply");
+    } catch(e) {}
     if (onSubmitSuccess) onSubmitSuccess();
     setStep("done");
   }
