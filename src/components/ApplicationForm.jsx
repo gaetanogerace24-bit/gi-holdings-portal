@@ -60,11 +60,13 @@ export default function ApplicationForm({ listingId, onBack }) {
       await supabase.functions.invoke("send-application", {
         body: { listing, answers }
       });
-      setStep("done");
     } catch (e) {
       console.error(e);
-      setStep("done"); // still show done even if edge function errors
     }
+    // Clear the apply session so Resume application disappears and listing resets to Apply now
+    try { localStorage.removeItem("gi_apply"); } catch(e) {}
+    if (onSubmitSuccess) onSubmitSuccess();
+    setStep("done");
   }
 
   const inp = {
