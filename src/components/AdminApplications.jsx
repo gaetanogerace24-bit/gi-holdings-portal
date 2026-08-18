@@ -19,9 +19,7 @@ export default function AdminApplications({ supabase: sb }) {
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("all");
 
-  useEffect(() => {
-    loadApps();
-  }, []);
+  useEffect(() => { loadApps(); }, []);
 
   async function loadApps() {
     setLoading(true);
@@ -36,16 +34,24 @@ export default function AdminApplications({ supabase: sb }) {
   async function markReviewed(id) {
     await (sb || supabase).from("applications").update({ reviewed: true }).eq("id", id);
     setApps(prev => prev.map(a => a.id === id ? { ...a, reviewed: true } : a));
+    setSelected(prev => prev?.id === id ? { ...prev, reviewed: true } : prev);
+  }
+
+  async function markUnreviewed(id, e) {
+    e.stopPropagation();
+    await (sb || supabase).from("applications").update({ reviewed: false }).eq("id", id);
+    setApps(prev => prev.map(a => a.id === id ? { ...a, reviewed: false } : a));
+    setSelected(prev => prev?.id === id ? { ...prev, reviewed: false } : prev);
   }
 
   async function archiveApp(id, e) {
     e.stopPropagation();
     await (sb || supabase).from("applications").update({ archived: true }).eq("id", id);
     setApps(prev => prev.filter(a => a.id !== id));
+    setSelected(prev => prev?.id === id ? null : prev);
   }
 
   const filtered = apps.filter(a => {
-    if (filter === "new") return !a.reviewed && !a.archived;
     if (filter === "reviewed") return a.reviewed && !a.archived;
     return !a.archived;
   });
@@ -82,7 +88,6 @@ export default function AdminApplications({ supabase: sb }) {
       background: "#fff", border: `1px solid ${isNew ? "#bbf7d0" : "#e5e7eb"}`,
       borderRadius: 12, padding: "16px 20px", marginBottom: 10, cursor: "pointer",
       display: "flex", alignItems: "center", gap: 14,
-      transition: "box-shadow 0.15s",
     }),
     avatar: (isNew) => ({
       width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
@@ -92,10 +97,10 @@ export default function AdminApplications({ supabase: sb }) {
     }),
     name: { fontSize: 15, fontWeight: 600, color: "#1a1a1a", margin: 0 },
     meta: { fontSize: 12, color: "#6b7280", marginTop: 3 },
-    newBadge: { marginLeft: "auto", background: "#dcfce7", color: "#15803d", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, flexShrink: 0 },
+    newBadge: { background: "#dcfce7", color: "#15803d", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, flexShrink: 0 },
+    reviewedBadge: { background: "#f3f4f6", color: "#6b7280", fontSize: 11, fontWeight: 500, padding: "3px 8px", borderRadius: 6, flexShrink: 0, border: "1px solid #e5e7eb" },
     archBtn: { marginLeft: 8, background: "none", border: "1px solid #fca5a5", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", flexShrink: 0 },
     empty: { textAlign: "center", color: "#9ca3af", padding: "60px 0", fontSize: 14 },
-    // Detail sheet
     overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", justifyContent: "flex-end" },
     sheet: { background: "#fff", width: "min(520px, 100vw)", height: "100vh", overflowY: "auto", padding: "0 0 40px", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)" },
     sheetHeader: { background: "#1b3d2a", padding: "20px 24px", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 10 },
@@ -123,7 +128,7 @@ export default function AdminApplications({ supabase: sb }) {
       </div>
 
       <div style={s.filters}>
-        {[["all", "All"], ["new", "New"], ["reviewed", "Reviewed"]].map(([val, label]) => (
+        {[["all", "All"], ["reviewed", "Reviewed"]].map(([val, label]) => (
           <button key={val} style={s.pill(filter === val)} onClick={() => setFilter(val)}>{label}</button>
         ))}
       </div>
@@ -143,7 +148,11 @@ export default function AdminApplications({ supabase: sb }) {
                 <p style={s.name}>{answers.full_name || app.name || "Unknown"}</p>
                 <p style={s.meta}>{app.property_address || "Unknown property"} · {fmt(app.created_at)}</p>
               </div>
-              {isNew && <div style={s.newBadge}>New</div>}
+              {isNew ? (
+                <div style={s.newBadge}>New</div>
+              ) : (
+                <div style={s.reviewedBadge}>Reviewed</div>
+              )}
               <button style={s.archBtn} onClick={(e) => archiveApp(app.id, e)}>Archive</button>
             </div>
           );
@@ -152,19 +161,36 @@ export default function AdminApplications({ supabase: sb }) {
 
       {selected && (() => {
         const answers = selected.answers || {};
+        const isNew = !selected.reviewed;
         return (
           <div style={s.overlay} onClick={() => setSelected(null)}>
             <div style={s.sheet} onClick={e => e.stopPropagation()}>
               <div style={s.sheetHeader}>
                 <button style={s.closeBtn} onClick={() => setSelected(null)}>←</button>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={s.sheetTitle}>{answers.full_name || "Application"}</div>
                   <div style={s.sheetSub}>{selected.property_address || "Unknown property"} · {new Date(selected.created_at).toLocaleString()}</div>
                 </div>
               </div>
               <div style={s.sheetBody}>
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#15803d", marginBottom: 20 }}>
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#15803d", marginBottom: 16 }}>
                   ✅ Application fee paid via Stripe
+                </div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                  {!isNew && (
+                    <button
+                      onClick={(e) => markUnreviewed(selected.id, e)}
+                      style={{ fontSize: 12, padding: "6px 12px", borderRadius: 6, border: "1px solid #bfdbfe", color: "#1d4ed8", background: "#eff6ff", cursor: "pointer" }}
+                    >
+                      Mark unreviewed
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => archiveApp(selected.id, e)}
+                    style={{ fontSize: 12, padding: "6px 12px", borderRadius: 6, border: "1px solid #fca5a5", color: "#dc2626", background: "none", cursor: "pointer" }}
+                  >
+                    Archive
+                  </button>
                 </div>
                 {Object.entries(LABELS).map(([key, label]) => (
                   answers[key] ? (
