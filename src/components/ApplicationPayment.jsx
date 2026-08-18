@@ -35,10 +35,13 @@ function PaymentForm({ listing, onSuccess, onBack }) {
 
       if (result.error) { setError(result.error.message); setPaying(false); return; }
       // Payment succeeded — now notify owner via direct fetch
+      // Normalize phone to E.164
+      const rawPhone = (phone || "").replace(/\D/g, "");
+      const normalizedPhone = rawPhone.length === 10 ? `+1${rawPhone}` : rawPhone.length === 11 && rawPhone.startsWith("1") ? `+${rawPhone}` : phone;
       fetch("https://hcakrtkqjxtyfmakaxkq.supabase.co/functions/v1/notify-application-paid", {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjYWtydGtxanh0eWZtYWtheGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMjMzODUsImV4cCI6MjA1Nzg5OTM4NX0.p-bkCwQBMxP8EMKSwlHtaHuXFMiMiqlZIFYFflbEPhE", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjYWtydGtxanh0eWZtYWtheGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMjMzODUsImV4cCI6MjA1Nzg5OTM4NX0.p-bkCwQBMxP8EMKSwlHtaHuXFMiMiqlZIFYFflbEPhE" },
-        body: JSON.stringify({ name, email, phone, address: listing?.address || "Unknown property" })
+        body: JSON.stringify({ name, email, phone: normalizedPhone, address: listing?.address || "Unknown property" })
       }).catch(e => console.error("notify failed:", e));
       onSuccess({ name, email, phone });
     } catch (e) {
