@@ -33,7 +33,9 @@ serve(async (req) => {
   const firstName = name.split(" ")[0];
   const address = listing?.address || "Unknown property";
   const applicantEmail = answers.email || null;
-  const applicantPhone = answers.phone || null;
+  // Normalize phone to E.164 format (+1XXXXXXXXXX)
+  const rawPhone = (answers.phone || "").replace(/\D/g, "");
+  const applicantPhone = rawPhone.length === 10 ? `+1${rawPhone}` : rawPhone.length === 11 && rawPhone.startsWith("1") ? `+${rawPhone}` : null;
 
   // Save to Supabase
   const supa = createClient(
