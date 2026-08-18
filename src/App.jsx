@@ -292,7 +292,6 @@ export default function App() {
         listing={applyListing}
         applicantInfo={applicantInfo}
         onBack={() => {
-          clearApplySession();
           setScreen("home");
         }}
         onSubmitSuccess={() => {
