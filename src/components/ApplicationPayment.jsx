@@ -34,6 +34,12 @@ function PaymentForm({ listing, onSuccess, onBack }) {
       });
 
       if (result.error) { setError(result.error.message); setPaying(false); return; }
+      // Payment succeeded — now notify owner
+      try {
+        supabase.functions.invoke("notify-application-paid", {
+          body: { name, email, phone, address: listing?.address || "Unknown property" }
+        });
+      } catch(e) {}
       onSuccess({ name, email, phone });
     } catch (e) {
       setError(e.message);
