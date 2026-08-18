@@ -49,15 +49,7 @@ export default function AdminApplications({ supabase: sb }) {
     setSelected(prev => prev?.id === id ? { ...prev, decision, reviewed: true } : prev);
   }
 
-  async function archiveApp(id, e) {
-    e && e.stopPropagation();
-    await (sb || supabase).from("applications").update({ archived: true }).eq("id", id);
-    setApps(prev => prev.filter(a => a.id !== id));
-    setSelected(prev => prev?.id === id ? null : prev);
-  }
-
   const filtered = apps.filter(a => {
-    if (a.archived) return false;
     if (filter === "all") return !a.reviewed;
     if (filter === "reviewed") return a.reviewed && !a.decision;
     if (filter === "accepted") return a.decision === "accepted";
@@ -65,7 +57,7 @@ export default function AdminApplications({ supabase: sb }) {
     return true;
   });
 
-  const newCount = apps.filter(a => !a.reviewed && !a.archived).length;
+  const newCount = apps.filter(a => !a.reviewed).length;
 
   function initials(name) {
     if (!name) return "?";
@@ -158,8 +150,7 @@ export default function AdminApplications({ supabase: sb }) {
                 <p style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>{app.property_address || "Unknown property"} · {fmt(app.created_at)}</p>
               </div>
               <div style={{ background: badge.bg, color: badge.color, fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, flexShrink: 0, marginRight: 8 }}>{badge.label}</div>
-              <button style={{ background: "none", border: "1px solid #fca5a5", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
-                onClick={(e) => archiveApp(app.id, e)}>Archive</button>
+
             </div>
           );
         })
@@ -178,10 +169,6 @@ export default function AdminApplications({ supabase: sb }) {
                 </div>
               </div>
               <div style={{ padding: "24px" }}>
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#15803d", marginBottom: 16 }}>
-                  ✅ Application fee paid via Stripe
-                </div>
-
                 <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
                   {selected.decision !== "accepted" && (
                     <button onClick={() => setDecision(selected.id, "accepted")}
@@ -207,10 +194,7 @@ export default function AdminApplications({ supabase: sb }) {
                       Mark unreviewed
                     </button>
                   )}
-                  <button onClick={(e) => archiveApp(selected.id, e)}
-                    style={{ fontSize: 13, padding: "8px 16px", borderRadius: 8, border: "1px solid #fca5a5", color: "#dc2626", background: "none", cursor: "pointer" }}>
-                    Archive
-                  </button>
+
                 </div>
 
                 {selected.decision && (
