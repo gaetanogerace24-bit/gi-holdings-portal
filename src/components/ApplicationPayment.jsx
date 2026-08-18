@@ -40,7 +40,7 @@ function PaymentForm({ listing, onSuccess, onBack }) {
       const normalizedPhone = rawPhone.length === 10 ? `+1${rawPhone}` : rawPhone.length === 11 && rawPhone.startsWith("1") ? `+${rawPhone}` : phone;
       fetch("https://hcakrtkqjxtyfmakaxkq.supabase.co/functions/v1/notify-application-paid", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjYWtydGtxanh0eWZtYWtheGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMjMzODUsImV4cCI6MjA1Nzg5OTM4NX0.p-bkCwQBMxP8EMKSwlHtaHuXFMiMiqlZIFYFflbEPhE", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjYWtydGtxanh0eWZtYWtheGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzMjMzODUsImV4cCI6MjA1Nzg5OTM4NX0.p-bkCwQBMxP8EMKSwlHtaHuXFMiMiqlZIFYFflbEPhE" },
+        headers: { "Content-Type": "application/json", "apikey": "sb_publishable_PyhXPKpZmWh6UCu2g29wEQ_5_TEalnE", "Authorization": "Bearer sb_publishable_PyhXPKpZmWh6UCu2g29wEQ_5_TEalnE" },
         body: JSON.stringify({ name, email, phone: normalizedPhone, address: listing?.address || "Unknown property" })
       }).catch(e => console.error("notify failed:", e));
       onSuccess({ name, email, phone });
