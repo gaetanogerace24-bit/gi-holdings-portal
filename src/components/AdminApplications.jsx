@@ -46,7 +46,7 @@ export default function AdminApplications({ supabase: sb }) {
   async function clearDecision(id) {
     await (sb || supabase).from("applications").update({ decision: null, reviewed: true }).eq("id", id);
     setApps(prev => prev.map(a => a.id === id ? { ...a, decision: null, reviewed: true } : a));
-    setSelected(prev => prev?.id === id ? { ...prev, decision: null, reviewed: true } : prev);
+    setSelected(null);
   }
 
   async function setDecision(id, decision) {
