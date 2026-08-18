@@ -24,17 +24,15 @@ const QUESTIONS = [
   { id: "additional_info", label: "Anything else you'd like us to know?", type: "textarea", required: false },
 ];
 
-export default function ApplicationForm({ listingId, onBack }) {
-  const [listing, setListing] = useState(null);
+export default function ApplicationForm({ listing: listingProp, onBack, onSubmitSuccess }) {
+  const [listing, setListing] = useState(listingProp || null);
   const [answers, setAnswers] = useState({});
   const [step, setStep] = useState("form"); // form | submitting | done
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (listingId) {
-      supabase.from("listings").select("*").eq("id", listingId).single().then(({ data }) => setListing(data));
-    }
-  }, [listingId]);
+    if (listingProp) { setListing(listingProp); return; }
+  }, [listingProp]);
 
   function update(id, val) {
     setAnswers(a => ({ ...a, [id]: val }));
