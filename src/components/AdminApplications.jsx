@@ -37,12 +37,6 @@ export default function AdminApplications({ supabase: sb }) {
     setSelected(prev => prev?.id === id ? { ...prev, reviewed: true } : prev);
   }
 
-  async function markUnreviewed(id) {
-    await (sb || supabase).from("applications").update({ reviewed: false, decision: null }).eq("id", id);
-    setApps(prev => prev.map(a => a.id === id ? { ...a, reviewed: false, decision: null } : a));
-    setSelected(null);
-  }
-
   async function clearDecision(id) {
     await (sb || supabase).from("applications").update({ decision: null, reviewed: true }).eq("id", id);
     setApps(prev => prev.map(a => a.id === id ? { ...a, decision: null, reviewed: true } : a));
@@ -194,12 +188,7 @@ export default function AdminApplications({ supabase: sb }) {
                       Clear decision
                     </button>
                   )}
-                  {selected.reviewed && !selected.decision && (
-                    <button onClick={() => markUnreviewed(selected.id)}
-                      style={{ fontSize: 13, padding: "8px 16px", borderRadius: 8, border: "1px solid #bfdbfe", color: "#1d4ed8", background: "#eff6ff", cursor: "pointer" }}>
-                      Mark unreviewed
-                    </button>
-                  )}
+
 
                 </div>
 
