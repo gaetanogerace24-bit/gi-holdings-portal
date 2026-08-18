@@ -38,8 +38,8 @@ export default function AdminApplications({ supabase: sb }) {
   }
 
   async function clearDecision(id) {
-    await (sb || supabase).from("applications").update({ decision: null, reviewed: true }).eq("id", id);
-    setApps(prev => prev.map(a => a.id === id ? { ...a, decision: null, reviewed: true } : a));
+    await (sb || supabase).from("applications").update({ decision: null, reviewed: false }).eq("id", id);
+    setApps(prev => prev.map(a => a.id === id ? { ...a, decision: null, reviewed: false } : a));
     setSelected(null);
   }
 
