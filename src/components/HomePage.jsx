@@ -5,6 +5,7 @@ export default function HomePage({ onLoginClick, onApply }) {
   const [scrolled, setScrolled] = useState(false);
   const [listings, setListings] = useState([]);
   const [appFee, setAppFee] = useState(30);
+  const [gallery, setGallery] = useState(null); // { images: [], index: 0 }
 
   useEffect(() => {
     supabase.from("listings").select("*").eq("status", "published").eq("available", true).order("created_at", { ascending: false }).then(({ data }) => setListings(data || []));
@@ -19,6 +20,35 @@ export default function HomePage({ onLoginClick, onApply }) {
   }, []);
 
   return (
+    <div style={{ fontFamily: "'DM Sans', sans-serif", position: "relative" }}>
+      {gallery && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 1000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setGallery(null)}>
+          <button onClick={() => setGallery(null)} style={{ position: "absolute", top: 20, right: 24, background: "none", border: "none", color: "#fff", fontSize: 32, cursor: "pointer", lineHeight: 1 }}>×</button>
+          <div style={{ position: "absolute", top: 20, left: "50%", transform: "translateX(-50%)", color: "rgba(255,255,255,0.7)", fontSize: 14 }}>
+            {gallery.index + 1} / {gallery.images.length}
+          </div>
+          <img
+            src={gallery.images[gallery.index]}
+            style={{ maxWidth: "90vw", maxHeight: "80vh", objectFit: "contain", borderRadius: 8 }}
+            onClick={e => e.stopPropagation()}
+          />
+          {gallery.images.length > 1 && (
+            <>
+              <button onClick={e => { e.stopPropagation(); setGallery(g => ({ ...g, index: (g.index - 1 + g.images.length) % g.images.length })); }}
+                style={{ position: "absolute", left: 20, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 28, width: 48, height: 48, borderRadius: "50%", cursor: "pointer" }}>‹</button>
+              <button onClick={e => { e.stopPropagation(); setGallery(g => ({ ...g, index: (g.index + 1) % g.images.length })); }}
+                style={{ position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 28, width: 48, height: 48, borderRadius: "50%", cursor: "pointer" }}>›</button>
+              <div style={{ display: "flex", gap: 8, marginTop: 16 }} onClick={e => e.stopPropagation()}>
+                {gallery.images.map((img, i) => (
+                  <img key={i} src={img} onClick={() => setGallery(g => ({ ...g, index: i }))}
+                    style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, cursor: "pointer", border: i === gallery.index ? "2px solid #fff" : "2px solid transparent", opacity: i === gallery.index ? 1 : 0.5 }} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f5f7f5", minHeight: "100vh" }}>
 
       {/* Nav */}
@@ -158,12 +188,20 @@ export default function HomePage({ onLoginClick, onApply }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
             {listings.map(l => (
               <div key={l.id} style={{ background: "#fff", border: "1px solid #e8ede8", borderRadius: 14, overflow: "hidden" }}>
-                <div style={{ height: 200, background: "#2d5a3d", position: "relative", overflow: "hidden" }}>
-                  {l.images?.[0]
-                    ? <img src={l.images[0]} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>No photo</div>
-                  }
-                  <span style={{ position: "absolute", top: 12, left: 12, background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>Available</span>
+                <div style={{ position: "relative", overflow: "hidden", cursor: l.images?.length ? "pointer" : "default" }}
+                  onClick={() => l.images?.length && setGallery({ images: l.images, index: 0 })}>
+                  <div style={{ height: 200, background: "#2d5a3d", position: "relative", overflow: "hidden" }}>
+                    {l.images?.[0]
+                      ? <img src={l.images[0]} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>No photo</div>
+                    }
+                    <span style={{ position: "absolute", top: 12, left: 12, background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>Available</span>
+                    {l.images?.length > 1 && (
+                      <span style={{ position: "absolute", bottom: 10, right: 10, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 10 }}>
+                        1 / {l.images.length} · tap to view all
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div style={{ padding: 20 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a", marginBottom: 3 }}>{l.address}</div>
@@ -297,6 +335,7 @@ export default function HomePage({ onLoginClick, onApply }) {
           </button>
         </div>
       </footer>
+    </div>
     </div>
   );
 }
