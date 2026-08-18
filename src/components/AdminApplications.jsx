@@ -37,23 +37,32 @@ export default function AdminApplications({ supabase: sb }) {
     setSelected(prev => prev?.id === id ? { ...prev, reviewed: true } : prev);
   }
 
-  async function markUnreviewed(id, e) {
-    e.stopPropagation();
-    await (sb || supabase).from("applications").update({ reviewed: false }).eq("id", id);
-    setApps(prev => prev.map(a => a.id === id ? { ...a, reviewed: false } : a));
-    setSelected(prev => prev?.id === id ? { ...prev, reviewed: false } : prev);
+  async function markUnreviewed(id) {
+    await (sb || supabase).from("applications").update({ reviewed: false, decision: null }).eq("id", id);
+    setApps(prev => prev.map(a => a.id === id ? { ...a, reviewed: false, decision: null } : a));
+    setSelected(prev => prev?.id === id ? { ...prev, reviewed: false, decision: null } : prev);
+  }
+
+  async function setDecision(id, decision) {
+    await (sb || supabase).from("applications").update({ decision, reviewed: true }).eq("id", id);
+    setApps(prev => prev.map(a => a.id === id ? { ...a, decision, reviewed: true } : a));
+    setSelected(prev => prev?.id === id ? { ...prev, decision, reviewed: true } : prev);
   }
 
   async function archiveApp(id, e) {
-    e.stopPropagation();
+    e && e.stopPropagation();
     await (sb || supabase).from("applications").update({ archived: true }).eq("id", id);
     setApps(prev => prev.filter(a => a.id !== id));
     setSelected(prev => prev?.id === id ? null : prev);
   }
 
   const filtered = apps.filter(a => {
-    if (filter === "reviewed") return a.reviewed && !a.archived;
-    return !a.reviewed && !a.archived; // "All" tab = only new/unreviewed
+    if (a.archived) return false;
+    if (filter === "all") return !a.reviewed;
+    if (filter === "reviewed") return a.reviewed && !a.decision;
+    if (filter === "accepted") return a.decision === "accepted";
+    if (filter === "denied") return a.decision === "denied";
+    return true;
   });
 
   const newCount = apps.filter(a => !a.reviewed && !a.archived).length;
@@ -74,51 +83,39 @@ export default function AdminApplications({ supabase: sb }) {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined });
   }
 
-  const s = {
-    page: { padding: "28px 32px", fontFamily: "'DM Sans', sans-serif", maxWidth: 900, margin: "0 auto" },
-    header: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 },
-    title: { fontSize: 22, fontWeight: 700, color: "#1a1a1a", margin: 0 },
-    sub: { fontSize: 13, color: "#6b7280", marginTop: 4 },
-    filters: { display: "flex", gap: 8, marginBottom: 20 },
-    pill: (active) => ({
-      padding: "6px 14px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none",
-      background: active ? "#1b3d2a" : "#f3f4f6", color: active ? "#fff" : "#374151",
-    }),
-    card: (isNew) => ({
-      background: "#fff", border: `1px solid ${isNew ? "#bbf7d0" : "#e5e7eb"}`,
-      borderRadius: 12, padding: "16px 20px", marginBottom: 10, cursor: "pointer",
-      display: "flex", alignItems: "center", gap: 14,
-    }),
-    avatar: (isNew) => ({
-      width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
-      background: isNew ? "#dcfce7" : "#f3f4f6",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: 15, fontWeight: 700, color: isNew ? "#15803d" : "#6b7280",
-    }),
-    name: { fontSize: 15, fontWeight: 600, color: "#1a1a1a", margin: 0 },
-    meta: { fontSize: 12, color: "#6b7280", marginTop: 3 },
-    newBadge: { background: "#dcfce7", color: "#15803d", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, flexShrink: 0 },
-    reviewedBadge: { background: "#f3f4f6", color: "#6b7280", fontSize: 11, fontWeight: 500, padding: "3px 8px", borderRadius: 6, flexShrink: 0, border: "1px solid #e5e7eb" },
-    archBtn: { marginLeft: 8, background: "none", border: "1px solid #fca5a5", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", flexShrink: 0 },
-    empty: { textAlign: "center", color: "#9ca3af", padding: "60px 0", fontSize: 14 },
-    overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", justifyContent: "flex-end" },
-    sheet: { background: "#fff", width: "min(520px, 100vw)", height: "100vh", overflowY: "auto", padding: "0 0 40px", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)" },
-    sheetHeader: { background: "#1b3d2a", padding: "20px 24px", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 10 },
-    closeBtn: { background: "none", border: "none", color: "rgba(255,255,255,0.7)", fontSize: 22, cursor: "pointer", padding: 0, lineHeight: 1 },
-    sheetTitle: { color: "#fff", fontWeight: 700, fontSize: 16 },
-    sheetSub: { color: "rgba(255,255,255,0.6)", fontSize: 13, marginTop: 2 },
-    sheetBody: { padding: "24px" },
-    fieldRow: { display: "flex", borderBottom: "1px solid #f3f4f6", padding: "10px 0" },
-    fieldLabel: { fontSize: 13, fontWeight: 600, color: "#6b7280", width: 160, flexShrink: 0 },
-    fieldVal: { fontSize: 13, color: "#1a1a1a", flex: 1 },
-  };
+  function getBadge(app) {
+    if (app.decision === "accepted") return { label: "✓ Accepted", bg: "#dcfce7", color: "#166534" };
+    if (app.decision === "denied") return { label: "✕ Denied", bg: "#fef2f2", color: "#dc2626" };
+    if (app.reviewed) return { label: "Reviewed", bg: "#f3f4f6", color: "#6b7280" };
+    return { label: "New", bg: "#dcfce7", color: "#15803d" };
+  }
+
+  function getCardBorder(app) {
+    if (app.decision === "accepted") return "#bbf7d0";
+    if (app.decision === "denied") return "#fecaca";
+    if (!app.reviewed) return "#bbf7d0";
+    return "#e5e7eb";
+  }
+
+  function getAvatar(app) {
+    if (app.decision === "denied") return { bg: "#fef2f2", color: "#dc2626" };
+    if (!app.reviewed || app.decision === "accepted") return { bg: "#dcfce7", color: "#15803d" };
+    return { bg: "#f3f4f6", color: "#6b7280" };
+  }
+
+  const TABS = [
+    { key: "all", label: "All" },
+    { key: "reviewed", label: "Reviewed" },
+    { key: "accepted", label: "Accepted" },
+    { key: "denied", label: "Denied" },
+  ];
 
   return (
-    <div style={s.page}>
-      <div style={s.header}>
+    <div style={{ padding: "28px 32px", fontFamily: "'DM Sans', sans-serif", maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <h1 style={s.title}>📋 Applications</h1>
-          <p style={s.sub}>Rental applications submitted through your website</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", margin: 0 }}>📋 Applications</h1>
+          <p style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>Rental applications submitted through your website</p>
         </div>
         {newCount > 0 && (
           <div style={{ background: "#dcfce7", color: "#15803d", fontWeight: 700, fontSize: 13, padding: "6px 14px", borderRadius: 20 }}>
@@ -127,33 +124,42 @@ export default function AdminApplications({ supabase: sb }) {
         )}
       </div>
 
-      <div style={s.filters}>
-        {[["all", "All"], ["reviewed", "Reviewed"]].map(([val, label]) => (
-          <button key={val} style={s.pill(filter === val)} onClick={() => setFilter(val)}>{label}</button>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setFilter(t.key)} style={{
+            padding: "6px 14px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none",
+            background: filter === t.key ? "#1b3d2a" : "#f3f4f6",
+            color: filter === t.key ? "#fff" : "#374151",
+          }}>{t.label}</button>
         ))}
       </div>
 
       {loading ? (
-        <div style={s.empty}>Loading...</div>
+        <div style={{ textAlign: "center", color: "#9ca3af", padding: "60px 0", fontSize: 14 }}>Loading...</div>
       ) : filtered.length === 0 ? (
-        <div style={s.empty}>No applications yet. They'll show up here when someone applies.</div>
+        <div style={{ textAlign: "center", color: "#9ca3af", padding: "60px 0", fontSize: 14 }}>
+          {filter === "all" ? "No new applications." : `No ${filter} applications.`}
+        </div>
       ) : (
         filtered.map(app => {
-          const isNew = !app.reviewed;
           const answers = app.answers || {};
+          const badge = getBadge(app);
+          const av = getAvatar(app);
           return (
-            <div key={app.id} style={s.card(isNew)} onClick={() => { setSelected(app); if (isNew) markReviewed(app.id); }}>
-              <div style={s.avatar(isNew)}>{initials(answers.full_name || app.name)}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={s.name}>{answers.full_name || app.name || "Unknown"}</p>
-                <p style={s.meta}>{app.property_address || "Unknown property"} · {fmt(app.created_at)}</p>
+            <div key={app.id}
+              style={{ background: "#fff", border: `1px solid ${getCardBorder(app)}`, borderRadius: 12, padding: "16px 20px", marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}
+              onClick={() => { setSelected(app); if (!app.reviewed) markReviewed(app.id); }}
+            >
+              <div style={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0, background: av.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: av.color }}>
+                {initials(answers.full_name || app.name)}
               </div>
-              {isNew ? (
-                <div style={s.newBadge}>New</div>
-              ) : (
-                <div style={s.reviewedBadge}>Reviewed</div>
-              )}
-              <button style={s.archBtn} onClick={(e) => archiveApp(app.id, e)}>Archive</button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 15, fontWeight: 600, color: "#1a1a1a", margin: 0 }}>{answers.full_name || app.name || "Unknown"}</p>
+                <p style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>{app.property_address || "Unknown property"} · {fmt(app.created_at)}</p>
+              </div>
+              <div style={{ background: badge.bg, color: badge.color, fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, flexShrink: 0, marginRight: 8 }}>{badge.label}</div>
+              <button style={{ background: "none", border: "1px solid #fca5a5", color: "#dc2626", fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
+                onClick={(e) => archiveApp(app.id, e)}>Archive</button>
             </div>
           );
         })
@@ -161,42 +167,63 @@ export default function AdminApplications({ supabase: sb }) {
 
       {selected && (() => {
         const answers = selected.answers || {};
-        const isNew = !selected.reviewed;
         return (
-          <div style={s.overlay} onClick={() => setSelected(null)}>
-            <div style={s.sheet} onClick={e => e.stopPropagation()}>
-              <div style={s.sheetHeader}>
-                <button style={s.closeBtn} onClick={() => setSelected(null)}>←</button>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", justifyContent: "flex-end" }} onClick={() => setSelected(null)}>
+            <div style={{ background: "#fff", width: "min(520px, 100vw)", height: "100vh", overflowY: "auto", padding: "0 0 40px", boxShadow: "-4px 0 24px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
+              <div style={{ background: "#1b3d2a", padding: "20px 24px", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 10 }}>
+                <button style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", fontSize: 22, cursor: "pointer", padding: 0, lineHeight: 1 }} onClick={() => setSelected(null)}>←</button>
                 <div style={{ flex: 1 }}>
-                  <div style={s.sheetTitle}>{answers.full_name || "Application"}</div>
-                  <div style={s.sheetSub}>{selected.property_address || "Unknown property"} · {new Date(selected.created_at).toLocaleString()}</div>
+                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{answers.full_name || "Application"}</div>
+                  <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginTop: 2 }}>{selected.property_address || "Unknown property"} · {new Date(selected.created_at).toLocaleString()}</div>
                 </div>
               </div>
-              <div style={s.sheetBody}>
+              <div style={{ padding: "24px" }}>
                 <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#15803d", marginBottom: 16 }}>
                   ✅ Application fee paid via Stripe
                 </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-                  {!isNew && (
-                    <button
-                      onClick={(e) => markUnreviewed(selected.id, e)}
-                      style={{ fontSize: 12, padding: "6px 12px", borderRadius: 6, border: "1px solid #bfdbfe", color: "#1d4ed8", background: "#eff6ff", cursor: "pointer" }}
-                    >
+
+                <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+                  {selected.decision !== "accepted" && (
+                    <button onClick={() => setDecision(selected.id, "accepted")}
+                      style={{ fontSize: 13, padding: "8px 16px", borderRadius: 8, border: "none", background: "#1b3d2a", color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                      ✓ Accept
+                    </button>
+                  )}
+                  {selected.decision !== "denied" && (
+                    <button onClick={() => setDecision(selected.id, "denied")}
+                      style={{ fontSize: 13, padding: "8px 16px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                      ✕ Deny
+                    </button>
+                  )}
+                  {selected.decision && (
+                    <button onClick={() => markUnreviewed(selected.id)}
+                      style={{ fontSize: 13, padding: "8px 16px", borderRadius: 8, border: "1px solid #bfdbfe", color: "#1d4ed8", background: "#eff6ff", cursor: "pointer" }}>
+                      Clear decision
+                    </button>
+                  )}
+                  {selected.reviewed && !selected.decision && (
+                    <button onClick={() => markUnreviewed(selected.id)}
+                      style={{ fontSize: 13, padding: "8px 16px", borderRadius: 8, border: "1px solid #bfdbfe", color: "#1d4ed8", background: "#eff6ff", cursor: "pointer" }}>
                       Mark unreviewed
                     </button>
                   )}
-                  <button
-                    onClick={(e) => archiveApp(selected.id, e)}
-                    style={{ fontSize: 12, padding: "6px 12px", borderRadius: 6, border: "1px solid #fca5a5", color: "#dc2626", background: "none", cursor: "pointer" }}
-                  >
+                  <button onClick={(e) => archiveApp(selected.id, e)}
+                    style={{ fontSize: 13, padding: "8px 16px", borderRadius: 8, border: "1px solid #fca5a5", color: "#dc2626", background: "none", cursor: "pointer" }}>
                     Archive
                   </button>
                 </div>
+
+                {selected.decision && (
+                  <div style={{ background: selected.decision === "accepted" ? "#f0fdf4" : "#fef2f2", border: `1px solid ${selected.decision === "accepted" ? "#bbf7d0" : "#fecaca"}`, borderRadius: 8, padding: "10px 14px", fontSize: 13, color: selected.decision === "accepted" ? "#166534" : "#dc2626", marginBottom: 16, fontWeight: 600 }}>
+                    {selected.decision === "accepted" ? "✓ This application has been accepted" : "✕ This application has been denied"}
+                  </div>
+                )}
+
                 {Object.entries(LABELS).map(([key, label]) => (
                   answers[key] ? (
-                    <div key={key} style={s.fieldRow}>
-                      <div style={s.fieldLabel}>{label}</div>
-                      <div style={s.fieldVal}>{answers[key]}</div>
+                    <div key={key} style={{ display: "flex", borderBottom: "1px solid #f3f4f6", padding: "10px 0" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", width: 160, flexShrink: 0 }}>{label}</div>
+                      <div style={{ fontSize: 13, color: "#1a1a1a", flex: 1 }}>{answers[key]}</div>
                     </div>
                   ) : null
                 ))}
