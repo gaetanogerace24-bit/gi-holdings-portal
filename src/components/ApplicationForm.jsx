@@ -57,13 +57,15 @@ export default function ApplicationForm({ listingId, onBack }) {
 
     setStep("submitting");
     try {
-      await supabase.functions.invoke("send-application", {
-        body: { listing, answers }
-      });
+      // Timeout after 10 seconds — always show success regardless
+      await Promise.race([
+        supabase.functions.invoke("send-application", { body: { listing, answers } }),
+        new Promise(resolve => setTimeout(resolve, 10000))
+      ]);
     } catch (e) {
       console.error(e);
     }
-    // Clear the apply session so Resume application disappears and listing resets to Apply now
+    // Clear the apply session so Resume application disappears
     try { localStorage.removeItem("gi_apply"); } catch(e) {}
     if (onSubmitSuccess) onSubmitSuccess();
     setStep("done");
