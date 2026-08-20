@@ -99,16 +99,16 @@ function PaymentForm({ listing, onSuccess, onBack }) {
         </button>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
-            <span style={{ marginTop: 1 }}>🔒</span>
-            <span><strong>Non-refundable.</strong> The application fee is non-refundable regardless of the outcome.</span>
+            <span style={{ marginTop: 1 }}>📋</span>
+            <span><strong>Next step.</strong> After payment you'll be directed to a rental application with approximately 40 questions.</span>
           </div>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
             <span style={{ marginTop: 1 }}>✅</span>
             <span><strong>Credit if accepted.</strong> If your application is approved, the $29.99 fee will be applied as a credit toward your first month's rent.</span>
           </div>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
-            <span style={{ marginTop: 1 }}>📋</span>
-            <span><strong>Next step.</strong> After payment you'll be directed to a rental application with approximately 40 questions.</span>
+            <span style={{ marginTop: 1 }}>🔒</span>
+            <span><strong>Non-refundable.</strong> The application fee is non-refundable regardless of the outcome.</span>
           </div>
         </div>
       </div>
