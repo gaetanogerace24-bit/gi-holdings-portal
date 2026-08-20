@@ -32,7 +32,7 @@ const QUESTIONS = [
   { id: "employer", label: "Employer name (if employed)", type: "text", required: false },
   { id: "monthly_income", label: "Monthly gross income ($)", type: "number", required: true },
   { id: "credit_score", label: "Credit score range", type: "select", options: ["Below 500", "500–599", "600–649", "650–699", "700+"], required: true },
-  { id: "bankruptcy", label: "Do you have a bankruptcy in the past 7 years?", type: "select", options: ["No", "Yes"], required: true },
+  { id: "bankruptcy", label: "Have you ever claimed bankruptcy?", type: "select", options: ["No", "Yes"], required: true },
 
   // OCCUPANTS
   { id: "occupants", label: "How many people will live in the unit?", type: "number", required: true },
