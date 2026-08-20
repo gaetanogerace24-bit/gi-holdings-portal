@@ -109,6 +109,9 @@ export default function HomePage({ onLoginClick, onApply }) {
             G&I Holdings LLC manages residential rental properties with a focus
             on responsive service and well-maintained homes for our tenants.
           </p>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(76,175,125,0.2)", border: "1px solid rgba(76,175,125,0.4)", borderRadius: 20, padding: "5px 14px", marginBottom: 20 }}>
+            <span style={{ color: "#4caf7d", fontSize: 13, fontWeight: 700 }}>✓ Section 8 vouchers welcome</span>
+          </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <button onClick={onLoginClick} style={{
               background: "#4caf7d", color: "#fff", border: "none",
@@ -189,9 +192,16 @@ export default function HomePage({ onLoginClick, onApply }) {
           <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1b3d2a", margin: "0 0 8px", textAlign: "center" }}>
             Available rentals
           </h2>
-          <p style={{ color: "#6b7280", fontSize: 15, textAlign: "center", margin: "0 0 40px" }}>
+          <p style={{ color: "#6b7280", fontSize: 15, textAlign: "center", margin: "0 0 24px" }}>
             Properties currently available in Youngstown, Ohio
           </p>
+          <div style={{ background: "#f0fdf4", border: "1.5px solid #4caf7d", borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
+            <div style={{ fontSize: 22 }}>🏠</div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1b3d2a" }}>Section 8 / Housing Choice Vouchers accepted</div>
+              <div style={{ fontSize: 13, color: "#2d6a47", marginTop: 2 }}>We proudly work with housing voucher holders. Apply now!</div>
+            </div>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
             {listings.map(l => (
               <div key={l.id} style={{ background: "#fff", border: "1px solid #e8ede8", borderRadius: 14, overflow: "hidden" }}>
@@ -212,7 +222,10 @@ export default function HomePage({ onLoginClick, onApply }) {
                 </div>
                 <div style={{ padding: 20 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a", marginBottom: 3 }}>{l.address}</div>
-                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>{l.city}{l.zip ? ` ${l.zip}` : ""}</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 10 }}>{l.city}{l.zip ? ` ${l.zip}` : ""}</div>
+                  <div style={{ marginBottom: 10 }}>
+                    <span style={{ background: "#f0fdf4", color: "#1b3d2a", border: "1px solid #4caf7d", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6 }}>✓ Section 8 accepted</span>
+                  </div>
                   <div style={{ display: "flex", gap: 14, marginBottom: 12 }}>
                     {l.beds && <span style={{ fontSize: 13, color: "#6b7280" }}>🛏 {l.beds} beds</span>}
                     {l.baths && <span style={{ fontSize: 13, color: "#6b7280" }}>🚿 {l.baths} baths</span>}
