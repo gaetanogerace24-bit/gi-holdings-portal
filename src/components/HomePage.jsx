@@ -110,7 +110,8 @@ export default function HomePage({ onLoginClick, onApply }) {
             on responsive service and well-maintained homes for our tenants.
           </p>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(76,175,125,0.2)", border: "1px solid rgba(76,175,125,0.4)", borderRadius: 20, padding: "5px 14px", marginBottom: 20 }}>
-            <span style={{ color: "#4caf7d", fontSize: 13, fontWeight: 700 }}>✓ Section 8 vouchers welcome</span>
+            <span style={{ fontSize: 13 }}>🏠</span>
+            <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>✓ Section 8 vouchers welcome</span>
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <button onClick={onLoginClick} style={{
