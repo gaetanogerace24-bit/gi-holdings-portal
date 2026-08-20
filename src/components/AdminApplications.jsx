@@ -2,14 +2,58 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
 const LABELS = {
-  full_name: "Full Name", dob: "Date of Birth", email: "Email", phone: "Phone",
-  current_address: "Current Address", move_in_date: "Desired Move-In Date",
-  employment_status: "Employment Status", employer: "Employer",
-  monthly_income: "Monthly Income", occupants: "Number of Occupants",
-  pets: "Pets", eviction: "Ever Evicted?", eviction_explain: "Eviction Explanation",
-  felony: "Felony Conviction?", felony_explain: "Felony Explanation",
-  reference1_name: "Reference #1 Name", reference1_phone: "Reference #1 Phone",
-  reference2_name: "Reference #2 Name", reference2_phone: "Reference #2 Phone",
+  // Personal Info
+  full_name: "Full Name",
+  dob: "Date of Birth",
+  email: "Email",
+  phone: "Phone",
+  current_address: "Current Address",
+  time_at_address: "Time at Current Address",
+  current_rent: "Current Monthly Rent/Mortgage",
+  current_landlord_name: "Current Landlord Name",
+  current_landlord_phone: "Current Landlord Phone",
+  reason_leaving: "Reason for Leaving",
+  // Section 8
+  section8: "Section 8 / Housing Voucher?",
+  section8_bedrooms: "Voucher Bedroom Size",
+  section8_authority: "Housing Authority",
+  section8_active: "Voucher Currently Active?",
+  // Move-In
+  move_in_date: "Desired Move-In Date",
+  move_in_flexible: "Flexible on Move-In Date?",
+  move_in_earliest: "Earliest Move-In Date",
+  move_in_latest: "Latest Move-In Date",
+  lease_length: "Desired Lease Length",
+  // Employment & Income
+  employment_status: "Employment Status",
+  employer: "Employer",
+  monthly_income: "Monthly Gross Income",
+  credit_score: "Credit Score Range",
+  bankruptcy: "Bankruptcy in Past 7 Years?",
+  // Occupants
+  occupants: "Number of Occupants",
+  occupant_names: "Names & Ages of All Occupants",
+  // Lifestyle
+  pets: "Pets",
+  smoke: "Smoker?",
+  num_vehicles: "Number of Vehicles",
+  license_plate: "License Plate Number(s)",
+  home_business: "Home-Based Business?",
+  // Background
+  eviction: "Ever Evicted?",
+  eviction_explain: "Eviction Explanation",
+  broken_lease: "Ever Broken a Lease Early?",
+  broken_lease_explain: "Broken Lease Explanation",
+  felony: "Felony Conviction?",
+  felony_explain: "Felony Explanation",
+  // ID
+  gov_id_type: "Government ID Type",
+  // References
+  reference1_name: "Reference #1 Name",
+  reference1_phone: "Reference #1 Phone",
+  reference2_name: "Reference #2 Name",
+  reference2_phone: "Reference #2 Phone",
+  // Additional
   additional_info: "Additional Info",
 };
 
