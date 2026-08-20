@@ -125,6 +125,13 @@ export default function HomePage({ onLoginClick, onApply }) {
             }}>
               Call us
             </a>
+            <button onClick={() => { document.getElementById("available-rentals").scrollIntoView({ behavior: "smooth" }); }} style={{
+              background: "#1b3d2a", color: "#fff", border: "1px solid rgba(255,255,255,0.35)",
+              padding: "13px 28px", borderRadius: 10, fontSize: 15, fontWeight: 600,
+              cursor: "pointer",
+            }}>
+              View available rentals ↓
+            </button>
           </div>
         </div>
       </section>
@@ -178,7 +185,7 @@ export default function HomePage({ onLoginClick, onApply }) {
 
       {/* Available Rentals */}
       {listings.length > 0 && (
-        <section style={{ padding: "64px 32px", maxWidth: 960, margin: "0 auto" }}>
+        <section id="available-rentals" style={{ padding: "64px 32px", maxWidth: 960, margin: "0 auto" }}>
           <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1b3d2a", margin: "0 0 8px", textAlign: "center" }}>
             Available rentals
           </h2>
