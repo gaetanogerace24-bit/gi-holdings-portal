@@ -97,8 +97,8 @@ export default function AdminListings({ supabase }) {
 
   async function removeImage(listing, url) {
     const newImages = (listing.images || []).filter(u => u !== url);
+    setEditListing(prev => prev ? { ...prev, images: newImages } : prev);
     await supabase.from("listings").update({ images: newImages }).eq("id", listing.id);
-    loadListings();
   }
 
   const inp = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14, boxSizing: "border-box", outline: "none", background: "#fff", color: "#1a1a1a" };
