@@ -97,7 +97,20 @@ function PaymentForm({ listing, onSuccess, onBack }) {
         <button onClick={handlePay} disabled={paying || !stripe} style={{ width: "100%", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 12, padding: "16px", fontSize: 16, fontWeight: 700, cursor: paying ? "not-allowed" : "pointer", marginTop: 24, opacity: paying ? 0.7 : 1 }}>
           {paying ? "Processing..." : `Pay $${chargeAmount} & Continue`}
         </button>
-        <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 10 }}>Secure payment powered by Stripe. Non-refundable application fee.</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
+            <span style={{ marginTop: 1 }}>🔒</span>
+            <span><strong>Non-refundable.</strong> The application fee is non-refundable regardless of the outcome.</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
+            <span style={{ marginTop: 1 }}>✅</span>
+            <span><strong>Credit if accepted.</strong> If your application is approved, the $29.99 fee will be applied as a credit toward your first month's rent.</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
+            <span style={{ marginTop: 1 }}>📋</span>
+            <span><strong>Next step.</strong> After payment you'll be directed to a rental application with approximately 40 questions.</span>
+          </div>
+        </div>
       </div>
     </div>
   );
