@@ -29,7 +29,7 @@ const LABELS = {
   employer: "Employer",
   monthly_income: "Monthly Gross Income",
   credit_score: "Credit Score Range",
-  bankruptcy: "Bankruptcy in Past 7 Years?",
+  bankruptcy: "Ever Claimed Bankruptcy?",
   // Occupants
   occupants: "Number of Occupants",
   occupant_names: "Names & Ages of All Occupants",
