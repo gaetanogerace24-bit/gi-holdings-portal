@@ -14,14 +14,57 @@ const corsHeaders = {
 };
 
 const LABELS: Record<string, string> = {
-  full_name: "Full Name", dob: "Date of Birth", email: "Email", phone: "Phone",
-  current_address: "Current Address", move_in_date: "Desired Move-In Date",
-  employment_status: "Employment Status", employer: "Employer",
-  monthly_income: "Monthly Income", occupants: "Number of Occupants",
-  pets: "Pets", eviction: "Ever Evicted?", eviction_explain: "Eviction Explanation",
-  felony: "Felony Conviction?", felony_explain: "Felony Explanation",
-  reference1_name: "Reference #1 Name", reference1_phone: "Reference #1 Phone",
-  reference2_name: "Reference #2 Name", reference2_phone: "Reference #2 Phone",
+  // Personal Info
+  full_name: "Full Name",
+  dob: "Date of Birth",
+  email: "Email",
+  phone: "Phone",
+  current_address: "Current Address",
+  time_at_address: "Time at Current Address",
+  current_rent: "Current Monthly Rent/Mortgage",
+  current_landlord_name: "Current Landlord Name",
+  current_landlord_phone: "Current Landlord Phone",
+  reason_leaving: "Reason for Leaving",
+  // Section 8
+  section8: "Section 8 / Housing Voucher?",
+  section8_bedrooms: "Voucher Bedroom Size",
+  section8_authority: "Housing Authority",
+  section8_active: "Voucher Currently Active?",
+  // Move-In
+  move_in_date: "Desired Move-In Date",
+  move_in_flexible: "Flexible on Move-In Date?",
+  move_in_earliest: "Earliest Move-In Date",
+  move_in_latest: "Latest Move-In Date",
+  lease_length: "Desired Lease Length",
+  // Employment & Income
+  employment_status: "Employment Status",
+  employer: "Employer",
+  monthly_income: "Monthly Gross Income",
+  credit_score: "Credit Score Range",
+  bankruptcy: "Bankruptcy in Past 7 Years?",
+  // Occupants
+  occupants: "Number of Occupants",
+  occupant_names: "Names & Ages of All Occupants",
+  // Lifestyle
+  pets: "Pets",
+  smoke: "Smoker?",
+  num_vehicles: "Number of Vehicles",
+  home_business: "Home-Based Business?",
+  // Background
+  eviction: "Ever Evicted?",
+  eviction_explain: "Eviction Explanation",
+  broken_lease: "Ever Broken a Lease Early?",
+  broken_lease_explain: "Broken Lease Explanation",
+  felony: "Felony Conviction?",
+  felony_explain: "Felony Explanation",
+  // ID
+  gov_id_type: "Government ID Type",
+  // References
+  reference1_name: "Reference #1 Name",
+  reference1_phone: "Reference #1 Phone",
+  reference2_name: "Reference #2 Name",
+  reference2_phone: "Reference #2 Phone",
+  // Additional
   additional_info: "Additional Info",
 };
 
@@ -33,7 +76,6 @@ serve(async (req) => {
   const firstName = name.split(" ")[0];
   const address = listing?.address || "Unknown property";
   const applicantEmail = answers.email || null;
-  // Normalize phone to E.164 format (+1XXXXXXXXXX)
   const rawPhone = (answers.phone || "").replace(/\D/g, "");
   const applicantPhone = rawPhone.length === 10 ? `+1${rawPhone}` : rawPhone.length === 11 && rawPhone.startsWith("1") ? `+${rawPhone}` : null;
 
@@ -67,7 +109,6 @@ serve(async (req) => {
         <p style="font-size:16px;color:#1a1a1a;font-weight:600;margin:0 0 4px">${name} submitted an application</p>
         <p style="font-size:14px;color:#6b7280;margin:0 0 20px">Property: ${address}</p>
         <table style="width:100%;border-collapse:collapse;font-size:14px;">${rows}</table>
-        <p style="font-size:12px;color:#9ca3af;margin-top:20px">Application fee was paid via Stripe.</p>
       </div>
     </div>`;
 
