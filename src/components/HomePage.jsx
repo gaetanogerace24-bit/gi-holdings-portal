@@ -140,23 +140,6 @@ export default function HomePage({ onLoginClick, onApply }) {
         </div>
       </section>
 
-      {/* Info bar */}
-      <div style={{
-        background: "#fff", borderBottom: "1px solid #e8ede8",
-        padding: "14px 32px", display: "flex", gap: 32, flexWrap: "wrap",
-        justifyContent: "center",
-      }}>
-        {[
-          { icon: "📍", text: "669 Bel Air Rd #1122, Bel Air, MD 21014" },
-          { icon: "📞", text: "(330) 969-6464", href: "tel:+13309696464" },
-          { icon: "✉️", text: "giholdingsllc8@gmail.com" },
-        ].map(({ icon, text, href }) => (
-          <div key={text} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#555" }}>
-            <span>{icon}</span>{href ? <a href={href} style={{ color: "#555", textDecoration: "none" }}>{text}</a> : <span>{text}</span>}
-          </div>
-        ))}
-      </div>
-
       {/* Services */}
       <section style={{ padding: "64px 32px", maxWidth: 800, margin: "0 auto" }}>
         <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1b3d2a", margin: "0 0 8px", textAlign: "center" }}>
