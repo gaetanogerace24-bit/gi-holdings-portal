@@ -42,7 +42,6 @@ const QUESTIONS = [
   { id: "pets", label: "Do you have pets?", type: "select", options: ["No", "Yes - dog", "Yes - cat", "Yes - other"], required: true },
   { id: "smoke", label: "Do you smoke?", type: "select", options: ["No", "Yes"], required: true },
   { id: "num_vehicles", label: "Approximately how many vehicles do you have?", type: "select", options: ["0", "1", "2", "3", "4+"], required: true },
-  { id: "license_plate", label: "License plate number(s)", type: "text", required: false },
   { id: "home_business", label: "Will you be running any home-based business from the unit?", type: "select", options: ["No", "Yes"], required: true },
 
   // BACKGROUND
