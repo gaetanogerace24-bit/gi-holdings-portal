@@ -858,7 +858,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                 const isSelected = effectiveSelectedIds.has(chargeId);
                 const isOverdue = inv._type === "overdue";
                 const rent = Number(inv.rent || 0);
-                const fee = Number(inv.late_fee || inv.liveFee || 0);
+                const fee = inv.liveFee || 0;
                 const startDay = lateFeeRules.startDay || 5;
                 const initialFee = Number(inv.initial_late_fee ?? lateFeeRules.initialFee ?? 35);
                 const dailyFee = Number(inv.daily_late_fee ?? lateFeeRules.dailyFee ?? 10);
@@ -890,7 +890,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                           <div style={{ fontSize: 11, color: "#dc2626", marginTop: 1 }}>{isOverdue ? "Overdue" : "Due now"}</div>
                         </div>
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(Number(inv.total) > Number(inv.rent) ? Number(inv.total) : Number(inv.rent) + Number(inv.late_fee || 0))}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{fmt(inv.liveTotal)}</div>
                     </div>
                     {fee > 0 && (
                       <div style={{
