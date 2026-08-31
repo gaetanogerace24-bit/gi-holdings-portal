@@ -416,11 +416,11 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
     const isCustom = !!inv.is_custom;
     const isWaived = !!inv.fee_waived;
     const liveFee = (isCustom || isProcessing || isWaived) ? 0
-      : (Number(inv.late_fee) > 0 ? Number(inv.late_fee) : calcLateFee(inv.due_date, lateFeeRules));
-    // Always use stored total from DB — it's already correct (set by late fee job)
+      : calcLateFee(inv.due_date, lateFeeRules);
+    // Always recalculate from today — never use stale stored total
     const liveTotal = isProcessing ? Number(inv.total || r)
       : (isCustom || isWaived) ? r
-      : (Number(inv.total) > r ? Number(inv.total) : r + liveFee);
+      : r + liveFee;
     return { ...inv, _type, liveFee, liveTotal };
   });
 
@@ -499,7 +499,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
   const selectedRegularInvoices = payableInvoices.filter(i => effectiveSelectedIds.has(`inv_${i.id}`));
   const selectedCustomInvoices = payableCustomInvoicesWithFee.filter(i => effectiveSelectedIds.has(`cust_${i.id}`));
 
-  const multiTotal = selectedRegularInvoices.reduce((s, i) => s + (Number(i.total) > Number(i.rent) ? Number(i.total) : Number(i.rent) + Number(i.late_fee || 0)), 0)
+  const multiTotal = selectedRegularInvoices.reduce((s, i) => s + i.liveTotal, 0)
     + selectedCustomInvoices.reduce((s, i) => s + i._liveTotal, 0);
 
   const total = payingCustomInvoice
