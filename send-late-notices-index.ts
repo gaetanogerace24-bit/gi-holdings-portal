@@ -80,6 +80,7 @@ serve(async (_req) => {
     for (const inv of (unpaidInvoices || [])) {
       const tenant = inv.tenants;
       if (!tenant) continue;
+      if (tenant.archived) continue; // ← SKIP ARCHIVED TENANTS (no late fees, no email, no SMS)
       if (notifiedTenants.has(tenant.id)) continue;
       if (inv.fee_waived === true && inv.fee_waived_date === today.toISOString().split("T")[0]) continue;
       if (tenant.late_fee_start_day == null && tenant.initial_late_fee == null && tenant.daily_late_fee == null) continue;
@@ -178,6 +179,9 @@ serve(async (_req) => {
     for (const inv of (customInvoices || [])) {
       if (!inv.due_date) continue;
 
+      const tenant = inv.tenants;
+      if (tenant?.archived) continue; // ← SKIP ARCHIVED TENANTS
+
       const rules = {
         late_fee_start_day: inv.late_fee_start_day,
         initial_late_fee: inv.initial_late_fee,
@@ -192,7 +196,6 @@ serve(async (_req) => {
         await supabase.from("custom_invoices").update({ late_fee: lateFee, total }).eq("id", inv.id);
       }
 
-      const tenant = inv.tenants;
       if (tenant) {
         const firstName = tenant.name?.split(" ")[0] || "there";
         const toEmail = TEST_MODE ? TEST_EMAIL : tenant.email;
