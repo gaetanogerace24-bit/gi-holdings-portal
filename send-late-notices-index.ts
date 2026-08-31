@@ -75,13 +75,13 @@ serve(async (_req) => {
       .is("payment_status", null)
       .or("is_custom.is.null,is_custom.eq.false");
 
-    const notifiedTenants = new Set<string>();
+    // notifiedTenants removed — tenants with multiple overdue invoices should get one email/SMS per invoice
 
     for (const inv of (unpaidInvoices || [])) {
       const tenant = inv.tenants;
       if (!tenant) continue;
       if (tenant.archived) continue; // ← SKIP ARCHIVED TENANTS (no late fees, no email, no SMS)
-      if (notifiedTenants.has(tenant.id)) continue;
+      // (removed single-notification-per-tenant limit)
       if (inv.fee_waived === true && inv.fee_waived_date === today.toISOString().split("T")[0]) continue;
       if (tenant.late_fee_start_day == null && tenant.initial_late_fee == null && tenant.daily_late_fee == null) continue;
 
@@ -162,7 +162,7 @@ serve(async (_req) => {
         await sendSMS(toPhone, smsMsg);
       }
 
-      notifiedTenants.add(tenant.id);
+      // (removed notifiedTenants.add)
       results.push({ type: "invoice", tenant: tenant.name, month: inv.month, lateFee, total });
     }
 
