@@ -49,7 +49,7 @@ function getTenantLateFeeRules(tenant) {
   };
 }
 
-// Returns the live total for an invoice — skips late fees if payment is processing
+// Returns the live total for an invoice — always recalculates from today
 function calcLiveTotal(inv, tenant = null) {
   if (!inv) return 0;
   if (inv.paid) return Number(inv.total || inv.rent || 0);
@@ -57,11 +57,9 @@ function calcLiveTotal(inv, tenant = null) {
   if (inv.is_custom) return Number(inv.rent || 0);
   if (inv.fee_waived) return Number(inv.rent || 0);
   if (!inv.due_date) return Number(inv.total || inv.rent || 0);
-  // Use stored total if late fee already applied
-  if (Number(inv.total) > Number(inv.rent)) return Number(inv.total);
   const rules = getTenantLateFeeRules(tenant);
   const lateFee = calcLateFee(inv.due_date, rules);
-  if (lateFee === 0) return Number(inv.total || inv.rent || 0);
+  if (lateFee === 0) return Number(inv.rent || 0);
   return Number(inv.rent || 0) + lateFee;
 }
 
