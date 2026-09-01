@@ -109,7 +109,8 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
     setAutopayStep("connecting");
     setAutopayError(null);
     try {
-      if (selectedAutopayMethod === "card") {
+      // Use payMethod (current tab) to determine autopay method, not selectedAutopayMethod
+      if (payMethod === "card" || selectedAutopayMethod === "card") {
         // Card autopay — card gets saved when tenant pays by card with setup_future_usage.
         // Just save the preference; run-autopay will use the saved card.
         await supabase.from("tenants").update({
