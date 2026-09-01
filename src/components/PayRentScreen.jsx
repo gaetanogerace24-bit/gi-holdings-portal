@@ -849,6 +849,12 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               ✅ Nothing due — your payment is processing.
             </div>
           )}
+          {payableInvoices.length === 0 && payableCustomInvoicesWithFee.length === 0 && processingInvoices.length === 0 && (
+            <AutopaySection
+              tenant={tenant?.autopay_method === "card" ? tenant : { ...tenant, autopay_enabled: tenant?.autopay_enabled, autopay_method: tenant?.autopay_method || "ach" }}
+              payMethod={tenant?.autopay_method || "ach"}
+            />
+          )}
 
           {(payableInvoices.length > 0 || payableCustomInvoicesWithFee.length > 0) && (
             <>
