@@ -664,7 +664,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       if (confirmError) throw new Error(confirmError.message);
       handleSuccess(paymentData.paymentIntentId, false, true);
     } catch (err) {
-      setResultInfo({ failReason: err.message || "Your bank declined this payment. Please try a different card." });
+      setResultInfo({ failReason: "❌ Payment declined. Please check your card details, try a different card, or contact your bank for assistance. ❌" });
       setStep("failed");
     } finally {
       setPaying(false);
@@ -682,7 +682,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       if (data?.error) throw new Error(data.error);
       handleSuccess(data.paymentIntentId, false, true);
     } catch (err) {
-      setResultInfo({ failReason: err.message || "Your card was declined. Please try a different card." });
+      setResultInfo({ failReason: "❌ Payment declined. Please check your card details, try a different card, or contact your bank for assistance. ❌" });
       setStep("failed");
     } finally {
       setPaying(false);
@@ -758,10 +758,10 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
         <div style={{ fontSize: 64, marginBottom: 14 }}>❌</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>Payment failed</div>
         <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 20 }}>
-          Your card was declined. Please try a different card or payment method.
+          ❌ Payment declined. Please check your card details, try a different card, or contact your bank for assistance. ❌
         </div>
         <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "16px 20px", textAlign: "left", fontSize: 13, color: "#991b1b", marginBottom: 20 }}>
-          {resultInfo?.failReason || "Your bank declined this payment. Check your card details or try a different payment method."}
+          {resultInfo?.failReason || "❌ Payment declined. Please check your card details, try a different card, or contact your bank for assistance. ❌"}
         </div>
         <button onClick={() => setStep("checkout")} style={{ width: "100%", padding: "13px", background: "#1b3d2a", color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
           Try again
