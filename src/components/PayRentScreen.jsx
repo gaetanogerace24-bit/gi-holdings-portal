@@ -56,14 +56,13 @@ function classifyInvoice(inv, now) {
 
 // ── Autopay Section Component ─────────────────────────────────────────────
 function AutopaySection({ tenant, payMethod = "ach" }) {
-  // When on ACH and card autopay is saved, show fresh (off) — they're switching methods
-  const isCardSavedButOnACH = payMethod === "ach" && tenant?.autopay_method === "card" && tenant?.autopay_enabled;
-  const [autopayEnabled, setAutopayEnabled] = useState(isCardSavedButOnACH ? false : (tenant?.autopay_enabled || false));
+  const [autopayEnabled, setAutopayEnabled] = useState(tenant?.autopay_enabled || false);
   const [autopayStep, setAutopayStep] = useState("idle"); // idle | connecting | success | disabling
   const [autopayError, setAutopayError] = useState(null);
-  const [savedCardLast4, setSavedCardLast4] = useState(isCardSavedButOnACH ? null : (tenant?.card_last4 || null));
-  const [savedCardBrand, setSavedCardBrand] = useState(isCardSavedButOnACH ? null : (tenant?.card_brand || null));
-  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(isCardSavedButOnACH ? "ach" : (tenant?.autopay_method || payMethod));
+  const [savedCardLast4, setSavedCardLast4] = useState(tenant?.card_last4 || null);
+  const [savedCardBrand, setSavedCardBrand] = useState(tenant?.card_brand || null);
+  // Always use saved autopay_method from DB as initial state, not the current payment tab
+  const [selectedAutopayMethod, setSelectedAutopayMethod] = useState(tenant?.autopay_method || "ach");
   // Pre-populate with known card so it shows instantly, then load full list in background
   const initialCard = tenant?.stripe_payment_method_id && tenant?.card_last4
     ? [{ id: tenant.stripe_payment_method_id, last4: tenant.card_last4, brand: tenant.card_brand || "Card" }]
