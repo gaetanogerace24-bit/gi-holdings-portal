@@ -109,8 +109,7 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
     setAutopayStep("connecting");
     setAutopayError(null);
     try {
-      // Use payMethod (current tab) to determine autopay method, not selectedAutopayMethod
-      if (payMethod === "card" || selectedAutopayMethod === "card") {
+      if (selectedAutopayMethod === "card") {
         // Card autopay — card gets saved when tenant pays by card with setup_future_usage.
         // Just save the preference; run-autopay will use the saved card.
         await supabase.from("tenants").update({
@@ -147,15 +146,10 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
 
         if (result.error) throw new Error(result.error.message);
         if (result.setupIntent?.status === "requires_payment_method") {
-          // User cancelled bank picker — reset everything including DB
-          await supabase.from("tenants").update({
-            autopay_enabled: false,
-            autopay_method: null,
-            stripe_payment_method_id: null,
-          }).eq("id", tenant.id);
+          // User cancelled bank picker — do NOT touch DB, preserve existing card autopay if set
           setAutopayStep("idle");
-          setAutopayEnabled(false);
-          setSelectedAutopayMethod(payMethod);
+          setAutopayEnabled(tenant?.autopay_enabled || false);
+          setSelectedAutopayMethod(tenant?.autopay_method || "ach");
           return;
         }
 
