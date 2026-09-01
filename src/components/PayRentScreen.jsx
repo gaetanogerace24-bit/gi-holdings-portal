@@ -860,7 +860,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                   {savedCards.map(card => (
                     <div key={card.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                       <label style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedCardId === card.id ? "2px solid #2563eb" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedCardId === card.id ? "#eff6ff" : "#fff", cursor: "pointer" }}>
-                        <input type="radio" name="saved_card_balance" checked={selectedCardId === card.id} onChange={async () => { setSelectedCardId(card.id); await supabase.from("tenants").update({ stripe_payment_method_id: card.id }).eq("id", tenant.id); }} style={{ accentColor: "#2563eb" }} />
+                        <input type="radio" name="saved_card_balance" checked={selectedCardId === card.id} onChange={async () => { const newId = selectedCardId === card.id ? null : card.id; setSelectedCardId(newId); await supabase.from("tenants").update({ stripe_payment_method_id: newId }).eq("id", tenant.id); }} style={{ accentColor: "#2563eb" }} />
                         <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>{card.brand?.charAt(0).toUpperCase() + card.brand?.slice(1)} ••••{card.last4}</div>
                         {selectedCardId === card.id && <div style={{ marginLeft: "auto", fontSize: 11, color: "#2563eb", fontWeight: 700 }}>Default</div>}
                       </label>
@@ -1130,7 +1130,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                       {savedCards.map(card => (
                         <div key={card.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                           <label style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedCardId === card.id ? "2px solid #2563eb" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedCardId === card.id ? "#eff6ff" : "#fff", cursor: "pointer" }}>
-                            <input type="radio" name="saved_card" checked={selectedCardId === card.id} onChange={() => setSelectedCardId(card.id)} style={{ accentColor: "#2563eb" }} />
+                            <input type="radio" name="saved_card" checked={selectedCardId === card.id} onChange={() => setSelectedCardId(selectedCardId === card.id ? null : card.id)} style={{ accentColor: "#2563eb" }} />
                             <div>
                               <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>{card.brand?.charAt(0).toUpperCase() + card.brand?.slice(1)} ••••{card.last4}</div>
                             </div>
