@@ -68,7 +68,7 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
     ? [{ id: tenant.stripe_payment_method_id, last4: tenant.card_last4, brand: tenant.card_brand || "Card" }]
     : [];
   const [savedCards, setSavedCards] = useState(initialCard);
-  const [selectedCardId, setSelectedCardId] = useState(tenant?.stripe_payment_method_id || null);
+  const [selectedCardId, setSelectedCardId] = useState(null); // Never auto-select
   const autopayMountedRef = useRef(false);
 
   useEffect(() => {
