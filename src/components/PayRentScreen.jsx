@@ -556,7 +556,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       setPaymentData({ ...data, payMethod, savedCard: null, useNewCard: true });
       setStep("checkout");
     } catch (err) {
-      setError(err.message || "Could not start payment. Please try again.");
+      setError("❌ Payment declined. Please check your card details, try a different card, or contact your bank for assistance. ❌");
       setStep("summary");
     }
   };
@@ -617,7 +617,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       }
       handleSuccess(paymentData.paymentIntentId, status === "requires_action", false);
     } catch (err) {
-      setError(err.message || "Payment failed. Please try again.");
+      setError("❌ Payment declined. Please check your card details, try a different card, or contact your bank for assistance. ❌");
     } finally {
       setPaying(false);
     }
@@ -634,7 +634,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       if (data?.error) throw new Error(data.error);
       handleSuccess(data.paymentIntentId, false, false);
     } catch (err) {
-      setError(err.message || "Payment failed. Please try again.");
+      setError("❌ Payment declined. Please check your card details, try a different card, or contact your bank for assistance. ❌");
     } finally {
       setPaying(false);
     }
