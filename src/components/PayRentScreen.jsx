@@ -850,10 +850,22 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
             </div>
           )}
           {payableInvoices.length === 0 && payableCustomInvoicesWithFee.length === 0 && processingInvoices.length === 0 && (
-            <AutopaySection
-              tenant={tenant?.autopay_method === "card" ? tenant : { ...tenant, autopay_enabled: tenant?.autopay_enabled, autopay_method: tenant?.autopay_method || "ach" }}
-              payMethod={tenant?.autopay_method || "ach"}
-            />
+            <>
+              {savedCards.length > 0 && (
+                <div style={{ background: "#fff", border: "0.5px solid #e5e7eb", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9ca3af", marginBottom: 8 }}>Saved cards</div>
+                  {savedCards.map(card => (
+                    <div key={card.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "1.5px solid #e5e7eb", borderRadius: 8, background: "#fff", marginBottom: 6 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>{card.brand?.charAt(0).toUpperCase() + card.brand?.slice(1)} ••••{card.last4}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <AutopaySection
+                tenant={tenant?.autopay_method === "card" ? tenant : { ...tenant, autopay_enabled: tenant?.autopay_enabled, autopay_method: tenant?.autopay_method || "ach" }}
+                payMethod={tenant?.autopay_method || "ach"}
+              />
+            </>
           )}
 
           {(payableInvoices.length > 0 || payableCustomInvoicesWithFee.length > 0) && (
