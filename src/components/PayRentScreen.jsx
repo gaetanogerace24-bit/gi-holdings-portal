@@ -248,23 +248,29 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
         <div style={{ marginTop: 12, borderTop: "0.5px solid #e5e7eb", paddingTop: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Autopay method</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {selectedAutopayMethod === "ach" && (
-            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "2px solid #1b3d2a", borderRadius: 8, background: "#f0faf5", cursor: "default" }}>
-              <input type="radio" name="autopay_method" checked readOnly style={{ accentColor: "#1b3d2a" }} />
+            {/* ACH Option — always shown */}
+            <label onClick={async () => {
+              setSelectedAutopayMethod("ach");
+              await supabase.from("tenants").update({ autopay_method: "ach" }).eq("id", tenant.id);
+            }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedAutopayMethod === "ach" ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedAutopayMethod === "ach" ? "#f0faf5" : "#fff", cursor: "pointer" }}>
+              <input type="radio" name="autopay_method_select" checked={selectedAutopayMethod === "ach"} onChange={() => {}} style={{ accentColor: "#1b3d2a" }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>🏦 Bank transfer (ACH)</div>
                 <div style={{ fontSize: 11, color: "#6b7280" }}>No extra fee · 3–5 business days</div>
               </div>
             </label>
-            )}
-            {selectedAutopayMethod === "card" && (
-            <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "2px solid #2563eb", borderRadius: 8, background: "#eff6ff", cursor: "default" }}>
-              <input type="radio" name="autopay_method" checked readOnly style={{ accentColor: "#2563eb" }} />
+            {/* Card Option — always shown */}
+            <label onClick={async () => {
+              setSelectedAutopayMethod("card");
+              await supabase.from("tenants").update({ autopay_method: "card" }).eq("id", tenant.id);
+            }} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: selectedAutopayMethod === "card" ? "2px solid #2563eb" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedAutopayMethod === "card" ? "#eff6ff" : "#fff", cursor: "pointer" }}>
+              <input type="radio" name="autopay_method_select" checked={selectedAutopayMethod === "card"} onChange={() => {}} style={{ accentColor: "#2563eb", marginTop: 2 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>💳 Debit / Credit card</div>
-                {savedCards.length > 1 ? (
+                {savedCards.length > 0 ? (
                   <select
                     value={selectedCardId || ""}
+                    onClick={e => e.stopPropagation()}
                     onChange={async (e) => {
                       const pmId = e.target.value;
                       setSelectedCardId(pmId);
@@ -288,7 +294,6 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
                 )}
               </div>
             </label>
-            )}
           </div>
         </div>
       )}
@@ -851,31 +856,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
           )}
           {payableInvoices.length === 0 && payableCustomInvoicesWithFee.length === 0 && processingInvoices.length === 0 && (
             <>
-              <SL>How would you like to pay?</SL>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-                <button onClick={() => setPayMethod("ach")} style={{
-                  padding: "12px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center",
-                  border: payMethod === "ach" ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
-                  background: payMethod === "ach" ? "#f0f9f4" : "#fff",
-                  fontFamily: "'DM Sans', sans-serif",
-                }}>
-                  <div style={{ fontSize: 20, marginBottom: 4 }}>🏦</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: payMethod === "ach" ? "#1b3d2a" : "#1a1a1a" }}>Bank transfer</div>
-                  <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, marginTop: 2 }}>No extra fee</div>
-                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>3–5 business days</div>
-                </button>
-                <button onClick={() => setPayMethod("card")} style={{
-                  padding: "12px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center",
-                  border: payMethod === "card" ? "2px solid #2563eb" : "1.5px solid #e5e7eb",
-                  background: payMethod === "card" ? "#eff6ff" : "#fff",
-                  fontFamily: "'DM Sans', sans-serif",
-                }}>
-                  <div style={{ fontSize: 20, marginBottom: 4 }}>💳</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: payMethod === "card" ? "#1d4ed8" : "#1a1a1a" }}>Debit / Credit card</div>
-                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>1–2 business days</div>
-                </button>
-              </div>
-              {payMethod === "card" && savedCards.length > 0 && (
+              {savedCards.length > 0 && (
                 <div style={{ background: "#fff", border: "0.5px solid #e5e7eb", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9ca3af", marginBottom: 8 }}>Saved cards</div>
                   {savedCards.map(card => (
@@ -889,8 +870,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               )}
               <AutopaySection
                 tenant={tenant?.autopay_method === "card" ? tenant : { ...tenant, autopay_enabled: tenant?.autopay_enabled, autopay_method: tenant?.autopay_method || "ach" }}
-                payMethod={payMethod}
-                selectedCardId={selectedCardId}
+                payMethod={tenant?.autopay_method || "ach"}
               />
             </>
           )}
