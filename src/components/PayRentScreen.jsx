@@ -355,7 +355,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
       ? [{ id: tenant.stripe_payment_method_id, last4: tenant.card_last4, brand: tenant.card_brand || "Card" }]
       : []
   );
-  const [selectedCardId, setSelectedCardId] = useState(tenant?.stripe_payment_method_id || null);
+  const [selectedCardId, setSelectedCardId] = useState(null); // Don't auto-select — tenant must choose
 
   useEffect(() => {
     if (!tenant?.id) return;
@@ -858,11 +858,21 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                 <div style={{ background: "#fff", border: "0.5px solid #e5e7eb", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9ca3af", marginBottom: 8 }}>Saved cards</div>
                   {savedCards.map(card => (
-                    <label key={card.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedCardId === card.id ? "2px solid #2563eb" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedCardId === card.id ? "#eff6ff" : "#fff", cursor: "pointer", marginBottom: 6 }}>
-                      <input type="radio" name="saved_card_balance" checked={selectedCardId === card.id} onChange={async () => { setSelectedCardId(card.id); await supabase.from("tenants").update({ stripe_payment_method_id: card.id }).eq("id", tenant.id); }} style={{ accentColor: "#2563eb" }} />
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>{card.brand?.charAt(0).toUpperCase() + card.brand?.slice(1)} ••••{card.last4}</div>
-                      {selectedCardId === card.id && <div style={{ marginLeft: "auto", fontSize: 11, color: "#2563eb", fontWeight: 700 }}>Default</div>}
-                    </label>
+                    <div key={card.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <label style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedCardId === card.id ? "2px solid #2563eb" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedCardId === card.id ? "#eff6ff" : "#fff", cursor: "pointer" }}>
+                        <input type="radio" name="saved_card_balance" checked={selectedCardId === card.id} onChange={async () => { setSelectedCardId(card.id); await supabase.from("tenants").update({ stripe_payment_method_id: card.id }).eq("id", tenant.id); }} style={{ accentColor: "#2563eb" }} />
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>{card.brand?.charAt(0).toUpperCase() + card.brand?.slice(1)} ••••{card.last4}</div>
+                        {selectedCardId === card.id && <div style={{ marginLeft: "auto", fontSize: 11, color: "#2563eb", fontWeight: 700 }}>Default</div>}
+                      </label>
+                      <button onClick={async () => {
+                        if (!window.confirm(`Remove ${card.brand} ••••${card.last4}?`)) return;
+                        await supabase.functions.invoke("list-payment-methods", { body: { tenant_id: tenant.id, detach_id: card.id } });
+                        setSavedCards(prev => prev.filter(c => c.id !== card.id));
+                        if (selectedCardId === card.id) setSelectedCardId(null);
+                      }} style={{ flexShrink: 0, background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, padding: "8px 10px", cursor: "pointer", color: "#dc2626", fontSize: 12, fontWeight: 600 }}>
+                        ✕
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -1118,12 +1128,22 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
                     <div style={{ background: "#fff", border: "0.5px solid #e5e7eb", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
                       <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9ca3af", marginBottom: 8 }}>Saved cards</div>
                       {savedCards.map(card => (
-                        <label key={card.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedCardId === card.id ? "2px solid #2563eb" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedCardId === card.id ? "#eff6ff" : "#fff", cursor: "pointer", marginBottom: 6 }}>
-                          <input type="radio" name="saved_card" checked={selectedCardId === card.id} onChange={() => setSelectedCardId(card.id)} style={{ accentColor: "#2563eb" }} />
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>{card.brand?.charAt(0).toUpperCase() + card.brand?.slice(1)} ••••{card.last4}</div>
-                          </div>
-                        </label>
+                        <div key={card.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                          <label style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedCardId === card.id ? "2px solid #2563eb" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedCardId === card.id ? "#eff6ff" : "#fff", cursor: "pointer" }}>
+                            <input type="radio" name="saved_card" checked={selectedCardId === card.id} onChange={() => setSelectedCardId(card.id)} style={{ accentColor: "#2563eb" }} />
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>{card.brand?.charAt(0).toUpperCase() + card.brand?.slice(1)} ••••{card.last4}</div>
+                            </div>
+                          </label>
+                          <button onClick={async () => {
+                            if (!window.confirm(`Remove ${card.brand} ••••${card.last4}?`)) return;
+                            await supabase.functions.invoke("list-payment-methods", { body: { tenant_id: tenant.id, detach_id: card.id } });
+                            setSavedCards(prev => prev.filter(c => c.id !== card.id));
+                            if (selectedCardId === card.id) setSelectedCardId(null);
+                          }} style={{ flexShrink: 0, background: "none", border: "1.5px solid #fca5a5", borderRadius: 8, padding: "8px 10px", cursor: "pointer", color: "#dc2626", fontSize: 12, fontWeight: 600 }}>
+                            ✕
+                          </button>
+                        </div>
                       ))}
                       <button onClick={() => setSelectedCardId(null)} style={{ width: "100%", marginTop: 4, padding: "9px", borderRadius: 8, border: "1.5px dashed #e5e7eb", background: "none", color: "#6b7280", fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
                         + Use a different card
