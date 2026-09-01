@@ -851,7 +851,31 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
           )}
           {payableInvoices.length === 0 && payableCustomInvoicesWithFee.length === 0 && processingInvoices.length === 0 && (
             <>
-              {savedCards.length > 0 && (
+              <SL>How would you like to pay?</SL>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                <button onClick={() => setPayMethod("ach")} style={{
+                  padding: "12px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center",
+                  border: payMethod === "ach" ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb",
+                  background: payMethod === "ach" ? "#f0f9f4" : "#fff",
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  <div style={{ fontSize: 20, marginBottom: 4 }}>🏦</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: payMethod === "ach" ? "#1b3d2a" : "#1a1a1a" }}>Bank transfer</div>
+                  <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, marginTop: 2 }}>No extra fee</div>
+                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>3–5 business days</div>
+                </button>
+                <button onClick={() => setPayMethod("card")} style={{
+                  padding: "12px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center",
+                  border: payMethod === "card" ? "2px solid #2563eb" : "1.5px solid #e5e7eb",
+                  background: payMethod === "card" ? "#eff6ff" : "#fff",
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  <div style={{ fontSize: 20, marginBottom: 4 }}>💳</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: payMethod === "card" ? "#1d4ed8" : "#1a1a1a" }}>Debit / Credit card</div>
+                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 1 }}>1–2 business days</div>
+                </button>
+              </div>
+              {payMethod === "card" && savedCards.length > 0 && (
                 <div style={{ background: "#fff", border: "0.5px solid #e5e7eb", borderRadius: 12, padding: "12px 14px", marginBottom: 10 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.7px", color: "#9ca3af", marginBottom: 8 }}>Saved cards</div>
                   {savedCards.map(card => (
@@ -865,7 +889,8 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               )}
               <AutopaySection
                 tenant={tenant?.autopay_method === "card" ? tenant : { ...tenant, autopay_enabled: tenant?.autopay_enabled, autopay_method: tenant?.autopay_method || "ach" }}
-                payMethod={tenant?.autopay_method || "ach"}
+                payMethod={payMethod}
+                selectedCardId={selectedCardId}
               />
             </>
           )}
