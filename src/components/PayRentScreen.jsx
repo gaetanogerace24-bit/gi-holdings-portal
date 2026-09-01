@@ -247,23 +247,26 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
         <div style={{ marginTop: 12, borderTop: "0.5px solid #e5e7eb", paddingTop: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 500, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>Autopay method</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {/* ACH Option — always shown */}
+            {/* ACH Option — only shown on bank transfer tab */}
+            {payMethod === "ach" && (
             <label onClick={async () => {
               setSelectedAutopayMethod("ach");
               await supabase.from("tenants").update({ autopay_method: "ach" }).eq("id", tenant.id);
-            }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: selectedAutopayMethod === "ach" ? "2px solid #1b3d2a" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedAutopayMethod === "ach" ? "#f0faf5" : "#fff", cursor: "pointer" }}>
-              <input type="radio" name="autopay_method_select" checked={selectedAutopayMethod === "ach"} onChange={() => {}} style={{ accentColor: "#1b3d2a" }} />
+            }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: "2px solid #1b3d2a", borderRadius: 8, background: "#f0faf5", cursor: "pointer" }}>
+              <input type="radio" name="autopay_method_select" checked readOnly style={{ accentColor: "#1b3d2a" }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>🏦 Bank transfer (ACH)</div>
                 <div style={{ fontSize: 11, color: "#6b7280" }}>No extra fee · 3–5 business days</div>
               </div>
             </label>
-            {/* Card Option — always shown */}
+            )}
+            {/* Card Option — only shown on card tab */}
+            {payMethod === "card" && (
             <label onClick={async () => {
               setSelectedAutopayMethod("card");
               await supabase.from("tenants").update({ autopay_method: "card" }).eq("id", tenant.id);
-            }} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: selectedAutopayMethod === "card" ? "2px solid #2563eb" : "1.5px solid #e5e7eb", borderRadius: 8, background: selectedAutopayMethod === "card" ? "#eff6ff" : "#fff", cursor: "pointer" }}>
-              <input type="radio" name="autopay_method_select" checked={selectedAutopayMethod === "card"} onChange={() => {}} style={{ accentColor: "#2563eb", marginTop: 2 }} />
+            }} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: "2px solid #2563eb", borderRadius: 8, background: "#eff6ff", cursor: "pointer" }}>
+              <input type="radio" name="autopay_method_select" checked readOnly style={{ accentColor: "#2563eb", marginTop: 2 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a1a" }}>💳 Debit / Credit card</div>
                 {savedCards.length > 0 ? (
@@ -293,6 +296,7 @@ function AutopaySection({ tenant, payMethod = "ach" }) {
                 )}
               </div>
             </label>
+            )}
           </div>
         </div>
       )}
