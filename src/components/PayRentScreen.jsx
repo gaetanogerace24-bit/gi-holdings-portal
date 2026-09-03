@@ -1163,7 +1163,7 @@ export default function PayRentScreen({ tenant, invoices = [], onPaymentSuccess,
               </button>
             </>
           )}
-          {payMethod === "ach" && (
+          {payMethod === "ach" && (payableInvoices.length > 0 || payableCustomInvoicesWithFee.length > 0) && (
             <AutopaySection
               tenant={tenant?.autopay_method === "card" ? { ...tenant, autopay_enabled: false, autopay_method: "ach", card_last4: null, card_brand: null } : tenant}
               payMethod="ach"
