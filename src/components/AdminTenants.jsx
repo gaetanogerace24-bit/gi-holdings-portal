@@ -224,7 +224,8 @@ export default function AdminTenants({ tenants, setTenants, onInvoicesChanged, o
     setRegenerating(true);
     setRegenMsg(null);
     const currentTenantData = tenants.find(t => t.id === editing);
-    const count = await generateLeaseInvoices(editing, form.leaseStart, form.leaseEnd, form.rent, currentTenantData?.name, currentTenantData?.address);
+    const regenRentAmount = form.section8 ? Number(form.tenantPortion || form.tenant_portion || 0) : Number(form.rent || 0);
+    const count = await generateLeaseInvoices(editing, form.leaseStart, form.leaseEnd, regenRentAmount, currentTenantData?.name, currentTenantData?.address);
     if (onInvoicesChanged) await onInvoicesChanged();
     setRegenMsg(
       count > 0
