@@ -6,6 +6,7 @@ export default function HomePage({ onLoginClick, onApply }) {
   const [listings, setListings] = useState([]);
   const [appFee, setAppFee] = useState(30);
   const [gallery, setGallery] = useState(null); // { images: [], index: 0 }
+  const [expandedListings, setExpandedListings] = useState(new Set());
 
   useEffect(() => {
     supabase.from("listings").select("*").eq("status", "published").eq("available", true).order("created_at", { ascending: false }).then(({ data }) => setListings(data || []));
@@ -215,7 +216,30 @@ export default function HomePage({ onLoginClick, onApply }) {
                     {l.baths && <span style={{ fontSize: 13, color: "#6b7280" }}>🚿 {l.baths} baths</span>}
                     {l.sqft && <span style={{ fontSize: 13, color: "#6b7280" }}>📐 {Number(l.sqft).toLocaleString()} sqft</span>}
                   </div>
-                  {l.description && <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 14px", lineHeight: 1.6 }}>{l.description}</p>}
+                  {l.description && (() => {
+                    const isExpanded = expandedListings.has(l.id);
+                    const LIMIT = 160;
+                    const needsTruncation = l.description.length > LIMIT;
+                    return (
+                      <div style={{ marginBottom: 14 }}>
+                        <p style={{ fontSize: 13, color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
+                          {needsTruncation && !isExpanded ? l.description.slice(0, LIMIT).trimEnd() + "…" : l.description}
+                        </p>
+                        {needsTruncation && (
+                          <button
+                            onClick={() => setExpandedListings(prev => {
+                              const next = new Set(prev);
+                              if (isExpanded) next.delete(l.id); else next.add(l.id);
+                              return next;
+                            })}
+                            style={{ background: "none", border: "none", color: "#1b3d2a", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "4px 0 0", textDecoration: "underline" }}
+                          >
+                            {isExpanded ? "Read less ↑" : "Read more ↓"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a", marginBottom: 16 }}>
                     ${Number(l.rent).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: "#6b7280" }}>/mo</span>
                   </div>
