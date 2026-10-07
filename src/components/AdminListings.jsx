@@ -9,6 +9,8 @@ export default function AdminListings({ supabase }) {
   const [form, setForm] = useState({ address: "", city: "Youngstown, OH", zip: "", rent: "", beds: "", baths: "", sqft: "", description: "", available: true, applicationFee: "30" });
   const [uploadingImages, setUploadingImages] = useState(false);
   const [pendingImages, setPendingImages] = useState([]);
+  const [allPhotos, setAllPhotos] = useState([]); // unified ordered list for drag/drop
+  const [dragIdx, setDragIdx] = useState(null);
 
   const [showDrafts, setShowDrafts] = useState(false);
 
@@ -28,6 +30,7 @@ export default function AdminListings({ supabase }) {
     setEditListing(null);
     setForm({ address: "", city: "Youngstown, OH", zip: "", rent: "", beds: "", baths: "", sqft: "", description: "", available: true });
     setPendingImages([]);
+    setAllPhotos([]);
     setShowForm(true);
   }
 
@@ -35,6 +38,7 @@ export default function AdminListings({ supabase }) {
     setEditListing(l);
     setForm({ address: l.address || "", city: l.city || "Youngstown, OH", zip: l.zip || "", rent: l.rent || "", beds: l.beds || "", baths: l.baths || "", sqft: l.sqft || "", description: l.description || "", available: l.available !== false, applicationFee: l.application_fee || "30" });
     setPendingImages([]);
+    setAllPhotos((l.images || []).map(url => ({ url, uploading: false, saved: true })));
     setShowForm(true);
   }
 
@@ -75,6 +79,7 @@ export default function AdminListings({ supabase }) {
       const previewUrl = URL.createObjectURL(file);
       const item = { url: previewUrl, uploading: true, file };
       setPendingImages(prev => [...prev, item]);
+      setAllPhotos(prev => [...prev, item]);
       const ext = file.name.split(".").pop().toLowerCase();
       const path = `listings/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { data, error } = await supabase.storage.from("listing-images").upload(path, file, { upsert: true, contentType: file.type });
@@ -83,7 +88,9 @@ export default function AdminListings({ supabase }) {
         alert(`Upload failed: ${error.message}`);
       } else {
         const { data: { publicUrl } } = supabase.storage.from("listing-images").getPublicUrl(path);
-        uploaded.push({ url: publicUrl, uploading: false, localUrl: item.url });
+        const uploadedItem = { url: publicUrl, uploading: false, saved: true, localUrl: item.url };
+        uploaded.push(uploadedItem);
+        setAllPhotos(prev => prev.map(p => p.url === item.url ? uploadedItem : p));
       }
     }
 
@@ -97,8 +104,7 @@ export default function AdminListings({ supabase }) {
 
   async function handleSave(status = "published") {
     setSaving(true);
-    const existingImages = editListing?.images || [];
-    const allImages = [...existingImages, ...pendingImages.filter(p => !p.uploading).map(p => p.url)];
+    const allImages = allPhotos.filter(p => !p.uploading).map(p => p.url);
     const { applicationFee, ...formRest } = form;
     const payload = { ...formRest, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), application_fee: Number(applicationFee) || 30, images: allImages, status };
     if (editListing) {
@@ -174,24 +180,31 @@ export default function AdminListings({ supabase }) {
       </div>
 
       <div style={{ marginBottom: 20 }}>
-        <span style={label}>Photos</span>
-        {editListing?.images?.length > 0 && (
+        <span style={label}>Photos {allPhotos.length > 1 && <span style={{ fontWeight: 400, textTransform: "none", fontSize: 11, color: "#9ca3af" }}>— drag to reorder</span>}</span>
+        {allPhotos.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-            {editListing.images.map(url => (
-              <div key={url} style={{ position: "relative" }}>
-                <img src={url} onClick={() => window.open(url, "_blank")} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e7eb", cursor: "zoom-in" }} />
-                <button onClick={() => removeImage(editListing, url)} style={{ position: "absolute", top: -6, right: -6, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-              </div>
-            ))}
-          </div>
-        )}
-        {pendingImages.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-            {pendingImages.map((img, i) => (
-              <div key={i} style={{ position: "relative" }}>
-                <img src={img.url} onClick={() => !img.uploading && window.open(img.url, "_blank")} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: `1px solid ${img.uploading ? "#fcd34d" : "#86efac"}`, opacity: img.uploading ? 0.6 : 1, cursor: img.uploading ? "default" : "zoom-in" }} />
-                {img.uploading && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#92400e", background: "rgba(255,255,255,0.5)", borderRadius: 6 }}>uploading</div>}
-                {!img.uploading && <button onClick={() => setPendingImages(prev => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: -6, right: -6, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>}
+            {allPhotos.map((img, i) => (
+              <div key={img.url + i}
+                draggable={!img.uploading}
+                onDragStart={() => setDragIdx(i)}
+                onDragOver={e => { e.preventDefault(); }}
+                onDrop={e => {
+                  e.preventDefault();
+                  if (dragIdx === null || dragIdx === i) return;
+                  setAllPhotos(prev => {
+                    const next = [...prev];
+                    const [moved] = next.splice(dragIdx, 1);
+                    next.splice(i, 0, moved);
+                    return next;
+                  });
+                  setDragIdx(null);
+                }}
+                onDragEnd={() => setDragIdx(null)}
+                style={{ position: "relative", cursor: img.uploading ? "default" : "grab", opacity: dragIdx === i ? 0.4 : 1 }}>
+                {i === 0 && <div style={{ position: "absolute", bottom: 3, left: 3, background: "#1b3d2a", color: "#fff", fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, zIndex: 1 }}>COVER</div>}
+                <img src={img.url} style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: `2px solid ${i === 0 ? "#4caf7d" : img.uploading ? "#fcd34d" : "#e5e7eb"}`, display: "block" }} />
+                {img.uploading && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#92400e", background: "rgba(255,255,255,0.6)", borderRadius: 6 }}>uploading</div>}
+                {!img.uploading && <button onClick={() => setAllPhotos(prev => prev.filter((_, j) => j !== i))} style={{ position: "absolute", top: -6, right: -6, background: "#dc2626", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>}
               </div>
             ))}
           </div>
