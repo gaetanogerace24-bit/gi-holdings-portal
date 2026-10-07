@@ -60,13 +60,11 @@ export default function AdminListings({ supabase }) {
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
-    const localPreviews = files.map(f => ({ url: URL.createObjectURL(f), uploading: true, file: f }));
-    setPendingImages(prev => [...prev, ...localPreviews]);
     setUploadingImages(true);
 
     const uploaded = [];
-    for (const item of localPreviews) {
-      let file = item.file;
+    for (const originalFile of files) {
+      let file = originalFile;
       try {
         file = await convertHeicToJpeg(file);
       } catch (convErr) {
@@ -74,6 +72,9 @@ export default function AdminListings({ supabase }) {
         alert("Could not convert HEIC image. Please convert to JPEG first.");
         continue;
       }
+      const previewUrl = URL.createObjectURL(file);
+      const item = { url: previewUrl, uploading: true, file };
+      setPendingImages(prev => [...prev, item]);
       const ext = file.name.split(".").pop().toLowerCase();
       const path = `listings/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { data, error } = await supabase.storage.from("listing-images").upload(path, file, { upsert: true, contentType: file.type });
@@ -87,8 +88,9 @@ export default function AdminListings({ supabase }) {
     }
 
     setPendingImages(prev => {
-      const kept = prev.filter(p => !localPreviews.find(lp => lp.url === p.url));
-      return [...kept, ...uploaded];
+      const uploadedLocalUrls = new Set(uploaded.map(u => u.localUrl));
+      const kept = prev.filter(p => p.uploading === false || !uploadedLocalUrls.has(p.url) === false);
+      return [...prev.filter(p => !p.uploading), ...uploaded];
     });
     setUploadingImages(false);
   }
