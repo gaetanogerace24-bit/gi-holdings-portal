@@ -232,9 +232,9 @@ export default function HomePage({ onLoginClick, onApply }) {
                               if (isExpanded) next.delete(l.id); else next.add(l.id);
                               return next;
                             })}
-                            style={{ background: "none", border: "none", color: "#1b3d2a", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "4px 0 0", textDecoration: "underline" }}
+                            style={{ background: "none", border: "none", color: "#1b3d2a", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "4px 0 0", textDecoration: "none" }}
                           >
-                            {isExpanded ? "Read less ↑" : "Read more ↓"}
+                            {isExpanded ? "Read less" : "Read more"}
                           </button>
                         )}
                       </div>
