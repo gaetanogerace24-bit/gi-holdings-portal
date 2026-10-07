@@ -222,9 +222,14 @@ export default function HomePage({ onLoginClick, onApply }) {
                     const needsTruncation = l.description.length > LIMIT;
                     return (
                       <div style={{ marginBottom: 14 }}>
-                        <p style={{ fontSize: 13, color: "#6b7280", margin: 0, lineHeight: 1.6 }}>
-                          {needsTruncation && !isExpanded ? l.description.slice(0, LIMIT).trimEnd() + "…" : l.description}
-                        </p>
+                        <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
+                          {(needsTruncation && !isExpanded
+                            ? l.description.slice(0, LIMIT).trimEnd() + "…"
+                            : l.description
+                          ).split("\n").map((line, i) => (
+                            line.trim() === "" ? <br key={i} /> : <p key={i} style={{ margin: "0 0 8px" }}>{line}</p>
+                          ))}
+                        </div>
                         {needsTruncation && (
                           <button
                             onClick={() => setExpandedListings(prev => {
