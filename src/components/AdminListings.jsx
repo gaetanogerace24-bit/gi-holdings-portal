@@ -38,6 +38,24 @@ export default function AdminListings({ supabase }) {
     setShowForm(true);
   }
 
+  async function convertHeicToJpeg(file) {
+    const isHeic = file.type === "image/heic" || file.type === "image/heif" || file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif");
+    if (!isHeic) return file;
+    // Dynamically load heic2any if not already loaded
+    if (!window.heic2any) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+    const blob = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+    const jpegFile = new File([blob], file.name.replace(/\.heic$/i, ".jpg").replace(/\.heif$/i, ".jpg"), { type: "image/jpeg" });
+    return jpegFile;
+  }
+
   async function handleImageUpload(e) {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -48,7 +66,14 @@ export default function AdminListings({ supabase }) {
 
     const uploaded = [];
     for (const item of localPreviews) {
-      const file = item.file;
+      let file = item.file;
+      try {
+        file = await convertHeicToJpeg(file);
+      } catch (convErr) {
+        console.error("HEIC conversion error:", convErr);
+        alert("Could not convert HEIC image. Please convert to JPEG first.");
+        continue;
+      }
       const ext = file.name.split(".").pop().toLowerCase();
       const path = `listings/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { data, error } = await supabase.storage.from("listing-images").upload(path, file, { upsert: true, contentType: file.type });
