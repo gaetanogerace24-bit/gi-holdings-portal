@@ -54,6 +54,23 @@ const QUESTIONS = [
 
   // ID
   { id: "gov_id_type", label: "What type of government ID do you have?", type: "select", options: ["Driver's License", "State ID", "Passport", "Other"], required: true },
+  { id: "ssn", label: "Social Security Number (SSN)", type: "text", required: true },
+  { id: "drivers_license_number", label: "Driver's License Number", type: "text", required: false },
+  { id: "drivers_license_state", label: "Driver's License State", type: "text", required: false },
+
+  // PREVIOUS LANDLORD
+  { id: "prev_landlord_name", label: "Previous landlord name (if different from current)", type: "text", required: false },
+  { id: "prev_landlord_phone", label: "Previous landlord phone", type: "tel", required: false },
+  { id: "prev_address", label: "Previous address", type: "text", required: false },
+
+  // CO-APPLICANT
+  { id: "coapplicant_name", label: "Co-applicant full name (if any)", type: "text", required: false },
+  { id: "coapplicant_dob", label: "Co-applicant date of birth", type: "date", required: false },
+  { id: "coapplicant_ssn", label: "Co-applicant Social Security Number", type: "text", required: false },
+  { id: "coapplicant_phone", label: "Co-applicant phone number", type: "tel", required: false },
+  { id: "coapplicant_email", label: "Co-applicant email address", type: "email", required: false },
+  { id: "coapplicant_employment", label: "Co-applicant employment status", type: "select", options: ["Employed full-time", "Employed part-time", "Self-employed", "Unemployed", "Retired", "Student"], required: false },
+  { id: "coapplicant_income", label: "Co-applicant monthly gross income ($)", type: "number", required: false },
 
   // REFERENCES
   { id: "reference1_name", label: "Reference #1 - Full name", type: "text", required: true },
@@ -125,7 +142,9 @@ export default function ApplicationForm({ listing: listingProp, onBack, onSubmit
     { label: "Occupants", ids: ["occupants","occupant_names"] },
     { label: "Lifestyle", ids: ["pets","smoke","num_vehicles","license_plate","home_business"] },
     { label: "Background", ids: ["eviction","eviction_explain","broken_lease","broken_lease_explain","felony","felony_explain"] },
-    { label: "Government ID", ids: ["gov_id_type"] },
+    { label: "Government ID", ids: ["gov_id_type","ssn","drivers_license_number","drivers_license_state"] },
+    { label: "Previous Landlord", ids: ["prev_landlord_name","prev_landlord_phone","prev_address"] },
+    { label: "Co-Applicant", ids: ["coapplicant_name","coapplicant_dob","coapplicant_ssn","coapplicant_phone","coapplicant_email","coapplicant_employment","coapplicant_income"] },
     { label: "References", ids: ["reference1_name","reference1_phone","reference2_name","reference2_phone"] },
     { label: "Additional", ids: ["additional_info"] },
   ];
