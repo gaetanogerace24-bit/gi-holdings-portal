@@ -48,6 +48,21 @@ const LABELS = {
   felony_explain: "Felony Explanation",
   // ID
   gov_id_type: "Government ID Type",
+  ssn: "Social Security Number",
+  drivers_license_number: "Driver's License Number",
+  drivers_license_state: "Driver's License State",
+  // Previous Landlord
+  prev_landlord_name: "Previous Landlord Name",
+  prev_landlord_phone: "Previous Landlord Phone",
+  prev_address: "Previous Address",
+  // Co-Applicant
+  coapplicant_name: "Co-Applicant Name",
+  coapplicant_dob: "Co-Applicant Date of Birth",
+  coapplicant_ssn: "Co-Applicant SSN",
+  coapplicant_phone: "Co-Applicant Phone",
+  coapplicant_email: "Co-Applicant Email",
+  coapplicant_employment: "Co-Applicant Employment",
+  coapplicant_income: "Co-Applicant Monthly Income",
   // References
   reference1_name: "Reference #1 Name",
   reference1_phone: "Reference #1 Phone",
