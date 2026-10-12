@@ -104,7 +104,7 @@ function PaymentForm({ listing, onSuccess, onBack }) {
           </div>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
             <span style={{ marginTop: 1 }}>✅</span>
-            <span><strong>Credit if accepted.</strong> If your application is approved, the $29.99 fee will be applied as a credit toward your first month's rent.</span>
+            <span><strong>Credit if accepted.</strong> If your application is approved, the $24.99 fee will be applied as a credit toward your first month's rent.</span>
           </div>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
             <span style={{ marginTop: 1 }}>🔒</span>
