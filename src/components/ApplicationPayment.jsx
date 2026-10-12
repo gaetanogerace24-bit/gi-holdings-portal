@@ -107,7 +107,7 @@ function PaymentForm({ listing, onSuccess, onBack }) {
             <span><strong>Credit if accepted.</strong> If your application is approved, the $24.99 fee will be applied as a credit toward your first month's rent.</span>
           </div>
           <div style={{ fontSize: 11, color: "#9ca3af" }}>
-            <strong>Non-refundable.</strong> The application fee is non-refundable regardless of the outcome.
+            <strong>Non-refundable.</strong> The application fee is non-refundable.
           </div>
         </div>
       </div>
