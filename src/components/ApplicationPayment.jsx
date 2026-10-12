@@ -100,7 +100,7 @@ function PaymentForm({ listing, onSuccess, onBack }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
             <span style={{ marginTop: 1 }}>📋</span>
-            <span><strong>Next step.</strong> After payment you'll be directed to a rental application with approximately 40 questions.</span>
+            <span><strong>Next step.</strong> After payment you'll be directed to a rental application with approximately 53 questions.</span>
           </div>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
             <span style={{ marginTop: 1 }}>✅</span>
