@@ -24,12 +24,12 @@ const QUESTIONS = [
   { id: "move_in_date", label: "Desired move-in date", type: "date", required: true },
   { id: "move_in_flexible", label: "Are you flexible on your move-in date?", type: "select", options: ["Yes", "No"], required: true },
   { id: "move_in_earliest", label: "What is your earliest possible move-in date?", type: "date", required: true },
-  { id: "move_in_latest", label: "What is your latest acceptable move-in date?", type: "date", required: false },
+  { id: "move_in_latest", label: "What is your latest acceptable move-in date?", type: "date", required: true },
   { id: "lease_length", label: "How long are you looking to stay?", type: "select", options: ["Month-to-month", "6 months", "1 year", "2+ years"], required: true },
 
   // EMPLOYMENT & INCOME
   { id: "employment_status", label: "Employment status", type: "select", options: ["Employed full-time", "Employed part-time", "Self-employed", "Unemployed", "Retired", "Student"], required: true },
-  { id: "employer", label: "Employer name (if employed)", type: "text", required: false },
+  { id: "employer", label: "Employer name (if employed)", type: "text", required: true },
   { id: "monthly_income", label: "Monthly gross income ($)", type: "number", required: true },
   { id: "credit_score", label: "Credit score range", type: "select", options: ["Below 500", "500–599", "600–649", "650–699", "700+"], required: true },
   { id: "bankruptcy", label: "Have you ever claimed bankruptcy?", type: "select", options: ["No", "Yes"], required: true },
@@ -55,13 +55,13 @@ const QUESTIONS = [
   // ID
   { id: "gov_id_type", label: "What type of government ID do you have?", type: "select", options: ["Driver's License", "State ID", "Passport", "Other"], required: true },
   { id: "ssn", label: "Social Security Number (SSN)", type: "text", required: true },
-  { id: "drivers_license_number", label: "Driver's License Number", type: "text", required: false },
-  { id: "drivers_license_state", label: "Driver's License State", type: "text", required: false },
+  { id: "drivers_license_number", label: "Driver's License Number", type: "text", required: true },
+  { id: "drivers_license_state", label: "Driver's License State", type: "text", required: true },
 
   // PREVIOUS LANDLORD
-  { id: "prev_landlord_name", label: "Previous landlord name (if different from current)", type: "text", required: false },
-  { id: "prev_landlord_phone", label: "Previous landlord phone", type: "tel", required: false },
-  { id: "prev_address", label: "Previous address", type: "text", required: false },
+  { id: "prev_landlord_name", label: "Previous landlord name (if different from current)", type: "text", required: true },
+  { id: "prev_landlord_phone", label: "Previous landlord phone", type: "tel", required: true },
+  { id: "prev_address", label: "Previous address", type: "text", required: true },
 
   // CO-APPLICANT
   { id: "coapplicant_name", label: "Co-applicant full name (if any)", type: "text", required: false },
@@ -75,8 +75,8 @@ const QUESTIONS = [
   // REFERENCES
   { id: "reference1_name", label: "Reference #1 - Full name", type: "text", required: true },
   { id: "reference1_phone", label: "Reference #1 - Phone number", type: "tel", required: true },
-  { id: "reference2_name", label: "Reference #2 - Full name", type: "text", required: false },
-  { id: "reference2_phone", label: "Reference #2 - Phone number", type: "tel", required: false },
+  { id: "reference2_name", label: "Reference #2 - Full name", type: "text", required: true },
+  { id: "reference2_phone", label: "Reference #2 - Phone number", type: "tel", required: true },
 
   // ADDITIONAL
   { id: "additional_info", label: "Anything else you'd like us to know?", type: "textarea", required: false },
@@ -175,9 +175,12 @@ export default function ApplicationForm({ listing: listingProp, onBack, onSubmit
       </div>
 
       <div style={{ maxWidth: 580, margin: "0 auto", padding: "32px 20px 60px" }}>
-        <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 28, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 12, lineHeight: 1.6 }}>
           Please complete all required fields. Your application will be sent directly to G&I Holdings LLC for review.
         </p>
+        <div style={{ background: "#fefce8", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 16px", marginBottom: 28, fontSize: 13, color: "#92400e", lineHeight: 1.6 }}>
+          <strong>Note:</strong> All fields marked with <span style={{ color: "#dc2626" }}>*</span> are required. If you do not have the information requested, please enter <strong>N/A</strong>.
+        </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {sections.map(section => (
