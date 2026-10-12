@@ -131,7 +131,7 @@ export default function HomePage({ onLoginClick, onApply }) {
             }}>
               Call us
             </a>
-            <button onClick={() => { document.getElementById("available-rentals").scrollIntoView({ behavior: "smooth" }); }} style={{
+            <button onClick={() => { const el = document.getElementById("available-rentals"); const y = el.getBoundingClientRect().top + window.scrollY + 120; window.scrollTo({ top: y, behavior: "smooth" }); }} style={{
               background: "#1b3d2a", color: "#fff", border: "1px solid rgba(255,255,255,0.35)",
               padding: "13px 28px", borderRadius: 10, fontSize: 15, fontWeight: 600,
               cursor: "pointer",
