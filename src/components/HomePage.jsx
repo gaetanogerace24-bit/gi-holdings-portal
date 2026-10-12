@@ -7,6 +7,7 @@ export default function HomePage({ onLoginClick, onApply }) {
   const [appFee, setAppFee] = useState(30);
   const [gallery, setGallery] = useState(null); // { images: [], index: 0 }
   const [expandedListings, setExpandedListings] = useState(new Set());
+  const [photoIndex, setPhotoIndex] = useState({}); // { [listingId]: currentIndex }
 
   useEffect(() => {
     supabase.from("listings").select("*").eq("status", "published").eq("available", true).order("created_at", { ascending: false }).then(({ data }) => setListings(data || []));
@@ -190,21 +191,37 @@ export default function HomePage({ onLoginClick, onApply }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 24 }}>
             {listings.map(l => (
               <div key={l.id} style={{ background: "#fff", border: "1px solid #e8ede8", borderRadius: 14, overflow: "hidden" }}>
-                <div style={{ position: "relative", overflow: "hidden", cursor: l.images?.length ? "pointer" : "default" }}
-                  onClick={() => l.images?.length && setGallery({ images: l.images, index: 0 })}>
-                  <div style={{ height: 200, background: "#2d5a3d", position: "relative", overflow: "hidden" }}>
-                    {l.images?.[0]
-                      ? <img src={l.images[0]} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>No photo</div>
-                    }
-                    <span style={{ position: "absolute", top: 12, left: 12, background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>Available</span>
-                    {l.images?.length > 1 && (
-                      <span style={{ position: "absolute", bottom: 10, right: 10, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 10 }}>
-                        1 / {l.images.length} · tap to view all
-                      </span>
-                    )}
-                  </div>
-                </div>
+                {(() => {
+                  const imgs = l.images || [];
+                  const idx = photoIndex[l.id] || 0;
+                  return (
+                    <div style={{ position: "relative", height: 200, background: "#2d5a3d", overflow: "hidden" }}>
+                      {imgs.length > 0
+                        ? <img src={imgs[idx]} onClick={() => setGallery({ images: imgs, index: idx })}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer" }} />
+                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>No photo</div>
+                      }
+                      <span style={{ position: "absolute", top: 12, left: 12, background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>Available</span>
+                      {imgs.length > 1 && (
+                        <>
+                          <button
+                            onClick={e => { e.stopPropagation(); setPhotoIndex(p => ({ ...p, [l.id]: (idx - 1 + imgs.length) % imgs.length })); }}
+                            style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.45)", border: "none", color: "#fff", fontSize: 20, width: 34, height: 34, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
+                            ‹
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); setPhotoIndex(p => ({ ...p, [l.id]: (idx + 1) % imgs.length })); }}
+                            style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.45)", border: "none", color: "#fff", fontSize: 20, width: 34, height: 34, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
+                            ›
+                          </button>
+                          <span onClick={() => setGallery({ images: imgs, index: idx })} style={{ position: "absolute", bottom: 10, right: 10, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 10, cursor: "pointer" }}>
+                            {idx + 1} / {imgs.length} · tap to view all
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div style={{ padding: 20 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a", marginBottom: 3 }}>{l.address}</div>
                   <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 10 }}>{l.city}{l.zip ? ` ${l.zip}` : ""}</div>
