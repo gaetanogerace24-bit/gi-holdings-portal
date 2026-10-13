@@ -267,11 +267,13 @@ export default function App() {
       setApplicantInfo(existing.applicantInfo);
       setApplyStep("form");
       setScreen("apply");
+      window.scrollTo(0, 0);
       return;
     }
     setApplyListing(listing);
     setApplyStep("payment");
     setScreen("apply");
+    window.scrollTo(0, 0);
   }} />;
   if (screen === "login") return <LoginScreen onLogin={handleLogin} loginError={loginError} />;
   if (screen === "apply") {
