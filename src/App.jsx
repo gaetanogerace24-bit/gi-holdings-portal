@@ -115,6 +115,24 @@ export default function App() {
       setScreen("apply");
       return;
     }
+    // Handle ?apply or ?apply=listingId deep link
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("apply")) {
+      const listingId = params.get("apply");
+      supabase.from("listings").select("*").eq("status", "published").eq("available", true).order("created_at", { ascending: false }).then(({ data }) => {
+        const listings = data || [];
+        const listing = listingId ? listings.find(l => String(l.id) === String(listingId)) || listings[0] : listings[0];
+        if (listing) {
+          setApplyListing(listing);
+          setApplyStep("payment");
+          setScreen("apply");
+          window.history.replaceState({}, "", "/");
+        } else {
+          setScreen("home");
+        }
+      });
+      return;
+    }
     const session = loadSession();
     if (session?.screen === "admin") { setScreen("admin"); return; }
     if (session?.screen === "portal" && session.tenantId) {
