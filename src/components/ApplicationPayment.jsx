@@ -108,7 +108,7 @@ function PaymentForm({ listing, onSuccess, onBack }) {
           </div>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#111" }}>
             <span style={{ marginTop: 1 }}>🔍</span>
-            <span><strong>Background check.</strong> The application fee covers the cost of a background and credit check.</span>
+            <span><strong>Background check.</strong> The application fee covers the cost of a background check.</span>
           </div>
           <div style={{ fontSize: 11, color: "#9ca3af" }}>
             <strong>Non-refundable.</strong> The application fee is non-refundable.
