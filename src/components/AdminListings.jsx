@@ -36,7 +36,7 @@ export default function AdminListings({ supabase }) {
 
   function openEdit(l) {
     setEditListing(l);
-    setForm({ address: l.address || "", city: l.city || "Youngstown, OH", zip: l.zip || "", rent: l.rent || "", beds: l.beds || "", baths: l.baths || "", sqft: l.sqft || "", description: l.description || "", available: l.available !== false, applicationFee: l.application_fee || "30" });
+    setForm({ address: l.address || "", city: l.city || "Youngstown, OH", zip: l.zip || "", rent: l.rent || "", beds: l.beds || "", baths: l.baths || "", sqft: l.sqft || "", description: l.description || "", available: l.available !== false, applicationFee: l.application_fee != null ? String(l.application_fee) : "0" });
     setPendingImages([]);
     setAllPhotos((l.images || []).map(url => ({ url, uploading: false, saved: true })));
     setShowForm(true);
@@ -106,7 +106,7 @@ export default function AdminListings({ supabase }) {
     setSaving(true);
     const allImages = allPhotos.filter(p => !p.uploading).map(p => p.url);
     const { applicationFee, ...formRest } = form;
-    const payload = { ...formRest, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), application_fee: Number(applicationFee) || 30, images: allImages, status };
+    const payload = { ...formRest, rent: Number(form.rent), beds: Number(form.beds), baths: Number(form.baths), sqft: Number(form.sqft), application_fee: applicationFee === "" ? 0 : Number(applicationFee), images: allImages, status };
     if (editListing) {
       await supabase.from("listings").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editListing.id);
     } else {
