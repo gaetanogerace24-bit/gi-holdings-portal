@@ -124,7 +124,8 @@ export default function App() {
         const listing = listingId ? listings.find(l => String(l.id) === String(listingId)) || listings[0] : listings[0];
         if (listing) {
           setApplyListing(listing);
-          setApplyStep("payment");
+          const fee = Number(listing?.application_fee || 0);
+          setApplyStep(fee === 0 ? "form" : "payment");
           setScreen("apply");
           window.history.replaceState({}, "", "/");
         } else {
@@ -289,7 +290,13 @@ export default function App() {
       return;
     }
     setApplyListing(listing);
-    setApplyStep("payment");
+    const fee = Number(listing?.application_fee || 0);
+    if (fee === 0) {
+      setApplicantInfo(null);
+      setApplyStep("form");
+    } else {
+      setApplyStep("payment");
+    }
     setScreen("apply");
     window.scrollTo(0, 0);
   }} />;
