@@ -282,7 +282,7 @@ export default function HomePage({ onLoginClick, onApply }) {
                       </button>
                     );
                   })()}
-                  <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0" }}>${l.application_fee || 30} application fee required</p>
+                  {Number(l.application_fee) > 0 && <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", margin: "8px 0 0" }}>${l.application_fee} application fee required</p>}
                 </div>
               </div>
             ))}
