@@ -20,6 +20,7 @@ const QUESTIONS = [
   { id: "section8_bedrooms", label: "How many bedrooms is your voucher for?", type: "select", options: ["1", "2", "3", "4", "5+"], required: false },
   { id: "section8_authority", label: "Which housing authority issued your voucher?", type: "text", required: false },
   { id: "section8_active", label: "Is your voucher currently active?", type: "select", options: ["Yes", "No"], required: false },
+  { id: "section8_expiry", label: "Date voucher expires", type: "date", required: false },
 
   // MOVE-IN
   { id: "move_in_date", label: "Desired move-in date", type: "date", required: true },
@@ -137,7 +138,7 @@ export default function ApplicationForm({ listing: listingProp, onBack, onSubmit
 
   const sections = [
     { label: "Personal Info", ids: ["full_name","dob","email","phone","current_address","time_at_address","current_rent","current_landlord_name","current_landlord_phone","reason_leaving"] },
-    { label: "Section 8 / Housing Voucher", ids: ["section8","section8_amount","section8_bedrooms","section8_authority","section8_active"] },
+    { label: "Section 8 / Housing Voucher", ids: ["section8","section8_amount","section8_bedrooms","section8_authority","section8_active","section8_expiry"] },
     { label: "Move-In", ids: ["move_in_date","move_in_flexible","move_in_earliest","move_in_latest","lease_length"] },
     { label: "Employment & Income", ids: ["employment_status","employer","monthly_income","credit_score","bankruptcy"] },
     { label: "Occupants", ids: ["occupants","occupant_names"] },
